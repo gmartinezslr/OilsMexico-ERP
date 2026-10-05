@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/OilsMexico.Application/OilsMexico.Application.csproj" />
+    <Project Path="src/OilsMexico.Domain/OilsMexico.Domain.csproj" />
+    <Project Path="src/OilsMexico.Infrastructure/OilsMexico.Infrastructure.csproj" />
+    <Project Path="src/OilsMexico.Web/OilsMexico.Web.csproj" />
+  </Folder>
+</Solution>

@@ -1,0 +1,109 @@
+@page "/almacen"
+@rendermode InteractiveServer
+@inject OilsMexico.Infrastructure.Services.IAlmacenConsulta Consulta
+@inject OilsMexico.Application.Interfaces.IInventarioService Inv
+@inject OilsMexico.Application.Interfaces.ISucursalContext SucCtx
+@inject OilsMexico.Application.Interfaces.ISesionActual Sesion
+@inject OilsMexico.Infrastructure.Persistence.ErpDbContext Db
+@inject NavigationManager Nav
+@using Microsoft.EntityFrameworkCore
+<PageTitle>Almacen | OilsMexico ERP</PageTitle>
+<div class="container-fluid py-3">
+<div class="d-flex justify-content-between align-items-center mb-3">
+<h3 class="fw-bold mb-0">Almacen <span class="badge bg-secondary">Suc @SucCtx.SucursalId</span></h3>
+<span class="text-muted small">@(Sesion.Sesion?.Nombre ?? "") (@(Sesion.Sesion?.Rol ?? ""))</span>
+</div>
+@if(!Sesion.Autenticado){<div class="alert alert-warning">Inicia sesion primero. <a href="/login">Ir al login</a></div>}
+@if(!string.IsNullOrEmpty(msg)){<div class="alert @(err?"alert-danger":"alert-success")">@msg</div>}
+<div class="row g-3">
+<div class="col-lg-7">
+<div class="card shadow-sm"><div class="card-header bg-dark text-white">Stock por sucursal</div>
+<div class="card-body">
+<input class="form-control mb-2" placeholder="Buscar SKU o nombre..." value="@filtro" @oninput="AlEscribir" />
+<div class="table-responsive" style="max-height:480px;overflow-y:auto">
+<table class="table table-sm table-striped">
+<thead><tr><th>SKU</th><th>Producto</th><th>Lote</th><th class="text-end">Stock L</th><th></th></tr></thead>
+<tbody>
+@foreach(var s in stock){
+<tr class="@(s.BajoMinimo?"table-warning":"")">
+<td><small>@s.Sku</small></td>
+<td>@s.Nombre<br/><small class="text-muted">@s.Marca @s.Viscosidad</small></td>
+<td><small>@(s.Lote ?? "-")</small></td>
+<td class="text-end"><strong>@s.Stock.ToString("N2")</strong><br/><small class="text-muted">min @s.Minimo.ToString("N0")</small></td>
+<td><button class="btn btn-sm btn-outline-primary" @onclick="()=>VerKardex(s.ProductoId)">Kardex</button></td>
+</tr>}
+</tbody></table></div></div></div>
+@if(kardex.Count>0){
+<div class="card shadow-sm mt-3"><div class="card-header">Kardex (30 dias) <button class="btn btn-sm btn-link" @onclick="()=>kardex.Clear()">cerrar</button></div>
+<div class="card-body table-responsive"><table class="table table-sm">
+<thead><tr><th>Fecha</th><th>Tipo</th><th class="text-end">Litros</th><th>Motivo</th><th>Usuario</th></tr></thead>
+<tbody>@foreach(var k in kardex){<tr><td><small>@k.Fecha.ToLocalTime().ToString("dd/MM HH:mm")</small></td>
+<td><span class="badge @(k.Litros<0?"bg-danger":"bg-success")">@k.Tipo</span></td>
+<td class="text-end">@k.Litros.ToString("N2")</td><td><small>@k.Motivo</small></td><td><small>@k.Usuario</small></td></tr>}</tbody>
+</table></div></div>}
+</div>
+<div class="col-lg-5">
+<div class="card shadow-sm"><div class="card-header bg-primary text-white">Movimiento de almacen</div>
+<div class="card-body">
+<label class="form-label small">Tipo</label>
+<select class="form-select mb-2" @onchange="e=>tipo=e.Value!.ToString()!">
+<option value="COMPRA">Entrada / Compra (+)</option>
+<option value="AJUSTE">Ajuste a stock real (=)</option>
+<option value="TRASPASO">Traspaso a otra sucursal (-)</option>
+</select>
+<label class="form-label small">Producto</label>
+<select class="form-select mb-2" @onchange="e=>prodId=int.Parse(e.Value!.ToString()!)">
+@foreach(var s in stock.Take(100)){<option value="@s.ProductoId">@s.Sku - @s.Nombre (@s.Stock.ToString("N0") L)</option>}
+</select>
+<label class="form-label small">@(tipo=="AJUSTE"?"Stock real en litros":"Litros")</label>
+<input type="number" step="0.01" class="form-control mb-2" value="@litros" @oninput="e=>litros=decimal.TryParse(e.Value?.ToString(),out var v)?v:0" />
+@if(tipo=="TRASPASO"){
+<label class="form-label small">Sucursal destino</label>
+<select class="form-select mb-2" @onchange="e=>destId=int.Parse(e.Value!.ToString()!)">
+@foreach(var s in sucs){<option value="@s.Id">@s.Nombre</option>}
+</select>}
+<label class="form-label small">Motivo</label>
+<input class="form-control mb-2" value="@motivo" @oninput="e=>motivo=e.Value!.ToString()" />
+<button class="btn btn-success w-100" @onclick="Aplicar" disabled="@aplicando">Aplicar movimiento</button>
+<small class="text-muted">Todo movimiento queda en kardex con usuario y fecha (auditoria estilo SAP).</small>
+</div></div></div>
+</div></div>
+@code{
+string filtro=""; string msg=""; bool err=false, aplicando=false;
+string tipo="COMPRA"; int prodId=0, destId=0; decimal litros=0; string motivo="";
+List<OilsMexico.Infrastructure.Services.AlmacenStockDto> stock=[];
+List<OilsMexico.Application.DTOs.KardexDto> kardex=[];
+List<(int Id,string Nombre)> sucs=[];
+protected override async Task OnInitializedAsync(){
+sucs=await Db.Sucursales.Select(s=>new ValueTuple<int,string>(s.Id,s.Nombre)).ToListAsync();
+if(sucs.Count>0) destId=sucs[0].Id;
+await Cargar();
+}
+protected override async Task OnAfterRenderAsync(bool first){
+if(!first) return;
+if(!Sesion.Autenticado){
+var ok=await Sesion.RestaurarAsync();
+if(!ok){ Nav.NavigateTo("/login"); return; }
+if(sucs.Count>0) destId=sucs.First(s=>s.Id!=SucCtx.SucursalId).Id;
+await Cargar(); StateHasChanged();
+}
+}
+async Task Cargar(){
+stock=await Consulta.StockPorSucursalAsync(SucCtx.SucursalId,filtro);
+if(prodId==0 && stock.Count>0) prodId=stock[0].ProductoId;
+}
+async Task AlEscribir(ChangeEventArgs e){ filtro=e.Value?.ToString()??""; await Cargar(); }
+async Task VerKardex(int pid){ kardex=await Consulta.KardexAsync(SucCtx.SucursalId,pid); prodId=pid; }
+async Task Aplicar(){
+aplicando=true; msg="";
+try{
+var prod=stock.FirstOrDefault(s=>s.ProductoId==prodId);
+if(tipo=="COMPRA") await Inv.EntradaCompraAsync(SucCtx.SucursalId,prodId,prod?.LoteId,litros,Sesion.Sesion!.UsuarioId,motivo);
+else if(tipo=="AJUSTE") await Inv.AjusteAsync(SucCtx.SucursalId,prodId,prod?.LoteId,litros,Sesion.Sesion!.UsuarioId,string.IsNullOrEmpty(motivo)?"Ajuste":motivo);
+else await Inv.TraspasoAsync(SucCtx.SucursalId,destId,prodId,litros,Sesion.Sesion!.UsuarioId);
+msg="Movimiento aplicado."; err=false; litros=0; motivo="";
+await Cargar();
+}catch(Exception ex){ msg="Error: "+ex.Message; err=true; }
+aplicando=false;
+}
+}

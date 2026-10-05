@@ -1,0 +1,68 @@
+@page "/ventas-pos"
+@rendermode InteractiveServer
+<PageTitle>Punto de Venta | OilsMexico ERP</PageTitle>
+<div class="container-fluid py-3">
+<div class="row mb-3 align-items-end">
+<div class="col"><h3 class="fw-bold">Punto de Venta <span class="badge bg-primary">Suc @SucursalCtx.SucursalId</span></h3></div>
+<div class="col-auto"><label class="form-label mb-0 small">Sucursal en sesion</label>
+<select class="form-select" value="@SucursalCtx.SucursalId" @onchange="CambiarSucursal">
+@foreach(var s in sucursales){<option value="@s.Id">@s.Nombre</option>}
+</select></div>
+</div>
+@if(!string.IsNullOrEmpty(mensaje)){<div class="alert @(esError?"alert-danger":"alert-success")">@mensaje</div>}
+<div class="row g-3">
+<div class="col-lg-7"><div class="card shadow-sm">
+<div class="card-header bg-dark text-white">Buscar producto (SKU, marca, viscosidad)</div>
+<div class="card-body">
+<input class="form-control form-control-lg" placeholder="Ej: 5W-30, Mobil..." value="@filtro" @oninput="AlEscribir" />
+<div class="list-group mt-2" style="max-height:420px;overflow-y:auto">
+@foreach(var p in productos){
+<button type="button" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center" @onclick="()=>Agregar(p)">
+<span><strong>@p.Sku</strong> - @p.Nombre<br/>
+<small class="text-muted">@p.Marca - @p.Viscosidad - Stock @p.StockSucursal.ToString("N2") L</small></span>
+<span class="badge bg-success fs-6">$@p.PrecioVenta.ToString("N2")</span>
+</button>}
+@if(productos.Count==0){<div class="list-group-item text-muted">Sin resultados.</div>}
+</div>
+</div></div></div>
+<div class="col-lg-5"><div class="card shadow-sm">
+<div class="card-header bg-primary text-white">Carrito (@carrito.Count)</div>
+<div class="card-body">
+@foreach(var it in carrito){
+<div class="d-flex justify-content-between align-items-center border-bottom py-2">
+<div><strong>@it.Nombre</strong><br/>
+<small>@it.Cantidad.ToString("N2") @it.UnidadNombre - $@it.Importe.ToString("N2")</small></div>
+<button type="button" class="btn btn-sm btn-outline-danger" @onclick="()=>Quitar(it)">X</button>
+</div>}
+<hr/>
+<div class="row g-2">
+<div class="col-6"><label class="form-label small">Forma pago SAT</label>
+<select class="form-select" @onchange="e=>formaPago=e.Value!.ToString()!">
+@foreach(var kv in catalogos.FormasPago){<option value="@kv.Key">@kv.Value</option>}
+</select></div>
+<div class="col-6"><label class="form-label small">Metodo pago SAT</label>
+<select class="form-select" @onchange="e=>metodoPago=e.Value!.ToString()!">
+@foreach(var kv in catalogos.MetodosPago){<option value="@kv.Key">@kv.Value</option>}
+</select></div>
+<div class="col-6"><label class="form-label small">Uso CFDI</label>
+<select class="form-select" @onchange="e=>usoCfdi=e.Value!.ToString()!">
+@foreach(var kv in catalogos.UsosCfdi){<option value="@kv.Key">@kv.Value</option>}
+</select></div>
+<div class="col-6"><label class="form-label small">Cliente</label>
+<select class="form-select" @onchange="e=>clienteId=int.Parse(e.Value!.ToString()!)">
+@foreach(var c in clientes){<option value="@c.Id">@c.Nombre</option>}
+</select></div>
+</div>
+<div class="form-check form-switch my-2">
+<input class="form-check-input" type="checkbox" id="cfdi" @onchange="e=>requiereFactura=(bool)e.Value!" />
+<label class="form-check-label" for="cfdi">Facturacion CFDI 4.0</label>
+</div>
+<div class="fs-5">Subtotal: <strong>$@Subtotal.ToString("N2")</strong></div>
+<div class="fs-5">IVA 16%: <strong>$@Iva.ToString("N2")</strong></div>
+<div class="fs-3">Total: <strong class="text-success">$@Total.ToString("N2")</strong></div>
+<button type="button" class="btn btn-success btn-lg w-100 mt-2" disabled="@(carrito.Count==0||procesando)" @onclick="Cobrar">Cobrar</button>
+@if(ultimo is not null){<div class="alert alert-info mt-2">Folio <strong>@ultimo.FolioInterno</strong> - @ultimo.Estado<br/>
+<a class="btn btn-sm btn-outline-primary mt-1" href="/ticket/@ultimo.FacturaId" target="_blank">Imprimir ticket 58mm</a></div>}
+</div></div></div>
+</div>
+</div>

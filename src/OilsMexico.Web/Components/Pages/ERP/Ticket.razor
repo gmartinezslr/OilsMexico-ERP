@@ -1,0 +1,41 @@
+@page "/ticket/{FacturaId:int}"
+@rendermode InteractiveServer
+@inject OilsMexico.Infrastructure.Services.ITicketService Tickets
+<PageTitle>Ticket @FacturaId</PageTitle>
+<style>
+@@media print{ .no-print{display:none!important;} body{background:#fff;} }
+.ticket{width:58mm;max-width:58mm;margin:0 auto;font-family:monospace;font-size:11px;color:#000;background:#fff;padding:4px;}
+.ticket h5{font-size:13px;text-align:center;margin:0;}
+.ticket .c{text-align:center;} .ticket .r{text-align:right;}
+.ticket hr{border-top:1px dashed #000;margin:4px 0;}
+.ticket table{width:100%;font-size:11px;border-collapse:collapse;}
+</style>
+<div class="container py-3">
+<div class="no-print mb-2 d-flex gap-2">
+<a class="btn btn-secondary" href="/ventas-pos">Volver al POS</a>
+<button class="btn btn-primary" onclick="window.print()">Imprimir ticket 58mm</button>
+</div>
+@if(t is null){<div class="alert alert-warning">Cargando ticket...</div>}
+else{
+<div class="ticket">
+<h5>OILSMEXICO</h5>
+<div class="c">@t.Sucursal<br/>Folio: @t.Folio<br/>@t.Fecha.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</div>
+<hr/>
+<div>Cliente: @t.Cliente<br/>Cajero: @t.Cajero<br/>Pago: @t.FormaPago</div>
+<hr/>
+<table>
+@foreach(var l in t.Lineas){
+<tr><td colspan="2">@l.Descripcion</td></tr>
+<tr><td>@l.Cantidad.ToString("N2") @l.Unidad x $@l.Precio.ToString("N2")</td><td class="r">$@l.Importe.ToString("N2")</td></tr>}
+</table>
+<hr/>
+<div class="r">Subtotal: $@t.Subtotal.ToString("N2")<br/>IVA: $@t.Iva.ToString("N2")<br/><strong>TOTAL: $@t.Total.ToString("N2")</strong></div>
+@if(t.Uuid is not null){<hr/><div class="c">CFDI UUID<br/><small>@t.Uuid</small></div>}
+<hr/><div class="c">Gracias por su compra</div>
+</div>}
+</div>
+@code{
+[Parameter] public int FacturaId{get;set;}
+OilsMexico.Application.DTOs.TicketVentaDto? t;
+protected override async Task OnInitializedAsync(){ t=await Tickets.ObtenerTicketAsync(FacturaId); }
+}

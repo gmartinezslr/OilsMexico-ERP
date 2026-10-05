@@ -1,0 +1,34 @@
+# .NET / Blazor / EF Core
+bin/
+obj/
+out/
+publish/
+*.user
+*.suo
+.vs/
+TestResults/
+coverage*/
+
+# Logs y temporales
+web_run.log
+*.log
+
+# Archivos de Office / bloqueo
+.~lock.*
+~$*
+
+# Secrets locales (no subir passwords reales)
+# Descomenta si usas user-secrets en dev:
+# appsettings.Development.json
+
+# Certificados y llaves CFDI (nunca al repo)
+certs/*.key
+certs/*.cer
+*.key
+*.pfx
+*.p12
+
+# SO
+.DS_Store
+Thumbs.db
+desktop.ini
