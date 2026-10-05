@@ -1,0 +1,124 @@
+@page "/sepomex"
+@rendermode InteractiveServer
+@inject OilsMexico.Application.Interfaces.ISepomexService SepomexSvc
+@inject OilsMexico.Application.Interfaces.ISesionActual Sesion
+@inject NavigationManager Nav
+@using Microsoft.AspNetCore.Components.Forms
+<PageTitle>Códigos Postales SEPOMEX | OilsMexico ERP</PageTitle>
+<div class="container-fluid py-3" style="max-width:900px">
+    <h3 class="fw-bold">Códigos Postales SEPOMEX</h3>
+    <p class="text-muted">
+        Descarga el catálogo de
+        <a href="https://www.correosdemexico.gob.mx/SSLServicios/ConsultaCP/CodigoPostal_Exportar.aspx" target="_blank">Correos de México</a>
+        (por estado o todo el país) y súbelo aquí: acepta el <strong>Excel</strong> oficial
+        (<code>.xls</code>, una hoja por estado), el <strong>TXT</strong> delimitado por <code>|</code> y CSV con comas.
+    </p>
+    @if (!string.IsNullOrEmpty(msg))
+    {
+        <div class="alert @(err ? "alert-danger" : "alert-success")">@msg</div>
+    }
+    <div class="row g-3">
+        <div class="col-md-6"><div class="card shadow-sm"><div class="card-body">
+            <h6 class="fw-bold">Estado del catálogo</h6>
+            @if (stats is null)
+            {
+                <span class="text-muted">Cargando…</span>
+            }
+            else
+            {
+                <div class="fs-4"><strong>@stats.TotalRegistros.ToString("N0")</strong> <small class="text-muted">registros</small></div>
+                <div><small>@stats.CodigosPostalesDistintos.ToString("N0") CP distintos · @stats.EstadosDistintos estados</small></div>
+            }
+            <hr />
+            <label class="form-label small fw-bold">Buscar CP</label>
+            <div class="input-group">
+                <input class="form-control" maxlength="5" placeholder="20000" value="@cpBuscar" @oninput="e => cpBuscar = e.Value?.ToString() ?? string.Empty" />
+                <button class="btn btn-outline-primary" @onclick="Buscar">Buscar</button>
+            </div>
+            @if (resultado is not null)
+            {
+                <div class="mt-2 small">
+                    <strong>@resultado.CodigoPostal</strong> — @resultado.Municipio, @resultado.Estado
+                    <ul class="mb-0">@foreach (var a in resultado.Asentamientos.Take(10))
+                    {
+                        <li>@a.Asentamiento <span class="text-muted">(@a.TipoAsentamiento)</span></li>
+                    }</ul>
+                </div>
+            }
+            else if (buscado && resultado is null)
+            {
+                <div class="mt-2 small text-danger">Sin resultados para "@cpBuscar".</div>
+            }
+        </div></div></div>
+        <div class="col-md-6"><div class="card shadow-sm"><div class="card-body">
+            <h6 class="fw-bold">Cargar / actualizar archivo SEPOMEX</h6>
+            <InputFile OnChange="AlElegir" accept=".txt,.csv,.xls,.xlsx" class="form-control mb-2" />
+            <div class="form-check mb-2">
+                <input class="form-check-input" type="checkbox" id="rep" @bind="reemplazar" />
+                <label class="form-check-label small" for="rep">Reemplazar catálogo (borra todo antes de cargar)</label>
+            </div>
+            <button class="btn btn-success w-100" disabled="@(archivo is null || subiendo)" @onclick="Subir">
+                @(subiendo ? "Importando…" : "Importar archivo")
+            </button>
+            @if (ultimo is not null)
+            {
+                <div class="alert alert-info mt-2 mb-0 small">
+                    Leídas: <strong>@ultimo.FilasLeidas.ToString("N0")</strong> ·
+                    Insertadas: <strong>@ultimo.Insertadas.ToString("N0")</strong> ·
+                    Omitidas/duplicadas: <strong>@ultimo.OmitidasDuplicadas.ToString("N0")</strong>
+                    (@ultimo.Modo)
+                </div>
+            }
+            <small class="text-muted d-block mt-2">Límite 100 MB. Un archivo nacional (~145 mil filas) tarda ~1 min.</small>
+        </div></div></div>
+    </div>
+</div>
+@code {
+    OilsMexico.Application.DTOs.SepomexStatsDto? stats;
+    OilsMexico.Application.DTOs.DireccionSepomexDto? resultado;
+    OilsMexico.Application.DTOs.SepomexImportResult? ultimo;
+    IBrowserFile? archivo;
+    bool reemplazar, subiendo, err, buscado;
+    string msg = "", cpBuscar = "";
+
+    protected override async Task OnInitializedAsync() => stats = await SepomexSvc.EstadisticasAsync();
+
+    protected override async Task OnAfterRenderAsync(bool first)
+    {
+        if (!first) return;
+        if (!Sesion.Autenticado && !await Sesion.RestaurarAsync()) { Nav.NavigateTo("/login"); return; }
+        StateHasChanged();
+    }
+
+    void AlElegir(InputFileChangeEventArgs e) => archivo = e.File;
+
+    async Task Buscar()
+    {
+        buscado = true;
+        resultado = await SepomexSvc.BuscarPorCpAsync(cpBuscar.Trim());
+    }
+
+    async Task Subir()
+    {
+        if (archivo is null) return;
+        subiendo = true; msg = ""; ultimo = null;
+        try
+        {
+            await using var s = archivo.OpenReadStream(maxAllowedSize: 104_857_600);
+            ultimo = await SepomexSvc.ImportarAsync(s, reemplazar);
+            stats = await SepomexSvc.EstadisticasAsync();
+            if (ultimo.Insertadas == 0 && ultimo.FilasLeidas == 0)
+            {
+                msg = "No se reconoció ningún registro. Verifica que el archivo sea el catálogo oficial de Correos de México (Excel .xls o TXT delimitado por '|').";
+                err = true;
+            }
+            else
+            {
+                msg = $"Importación completa: {ultimo.Insertadas:N0} registros nuevos.";
+                err = false;
+            }
+        }
+        catch (Exception ex) { msg = "Error: " + ex.Message; err = true; }
+        subiendo = false;
+    }
+}

@@ -66,6 +66,16 @@ public sealed class ClienteConfig : IEntityTypeConfiguration<Cliente>
         e.Property(x => x.TipoPrecio).HasColumnName("tipo_precio").HasMaxLength(10).HasDefaultValue("menudeo");
         e.Property(x => x.RegimenFiscal).HasColumnName("regimen_fiscal").HasMaxLength(3);
         e.Property(x => x.CodigoPostal).HasColumnName("codigo_postal").HasMaxLength(10);
+        e.HasIndex(x => x.CodigoPostal).HasDatabaseName("ix_clientes_cp");
+        e.Property(x => x.Calle).HasColumnName("calle").HasMaxLength(150);
+        e.Property(x => x.NumeroExterior).HasColumnName("numero_exterior").HasMaxLength(20);
+        e.Property(x => x.NumeroInterior).HasColumnName("numero_interior").HasMaxLength(20);
+        e.Property(x => x.Colonia).HasColumnName("colonia").HasMaxLength(200);
+        e.Property(x => x.Municipio).HasColumnName("municipio").HasMaxLength(150);
+        e.Property(x => x.Estado).HasColumnName("estado").HasMaxLength(100);
+        e.Property(x => x.Ciudad).HasColumnName("ciudad").HasMaxLength(150);
+        e.Property(x => x.Pais).HasColumnName("pais").HasMaxLength(60).HasDefaultValue("México");
+        e.Property(x => x.Activo).HasColumnName("activo").HasDefaultValue(true);
     }
 }
 

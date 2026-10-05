@@ -1,0 +1,61 @@
+@page "/proveedores"
+@rendermode InteractiveServer
+@inject OilsMexico.Infrastructure.Persistence.ErpDbContext Db
+@inject OilsMexico.Application.Interfaces.ISesionActual Sesion
+@inject NavigationManager Nav
+@using Microsoft.EntityFrameworkCore
+@using OilsMexico.Web.Components.Shared
+<PageTitle>Proveedores | OilsMexico ERP</PageTitle>
+<div class="container-fluid py-3">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h3 class="fw-bold mb-0">Proveedores</h3>
+        <button class="btn btn-primary" @onclick="Nuevo">+ Nuevo proveedor</button>
+    </div>
+    @if (!string.IsNullOrEmpty(msg))
+    {
+        <div class="alert @(err ? "alert-danger" : "alert-success")">@msg</div>
+    }
+    <div class="row g-3">
+        <div class="col-lg-5">
+            <input class="form-control mb-2" placeholder="Buscar nombre o RFC…" value="@filtro" @oninput="AlEscribir" />
+            <div class="list-group" style="max-height:560px;overflow-y:auto">
+                @foreach (var p in lista)
+                {
+                    <button type="button" class="list-group-item list-group-item-action @(edit.Id == p.Id ? "active" : "")" @onclick="() => Editar(p.Id)">
+                        <strong>@p.Nombre</strong><br />
+                        <small>@p.Rfc · @p.CodigoPostal @p.Colonia</small>
+                    </button>
+                }
+                @if (lista.Count == 0)
+                {
+                    <div class="list-group-item text-muted">Sin resultados.</div>
+                }
+            </div>
+        </div>
+        <div class="col-lg-7"><div class="card shadow-sm"><div class="card-body">
+            <h5 class="fw-bold">@(edit.Id == 0 ? "Nuevo proveedor" : $"Editar #{edit.Id}")</h5>
+            <div class="row g-2">
+                <div class="col-md-8"><label class="form-label small">Nombre / Razón social *</label>
+                    <input class="form-control" @bind="edit.Nombre" /></div>
+                <div class="col-md-4"><label class="form-label small">RFC *</label>
+                    <input class="form-control" maxlength="13" @bind="edit.Rfc" /></div>
+                <div class="col-md-6"><label class="form-label small">Email</label>
+                    <input class="form-control" @bind="edit.Email" /></div>
+                <div class="col-md-6"><label class="form-label small">Teléfono</label>
+                    <input class="form-control" @bind="edit.Telefono" /></div>
+            </div>
+            <h6 class="fw-bold mt-3">Dirección (SEPOMEX)</h6>
+            <DireccionSepomex @bind-CodigoPostal="edit.CodigoPostal" @bind-Colonia="edit.Colonia"
+                              @bind-Calle="edit.Calle" @bind-NumeroExterior="edit.NumeroExterior"
+                              @bind-NumeroInterior="edit.NumeroInterior" @bind-Municipio="edit.Municipio"
+                              @bind-Estado="edit.Estado" @bind-Ciudad="edit.Ciudad" />
+            <div class="d-flex gap-2 mt-3">
+                <button class="btn btn-success" @onclick="Guardar" disabled="@guardando">Guardar</button>
+                @if (edit.Id != 0)
+                {
+                    <button class="btn btn-outline-danger" @onclick="Desactivar">Desactivar</button>
+                }
+            </div>
+        </div></div></div>
+    </div>
+</div>

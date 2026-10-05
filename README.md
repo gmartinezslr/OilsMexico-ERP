@@ -32,7 +32,7 @@ src/
 | Editor | VS Code + extensión C# Dev Kit (opcional) | https://code.visualstudio.com/ |
 | Navegador | Chrome/Edge actual | — |
 
-> La app **crea sola las 10 tablas** al arrancar (`EnsureCreatedAsync`) y las siembra con datos demo. El dev **no necesita scripts SQL ni migraciones**.
+> La app **crea sola las 12 tablas** al arrancar (`EnsureCreatedAsync` + `SchemaPatch` para BDs existentes) y las siembra con datos demo. El dev **no necesita scripts SQL ni migraciones**.
 
 ## Puesta en marcha (5 pasos, ~10 min)
 ```powershell
@@ -73,7 +73,7 @@ Abre `http://localhost:5200/` → Login → POS `/ventas-pos` → Almacén `/alm
 
 ## Verificación (¿quedó bien?)
 ```powershell
-# Tablas creadas (esperado: 10)
+# Tablas creadas (esperado: 12)
 $env:PGPASSWORD='TU_PASSWORD'
 & 'C:\Program Files\PostgreSQL\18\bin\psql.exe' -U postgres -h localhost -d oilsmexico_erp -c "SELECT count(*) FROM pg_tables WHERE schemaname='public';"
 # Sucursales + productos seed
@@ -94,8 +94,8 @@ curl.exe -s -o NUL -w 'pos:%{http_code}' http://localhost:5200/ventas-pos
 | `Password=CAMBIAR_AQUI` | Falta user-secrets | Paso 2 (no edites el json trackeado) |
 
 ## Cómo está cableado (para el dev)
-- `Program.cs` → `UseNpgsql(GetConnectionString("ErpDb"))` → `SeedData.InicializarAsync` (`EnsureCreated` + seed si `Sucursales` vacía).
-- Tablas exactas del modelo: `productos, unidades_medida, sucursales, inventario_lotes, inventario_sucursal, facturas, factura_detalle, clientes, usuarios, movimientos_inventario`.
+- `Program.cs` → `UseNpgsql(GetConnectionString("ErpDb"))` → `SeedData.InicializarAsync` (`EnsureCreated` + `SchemaPatch` idempotente + seed si `Sucursales` vacía).
+- Tablas exactas del modelo: `productos, unidades_medida, sucursales, inventario_lotes, inventario_sucursal, facturas, factura_detalle, clientes, usuarios, movimientos_inventario, codigos_postales, proveedores`.
 - Seed: 2 sucursales (CDMX01/MTY01), 4 lubricantes, unidades Litro×1/Garrafa×19/Tambor×208, 2 clientes, 4 usuarios PIN (SHA-256), stock 100L por producto/sucursal.
 - CFDI sin CSD reales → modo `SIMULADO` (sello DEV auditable). Para timbrado real: carpeta `certs/` local (nunca al repo) + `Cfdi:PacModo` y credenciales PAC.
 
@@ -103,5 +103,7 @@ curl.exe -s -o NUL -w 'pos:%{http_code}' http://localhost:5200/ventas-pos
 - **Login PIN** con sesión persistente (ProtectedSessionStorage).
 - **POS:** búsqueda SKU/marca/viscosidad, carrito, IVA 16%, FormaPago/Método/UsoCfdi SAT, toggle CFDI, SignalR por sucursal.
 - **Almacén:** entradas/compras, ajustes, traspasos, kardex auditado.
+- **Clientes / Proveedores:** CRUD con dirección desglosada autocompletada por CP.
+- **SEPOMEX (`/sepomex`):** importación del catálogo nacional de Correos de México — **Excel oficial `.xls` (una hoja por estado, detectado por firma OLE2/ZIP)** o TXT/CSV (15 columnas, `|`/`,`/`;`/TAB, latin1/UTF-8, dedup por `codigo|asentamiento_id|nombre`); el componente `DireccionSepomex` consulta el catálogo por CP para llenar el **combo obligatorio de colonias** (sin captura libre; si el CP tiene una sola colonia, ésta se preselecciona) y autocompletar municipio/ciudad/estado —que se muestran como etiquetas de solo lectura— en clientes y proveedores.
 - **Ticket 58mm** imprimible (`window.print`).
 - **CFDI:** sellado RSA-SHA256 + PAC (modo `SIMULADO` por defecto; configura `Cfdi:` en appsettings y `certs/` local, nunca al repo).

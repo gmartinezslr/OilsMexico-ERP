@@ -10,6 +10,8 @@ public static class SeedData
     public static async Task InicializarAsync(ErpDbContext db)
     {
         await db.Database.EnsureCreatedAsync();
+        // EnsureCreated no altera BDs existentes: parcheamos tablas/columnas nuevas (SEPOMEX).
+        await SchemaPatch.AplicarAsync(db);
         if (db.Sucursales.Any()) return;
 
         var s1 = new Sucursal { Nombre = "Matriz CDMX", CodigoSucursal = "CDMX01", Direccion = "Av. Insurgentes Sur 123, CDMX", RfcEmisor = "OLU090101AAA" };

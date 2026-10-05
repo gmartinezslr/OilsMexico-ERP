@@ -1,0 +1,81 @@
+@using OilsMexico.Application.DTOs
+@using OilsMexico.Application.Interfaces
+@inject IServiceScopeFactory ScopeFactory
+
+<div class="border rounded p-3 bg-light">
+    <div class="row g-2">
+        <div class="col-md-3">
+            <label class="form-label small fw-bold">Código Postal *</label>
+            <input class="form-control" maxlength="5" inputmode="numeric" placeholder="Ej: 20000"
+                   value="@CodigoPostal" @oninput="AlEscribirCp" />
+            @if (buscandoCp)
+            {
+                <small class="text-muted">Buscando en SEPOMEX…</small>
+            }
+            else if (cpNoEncontrado)
+            {
+                <small class="text-danger">CP no encontrado en catálogo SEPOMEX.</small>
+            }
+            else if (direccion is not null)
+            {
+                <small class="text-success">@direccion.Asentamientos.Count colonia(s) · @direccion.Municipio, @direccion.Estado</small>
+            }
+        </div>
+        <div class="col-md-5">
+            <label class="form-label small fw-bold">Colonia / Asentamiento *</label>
+            <select class="form-select" value="@Colonia" @onchange="AlElegirColonia"
+                    disabled="@(!HayOpcionesColonia)">
+                @* Si el CP tiene UNA sola colonia, ésta se preselecciona y NO se emite el
+                   placeholder: la única opción es la propia colonia, por lo que la
+                   selección no puede modificarse. *@
+                @if (colonias.Count != 1)
+                {
+                    <option value="">@PlaceholderColonia</option>
+                }
+                @foreach (var a in colonias)
+                {
+                    <option value="@a.Asentamiento" selected="@(EsColoniaActual(a.Asentamiento) ? "selected" : null)">
+                        @(string.IsNullOrWhiteSpace(a.TipoAsentamiento) ? a.Asentamiento : $"{a.Asentamiento} ({a.TipoAsentamiento})")
+                    </option>
+                }
+                @if (!string.IsNullOrWhiteSpace(Colonia) && !colonias.Any(c => EsMismaColonia(c.Asentamiento, Colonia)))
+                {
+                    <option value="@Colonia" selected="selected">@Colonia</option>
+                }
+            </select>
+        </div>
+        <div class="col-md-4">
+            <label class="form-label small">Calle</label>
+            <input class="form-control" value="@Calle" @oninput="e => CalleChanged.InvokeAsync(e.Value?.ToString())" />
+        </div>
+        <div class="col-md-3">
+            <label class="form-label small">Núm. exterior</label>
+            <input class="form-control" value="@NumeroExterior" @oninput="e => NumeroExteriorChanged.InvokeAsync(e.Value?.ToString())" />
+        </div>
+        <div class="col-md-3">
+            <label class="form-label small">Núm. interior</label>
+            <input class="form-control" value="@NumeroInterior" @oninput="e => NumeroInteriorChanged.InvokeAsync(e.Value?.ToString())" />
+        </div>
+        <div class="col-md-3">
+            <label class="form-label small">Municipio / Alcaldía</label>
+            @* Etiqueta de solo lectura: lo llena el catálogo SEPOMEX al elegir la colonia. *@
+            <label class="form-control bg-light text-muted text-truncate" title="@Municipio"
+                   aria-readonly="true">@(string.IsNullOrWhiteSpace(Municipio) ? "—" : Municipio)</label>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label small">Ciudad</label>
+            @* Etiqueta de solo lectura: la llena el catálogo SEPOMEX. *@
+            <label class="form-control bg-light text-muted text-truncate" title="@Ciudad"
+                   aria-readonly="true">@(string.IsNullOrWhiteSpace(Ciudad) ? "—" : Ciudad)</label>
+        </div>
+        <div class="col-md-6">
+            <label class="form-label small">Estado</label>
+            @* Etiqueta de solo lectura: la llena el catálogo SEPOMEX. *@
+            <label class="form-control bg-light text-muted text-truncate" title="@Estado"
+                   aria-readonly="true">@(string.IsNullOrWhiteSpace(Estado) ? "—" : Estado)</label>
+        </div>
+        <div class="col-md-6 d-flex align-items-end">
+            <small class="text-muted">Fuente: catálogo nacional SEPOMEX. <a href="/sepomex">Actualizar catálogo</a></small>
+        </div>
+    </div>
+</div>

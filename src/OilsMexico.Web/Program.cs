@@ -25,6 +25,7 @@ builder.Services.AddScoped<IAlmacenConsulta, AlmacenConsultaService>();
 builder.Services.AddScoped<ITicketService, TicketService>();
 builder.Services.AddScoped<ICfdiSelladoService, CfdiSelladoService>();
 builder.Services.AddScoped<IPacTimbradoService, PacTimbradoService>();
+builder.Services.AddScoped<ISepomexService, SepomexService>();
 builder.Services.AddHttpClient();
 builder.Services.AddSignalR();
 builder.Services.Configure<Microsoft.AspNetCore.Components.Server.CircuitOptions>(o => o.DetailedErrors = true);
