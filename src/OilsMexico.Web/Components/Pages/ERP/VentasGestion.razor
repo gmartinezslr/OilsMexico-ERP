@@ -1,0 +1,103 @@
+@page "/ventas-gestion"
+@using OilsMexico.Application.Interfaces
+@using OilsMexico.Application.DTOs
+@inject IGestionService Gestion
+@inject IEstadoCuentasService EstadoCuentas
+@inject ISucursalContext SucCtx
+@inject ISesionActual Sesion
+@{
+    var rango = Desde.ToString("yyyy-MM-dd") + " → " + Hasta.ToString("yyyy-MM-dd");
+}
+<PageTitle>Dashboard de Gestión | OilsMexico ERP</PageTitle>
+<div class="container-fluid py-3">
+    <div class="d-flex flex-wrap gap-2 align-items-center mb-3">
+        <div class="btn-group btn-group-sm" role="group">
+            <input class="form-control form-control-sm" type="date" @bind="Desde" @oninput="(args)=>{Desde=DateTime.Parse(args.Target.Value);Cargar();}" />
+            <input class="form-control form-control-sm" type="date" @bind="Hasta" @oninput="(args)=>{Hasta=DateTime.Parse(args.Target.Value);Cargar();}" />
+            <button class="btn btn-outline-primary btn-sm" @onclick="Cargar" disabled="@_cargando">📊 Actualizar</button>
+        </div>
+        <span class="text-muted small">@rango</span>
+    </div>
+
+    @if (_cargando)
+    {
+        <div class="alert alert-light">Cargando dashboard…</div>
+    }
+    else if (_dashboard is null)
+    {
+        <div class="alert alert-warning">Sin datos para el período.</div>
+    }
+    else
+    {
+        <div class="row g-3 mb-4">
+            <div class="col-md-3"><div class="card shadow-sm"><div class="card-body"><div class="text-muted small">Ingresos</div><div class="fs-4 fw-bold">@(_dashboard.Ingresos:0.00)</div></div></div></div>
+            <div class="col-md-3"><div class="card shadow-sm"><div class="card-body"><div class="text-muted small">Utilidad bruta</div><div class="fs-4 fw-bold text-success">@(_dashboard.Utilidad:0.00)</div></div></div></div>
+            <div class="col-md-3"><div class="card shadow-sm"><div class="card-body"><div class="text-muted small">Total ventas</div><div class="fs-4 fw-bold">@(_dashboard.TotalVentas:0.00)</div></div></div></div>
+            <div class="col-md-3"><div class="card shadow-sm"><div class="card-body"><div class="text-muted small">Cortes abiertos</div><div class="fs-4 fw-bold">@_dashboard.CortesAbiertos</div></div></div></div>
+        </div>
+
+        <div class="row g-3 mb-4">
+            <div class="col-12">
+                <div class="card shadow-sm"><div class="card-header">Ventas por día</div><div class="card-body p-0">
+                    <table class="table table-sm mb-0"><thead><tr><th>Fecha</th><th class="text-end">Total</th><th class="text-center">Cant.</th></tr></thead>
+                    <tbody>
+                    @foreach (var d in _ventasPorDia!)
+                    {
+                        <tr><td>@d.Fecha.ToString("yyyy-MM-dd")</td><td class="text-end">@d.Total:0.00</td><td class="text-center">@d.Cantidad</td></tr>
+                    }
+                    </tbody></table>
+                </div></div>
+            </div>
+        </div>
+
+        <div class="row g-3">
+            <div class="col-md-6">
+                <div class="card shadow-sm"><div class="card-header">Rotación ABC</div><div class="card-body p-0">
+                    <table class="table table-sm mb-0"><thead><tr><th>Producto</th><th class="text-end">Vendido</th><th class="text-end">%</th><th></th></tr></thead>
+                    <tbody>
+                    @foreach (var r in _rotacion!)
+                    {
+                        var cls = r.Clase == "A" ? "fw-bold" : r.Clase == "B" ? "fst-italic" : "";
+                         <tr class="@cls"><td>@r.Nombre</td><td class="text-end">@r.Cantidad:0.0</td><td class="text-end">@r.Importe:0.00</td><td class="text-end">@r.PorcentajeAcumulado:0.0</td><td class="text-nowrap">@r.Clase</td></tr>
+                    }
+                    </tbody></table>
+                </div></div>
+            </div>
+            <div class="col-md-6">
+                <div class="card shadow-sm"><div class="card-header">Cortes por sucursal</div><div class="card-body p-0">
+                    <table class="table table-sm mb-0"><thead><tr><th>Sucursal</th><th class="text-end">Ventas</th><th class="text-center">Fact.</th></tr></thead>
+                    <tbody>
+                    @foreach (var c in _cortes!)
+                    {
+                        <tr><td>@c.Nombre</td><td class="text-end">@c.TotalVentas:0.00</td><td class="text-center">@c.NumVentas</td></tr>
+                    }
+                    </tbody></table>
+                </div></div>
+            </div>
+        </div>
+
+        <div class="row g-3">
+            <div class="col-md-6">
+                <div class="card shadow-sm"><div class="card-header">Viscosidad (stock)</div><div class="card-body p-0">
+                    <table class="table table-sm mb-0"><thead><tr><th>Viscosidad</th><th class="text-end">Stock (lts)</th><th class="text-center">Prod.</th></tr></thead>
+                    <tbody>
+                    @foreach (var v in _viscosidad!)
+                    {
+                        <tr><td>@v.Viscosidad</td><td class="text-end">@v.Stock:0.0</td><td class="text-center">@v.Productos</td></tr>
+                    }
+                    </tbody></table>
+                </div></div>
+            </div>
+            <div class="col-md-6">
+                <div class="card shadow-sm"><div class="card-header">Resumen diario</div><div class="card-body p-0">
+                    <table class="table table-sm mb-0"><tbody>
+                    <tr><td>Ventas</td><td class="text-end">@_dashboard.NumVentas</td></tr>
+                    <tr><td>Unidades vendidas</td><td class="text-end">@_dashboard.UnidadesVendidas:0.0</td></tr>
+                    <tr><td>Monto costo</td><td class="text-end">@_dashboard.MontoCosto:0.00</td></tr>
+                    <tr><td>Promedio factura</td><td class="text-end">@_dashboard.PromedioFactura:0.00</td></tr>
+                    </tbody></table>
+                </div></div>
+            </div>
+        </div>
+    }
+</div>

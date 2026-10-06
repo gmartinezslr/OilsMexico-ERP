@@ -12,6 +12,7 @@ public sealed class Producto
     public string? DescripcionTecnica { get; set; }
     public decimal PrecioVenta { get; set; }
     public decimal PrecioMayoreo { get; set; }
+    public decimal PrecioCosto { get; set; }
     public bool Activo { get; set; } = true;
     public List<UnidadMedida> Unidades { get; set; } = [];
 }

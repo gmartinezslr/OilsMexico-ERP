@@ -73,3 +73,42 @@ public interface IComprasService
     Task<CompraDetalleDto?> DetalleAsync(int compraId, CancellationToken ct = default);
     Task<List<CuentasPorPagarDto>> CuentasPorPagarAsync(int sucursalId, string? texto, CancellationToken ct = default);
 }
+
+/// <summary>Estado de cuenta de clientes / cuentas por cobrar (MVP).</summary>
+public interface IEstadoCuentasService
+{
+    Task<List<EstadoCuentaClienteDto>> ListarEstadosCuentasAsync(int sucursalId, CancellationToken ct = default);
+    Task<ClienteEstadoCuentaDto?> ObtenerEstadoCuentaAsync(int clienteId, CancellationToken ct = default);
+}
+
+/// <summary>Reportes de gestión (dashboard, margen/utilidad, rotación ABC, cortes por sucursal).</summary>
+public interface IGestionService
+{
+    Task<DashboardGestionDto> DashboardAsync(int sucursalId, DateTime desde, DateTime hasta, CancellationToken ct = default);
+    Task<List<VentasPorDiaDto>> VentasPorDiaAsync(int sucursalId, DateTime desde, DateTime hasta, CancellationToken ct = default);
+    Task<List<VentasPorVendedorDto>> VentasPorVendedorAsync(int sucursalId, DateTime desde, DateTime hasta, CancellationToken ct = default);
+    Task<List<VentasPorProductoDto>> VentasPorProductoAsync(int sucursalId, DateTime desde, DateTime hasta, CancellationToken ct = default);
+    Task<List<MarcaProductoDto>> VentasPorMarcaAsync(int sucursalId, DateTime desde, DateTime hasta, CancellationToken ct = default);
+    Task<List<RotacionABCDto>> RotacionAbcAsync(int sucursalId, DateTime desde, DateTime hasta, CancellationToken ct = default);
+    Task<List<CorteSucursalDto>> CortesPorSucursalAsync(int sucursalId, CancellationToken ct = default);
+    Task<List<ViscosidadDto>> InventarioPorViscosidadAsync(int sucursalId, CancellationToken ct = default);
+}
+
+/// <summary>Reglas de negocio para generar asientos contables a partir de transacciones.</summary>
+public interface IAsientoGeneradorService
+{
+    Task<IReadOnlyList<(int tipo, decimal importe)>> GenerarAsientosDeVentaAsync(int sucursalId, int usuarioId, decimal total, decimal subtotal, decimal iva, string metodoPagoSat, string formaPagoSat);
+    Task<IReadOnlyList<(int tipo, decimal importe)>> GenerarAsientosDeCompraAsync(int sucursalId, int usuarioId, decimal total);
+    Task<IReadOnlyList<(int tipo, decimal importe)>> GenerarAsientosDeDevolucionAsync(int sucursalId, int usuarioId, decimal total);
+}
+
+/// <summary>Catálogo y gestión de la contabilidad básica (pólizas, libro mayor, saldos).</summary>
+public interface ICuentasContablesService
+{
+    Task<List<CuentaContableDto>> ListarCuentasAsync(int sucursalId, CancellationToken ct = default);
+    Task<CuentaContableDto?> ObtenerCuentaAsync(int cuentaId, CancellationToken ct = default);
+    Task<RegistrarAsientoResult> RegistrarAsientoAsync(RegistrarAsientoRequest request, CancellationToken ct = default);
+    Task<AsientoContableDto?> DetalleAsientoAsync(int asientoId, CancellationToken ct = default);
+    Task<List<DetalleAsientoDto>> LibroMayorAsync(int sucursalId, DateTime desde, DateTime hasta, int? cuentaId, int pagina, CancellationToken ct = default);
+    Task<List<CuentaContableDto>> SaldoPorCuentaAsync(int sucursalId, CancellationToken ct = default);
+}

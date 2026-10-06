@@ -22,4 +22,6 @@ public sealed class Cliente
     public string TipoPrecio { get; set; } = "menudeo"; // menudeo | mayoreo
     public string RegimenFiscal { get; set; } = "616";  // Sin obligaciones fiscales (default público general)
     public string CodigoPostal { get; set; } = "06600";
+
+    public List<Factura> Facturas { get; set; } = [];
 }

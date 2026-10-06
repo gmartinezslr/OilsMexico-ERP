@@ -28,7 +28,7 @@ public sealed class FacturaConfig : IEntityTypeConfiguration<Factura>
         e.Property(x => x.Estado).HasColumnName("estado").HasConversion<string>().HasMaxLength(20);
         e.Property(x => x.MotivoCancelacion).HasColumnName("motivo_cancelacion").HasMaxLength(300);
         e.HasOne(x => x.Sucursal).WithMany().HasForeignKey(x => x.SucursalId);
-        e.HasOne(x => x.Cliente).WithMany().HasForeignKey(x => x.ClienteId);
+        e.HasOne(x => x.Cliente).WithMany(c => c.Facturas).HasForeignKey(x => x.ClienteId);
     }
 }
 

@@ -19,6 +19,7 @@ public sealed class ProductoConfig : IEntityTypeConfiguration<Producto>
         e.Property(x => x.DescripcionTecnica).HasColumnName("descripcion_tecnica");
         e.Property(x => x.PrecioVenta).HasColumnName("precio_venta").HasPrecision(12, 2);
         e.Property(x => x.PrecioMayoreo).HasColumnName("precio_mayoreo").HasPrecision(12, 2);
+        e.Property(x => x.PrecioCosto).HasColumnName("precio_costo").HasPrecision(12, 2);
         e.Property(x => x.Activo).HasColumnName("activo").HasDefaultValue(true);
     }
 }

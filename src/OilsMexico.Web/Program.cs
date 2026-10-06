@@ -30,6 +30,11 @@ builder.Services.AddScoped<INotaCreditoService, NotaCreditoService>();
 builder.Services.AddScoped<IComplementoPagoService, ComplementoPagoService>();
 builder.Services.AddScoped<ICorteCajaService, CorteCajaService>();
 builder.Services.AddScoped<IComprasService, ComprasService>();
+    builder.Services.AddScoped<ICuentasContablesService, CuentasContablesService>();
+    builder.Services.AddScoped<IEstadoCuentasService, EstadoCuentasService>();
+    builder.Services.AddScoped<IGestionService, GestionService>();
+    builder.Services.AddScoped<IAsientoGeneradorService, AsientoGeneradorService>();
+
 builder.Services.AddScoped<ISepomexService, SepomexService>();
 builder.Services.AddHttpClient();
 builder.Services.AddSignalR();

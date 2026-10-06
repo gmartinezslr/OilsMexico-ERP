@@ -25,7 +25,10 @@ public sealed class ErpDbContext(DbContextOptions<ErpDbContext> options) : DbCon
     public DbSet<VentaCobro> VentaCobros => Set<VentaCobro>();
     public DbSet<ComplementoPago> ComplementosPago => Set<ComplementoPago>();
     public DbSet<ComplementoPagoDetalle> ComplementoPagoDetalles => Set<ComplementoPagoDetalle>();
-    public DbSet<CorteCaja> CortesCaja => Set<CorteCaja>();
+    public DbSet<CuentaContable> CuentasContables => Set<CuentaContable>();
+    public DbSet<AsientoContable> AsientosContables => Set<AsientoContable>();
+    public DbSet<DetalleAsiento> DetallesAsientos => Set<DetalleAsiento>();
+
 
     protected override void OnModelCreating(ModelBuilder b)
     {

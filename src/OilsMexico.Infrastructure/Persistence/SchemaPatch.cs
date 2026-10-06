@@ -58,6 +58,16 @@ public static class SchemaPatch
             CREATE INDEX IF NOT EXISTS ix_sucursales_cp ON sucursales (codigo_postal);
             """);
 
+        // Productos: costo unitario (usado para margen/utilidad y contabilidad).
+        await db.Database.ExecuteSqlRawAsync(@"
+            DO $$
+            BEGIN
+                IF EXISTS (SELECT 1 FROM pg_tables WHERE tablename = 'productos') THEN
+                    ALTER TABLE productos ADD COLUMN IF NOT EXISTS precio_costo numeric(12,2) NOT NULL DEFAULT 0;
+                END IF;
+            END $$;
+        ");
+
         // Facturación CFDI: motivo de cancelación (obligatorio ante el SAT).
         await db.Database.ExecuteSqlRawAsync("""
             ALTER TABLE facturas ADD COLUMN IF NOT EXISTS motivo_cancelacion varchar(300);
@@ -148,7 +158,45 @@ public static class SchemaPatch
             CREATE INDEX IF NOT EXISTS ix_clientes_cp ON clientes (codigo_postal);
             """);
 
-        // Fiscal y caja: NC electrónica (Tipo E), cobros PPD + REP (Tipo P), cortes por turno.
+        // Contabilidad básica: catálogo de cuentas, pólizas y detalles (tablas nuevas).
+        await db.Database.ExecuteSqlRawAsync("""
+            CREATE TABLE IF NOT EXISTS cuentas_contables (
+                id serial PRIMARY KEY,
+                sucursal_id integer NOT NULL,
+                codigo varchar(20) NOT NULL,
+                nombre varchar(120) NOT NULL,
+                tipo integer NOT NULL DEFAULT 1,
+                descripcion varchar(250),
+                saldo_actual numeric(12,2) NOT NULL DEFAULT 0
+            );
+            CREATE INDEX IF NOT EXISTS ix_cuentas_contables_sucursal ON cuentas_contables (sucursal_id);
+            CREATE UNIQUE INDEX IF NOT EXISTS uq_cuentas_contables_sucursal_codigo
+                ON cuentas_contables (sucursal_id, codigo);
+
+            CREATE TABLE IF NOT EXISTS asientos_contables (
+                id serial PRIMARY KEY,
+                sucursal_id integer NOT NULL,
+                usuario_id integer NOT NULL,
+                fecha_utc timestamptz NOT NULL DEFAULT now(),
+                tipo varchar(30),
+                numeracion varchar(30),
+                concepto varchar(200),
+                notas varchar(600)
+            );
+            CREATE INDEX IF NOT EXISTS ix_asientos_contables_sucursal ON asientos_contables (sucursal_id);
+
+            CREATE TABLE IF NOT EXISTS detalle_asientos (
+                id serial PRIMARY KEY,
+                asiento_contable_id integer NOT NULL,
+                cuenta_id integer NOT NULL,
+                tipo_movimiento integer NOT NULL,
+                importe numeric(12,2) NOT NULL DEFAULT 0,
+                descripcion varchar(250)
+            );
+            CREATE INDEX IF NOT EXISTS ix_detalle_asientos_asiento ON detalle_asientos (asiento_contable_id);
+            CREATE INDEX IF NOT EXISTS ix_detalle_asientos_cuenta ON detalle_asientos (cuenta_id);
+            """);
+
         await FiscalCajaPatch.AplicarAsync(db);
         await RepPatch.AplicarAsync(db);
         await CajaPatch.AplicarAsync(db);
