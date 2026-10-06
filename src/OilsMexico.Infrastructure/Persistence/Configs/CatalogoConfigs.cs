@@ -51,5 +51,22 @@ public sealed class SucursalConfig : IEntityTypeConfiguration<Sucursal>
         e.Property(x => x.Direccion).HasColumnName("direccion").IsRequired();
         e.Property(x => x.RfcEmisor).HasColumnName("rfc_emisor").HasMaxLength(13).IsRequired();
         e.Property(x => x.Activa).HasColumnName("activa").HasDefaultValue(true);
+
+        // Datos fiscales del emisor CFDI 4.0 + dirección desglosada + contacto.
+        // Columnas anulables: SchemaPatch las agrega a BDs existentes sin DEFAULT.
+        e.Property(x => x.RazonSocial).HasColumnName("razon_social").HasMaxLength(150);
+        e.Property(x => x.RegimenFiscal).HasColumnName("regimen_fiscal").HasMaxLength(10);
+        e.Property(x => x.CodigoPostal).HasColumnName("codigo_postal").HasMaxLength(10);
+        e.Property(x => x.Calle).HasColumnName("calle").HasMaxLength(150);
+        e.Property(x => x.NumeroExterior).HasColumnName("numero_exterior").HasMaxLength(20);
+        e.Property(x => x.NumeroInterior).HasColumnName("numero_interior").HasMaxLength(20);
+        e.Property(x => x.Colonia).HasColumnName("colonia").HasMaxLength(200);
+        e.Property(x => x.Municipio).HasColumnName("municipio").HasMaxLength(150);
+        e.Property(x => x.Estado).HasColumnName("estado").HasMaxLength(100);
+        e.Property(x => x.Ciudad).HasColumnName("ciudad").HasMaxLength(150);
+        e.Property(x => x.Pais).HasColumnName("pais").HasMaxLength(60);
+        e.Property(x => x.Telefono).HasColumnName("telefono").HasMaxLength(20);
+        e.Property(x => x.Email).HasColumnName("email").HasMaxLength(100);
+        e.HasIndex(x => x.CodigoPostal);
     }
 }

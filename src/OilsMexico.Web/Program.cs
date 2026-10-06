@@ -25,6 +25,7 @@ builder.Services.AddScoped<IAlmacenConsulta, AlmacenConsultaService>();
 builder.Services.AddScoped<ITicketService, TicketService>();
 builder.Services.AddScoped<ICfdiSelladoService, CfdiSelladoService>();
 builder.Services.AddScoped<IPacTimbradoService, PacTimbradoService>();
+builder.Services.AddScoped<IFacturacionService, FacturacionService>();
 builder.Services.AddScoped<ISepomexService, SepomexService>();
 builder.Services.AddHttpClient();
 builder.Services.AddSignalR();
@@ -47,6 +48,17 @@ app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages:
 app.MapStaticAssets();
 app.UseAntiforgery();
 app.MapHub<ErpHub>("/hubs/erp");
+
+// Descarga de XML CFDI (archivo). Mismo modelo de acceso que el resto del app (uso interno;
+// la sesión se valida en el circuito de Blazor, no en endpoints mínimos).
+app.MapGet("/api/facturas/{id:int}/xml", async (int id, ErpDbContext db) =>
+{
+    var f = await db.Facturas.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id);
+    if (f is null || string.IsNullOrEmpty(f.XmlSellado)) return Results.NotFound();
+    return Results.File(System.Text.Encoding.UTF8.GetBytes(f.XmlSellado),
+        "application/xml", $"{f.FolioInterno}.xml");
+});
+
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 

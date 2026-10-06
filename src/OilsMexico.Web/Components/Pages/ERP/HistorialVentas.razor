@@ -1,0 +1,149 @@
+@page "/historial-ventas"
+@rendermode InteractiveServer
+@inject OilsMexico.Application.Interfaces.IVentasService Ventas
+@inject OilsMexico.Application.Interfaces.ISucursalContext SucCtx
+@inject OilsMexico.Application.Interfaces.ISesionActual Sesion
+@inject NavigationManager Nav
+@using OilsMexico.Application.DTOs
+<PageTitle>Historial de ventas | OilsMexico ERP</PageTitle>
+<div class="container-fluid py-3">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h3 class="fw-bold mb-0">Historial de ventas <span class="badge bg-secondary">Suc @SucCtx.SucursalId</span></h3>
+        <span class="text-muted small">@(Sesion.Sesion?.Nombre ?? "") (@(Sesion.Sesion?.Rol ?? ""))</span>
+    </div>
+    @if (!Sesion.Autenticado)
+    {
+        <div class="alert alert-warning">Inicia sesion primero. <a href="/login">Ir al login</a></div>
+    }
+    @if (!string.IsNullOrEmpty(msg))
+    {
+        <div class="alert @(err ? "alert-danger" : "alert-success")">@msg</div>
+    }
+
+    <div class="card shadow-sm mb-3"><div class="card-body py-2">
+        <div class="row g-2 align-items-end">
+            <div class="col-md-2"><label class="form-label small mb-1">Desde</label>
+                <input type="date" class="form-control form-control-sm" @bind="desde" /></div>
+            <div class="col-md-2"><label class="form-label small mb-1">Hasta</label>
+                <input type="date" class="form-control form-control-sm" @bind="hasta" /></div>
+            <div class="col-md-2"><label class="form-label small mb-1">Estado</label>
+                <select class="form-select form-select-sm" @bind="estado">
+                    <option value="">Todos</option>
+                    <option value="Pendiente">Pendiente</option>
+                    <option value="Surtida">Surtida</option>
+                    <option value="Timbrada">Timbrada</option>
+                    <option value="Entregada">Entregada</option>
+                    <option value="Cancelada">Cancelada</option>
+                    <option value="Devolucion">Devolución</option>
+                </select></div>
+            <div class="col-md-4"><label class="form-label small mb-1">Folio o cliente</label>
+                <input class="form-control form-control-sm" placeholder="Ej: V-1-2026... o Taller Hernández"
+                       value="@texto" @oninput="AlEscribir" /></div>
+            <div class="col-md-2">
+                <button class="btn btn-primary btn-sm w-100" @onclick="Buscar" disabled="@cargando">Buscar</button>
+            </div>
+        </div>
+    </div></div>
+
+    <div class="d-flex flex-wrap gap-2 mb-3">
+        <span class="badge bg-dark fs-6">@resultado.Resumen.Ventas venta(s)</span>
+        <span class="badge bg-secondary fs-6">Subtotal $@resultado.Resumen.Subtotal.ToString("N2")</span>
+        <span class="badge bg-secondary fs-6">IVA $@resultado.Resumen.Iva.ToString("N2")</span>
+        <span class="badge bg-success fs-6">Total $@resultado.Resumen.Total.ToString("N2")</span>
+        <span class="text-muted small align-self-center">Resumen del rango filtrado (todas las páginas)</span>
+    </div>
+    <div class="card shadow-sm"><div class="card-body p-0">
+        <div class="table-responsive" style="max-height:60vh;overflow-y:auto">
+            <table class="table table-sm table-striped table-hover align-middle mb-0">
+                <thead class="table-dark position-sticky top-0">
+                    <tr><th>Fecha</th><th>Folio</th><th>Cliente</th><th>Estado</th>
+                        <th class="text-end">Total</th><th>UUID SAT</th><th></th></tr>
+                </thead>
+                <tbody>
+                @foreach (var v in resultado.Ventas)
+                {
+                    <tr class="@(detalleId == v.FacturaId ? "table-primary" : "")" style="cursor:pointer" @onclick="() => Expandir(v.FacturaId)">
+                        <td><small>@v.FechaEmision.ToLocalTime().ToString("dd/MM/yy HH:mm")</small></td>
+                        <td><strong>@v.FolioInterno</strong><br /><small class="text-muted">@v.Renglones renglón(es)</small></td>
+                        <td>@v.Cliente</td>
+                        <td><span class="badge @ClaseEstado(v.Estado)">@v.Estado</span></td>
+                        <td class="text-end"><strong>$@v.Total.ToString("N2")</strong><br /><small class="text-muted">IVA $@v.Iva.ToString("N2")</small></td>
+                        <td><small>@(v.UuidSat?.ToString() ?? "—")</small></td>
+                        <td class="text-center">@((detalleId == v.FacturaId) ? "▾" : "▸")</td>
+                    </tr>
+                    @if (detalleId == v.FacturaId)
+                    {
+                        <tr><td colspan="7" class="bg-light">
+                            @if (detalle is null)
+                            {
+                                <em class="text-muted">Cargando detalle…</em>
+                            }
+                            else
+                            {
+                                <div class="row g-2">
+                                    <div class="col-lg-7">
+                                        <table class="table table-sm mb-0">
+                                            <thead><tr><th>Producto</th><th class="text-end">Cantidad</th>
+                                                <th class="text-end">P. unitario</th><th class="text-end">Importe</th></tr></thead>
+                                            <tbody>
+                                            @foreach (var l in detalle.Lineas)
+                                            {
+                                                <tr><td>@l.Producto</td>
+                                                    <td class="text-end">@l.Cantidad.ToString("N2") @l.Unidad</td>
+                                                    <td class="text-end">$@l.PrecioUnitario.ToString("N2")</td>
+                                                    <td class="text-end">$@l.Importe.ToString("N2")</td></tr>
+                                            }
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    <div class="col-lg-5">
+                                        <small class="text-muted">Pago: @detalle.FormaPagoSat · @detalle.MetodoPagoSat · Uso @detalle.UsoCfdi</small>
+                                        @if (!string.IsNullOrEmpty(detalle.SelloDigital))
+                                        {
+                                            <div><small class="text-muted text-break">Sello: @detalle.SelloDigital</small></div>
+                                        }
+                                        @if (!string.IsNullOrEmpty(detalle.CadenaOriginal))
+                                        {
+                                            <div><small class="text-muted text-break">Cadena original: @(detalle.CadenaOriginal.Length > 160 ? detalle.CadenaOriginal[..160] + "…" : detalle.CadenaOriginal)</small></div>
+                                        }
+                                        <div class="mt-2 d-flex gap-2 flex-wrap">
+                                            <a class="btn btn-sm btn-outline-dark" href="/ticket/@detalle.FacturaId" target="_blank">Ticket</a>
+                                            @if (detalle.Estado == "Pendiente")
+                                            {
+                                                <button class="btn btn-sm btn-primary" @onclick="() => Surtir(detalle.FacturaId)">Surtir</button>
+                                            }
+                                            @if (detalle.Estado is not ("Devolucion" or "Cancelada") && !devolviendo)
+                                            {
+                                                <button class="btn btn-sm btn-outline-danger" @onclick="EmpezarDevolucion">Devolver</button>
+                                            }
+                                        </div>
+                                        @if (devolviendo)
+                                        {
+                                            <div class="input-group input-group-sm mt-2">
+                                                <input class="form-control" placeholder="Motivo de la devolución" @bind="motivoDevolucion" />
+                                                <button class="btn btn-danger" @onclick="() => ConfirmarDevolucion(detalle.FacturaId)">Confirmar</button>
+                                                <button class="btn btn-outline-secondary" @onclick="() => devolviendo = false">Cancelar</button>
+                                            </div>
+                                            <small class="text-muted">La devolución repone el stock y marca la venta como Devolución.</small>
+                                        }
+                                    </div>
+                                </div>
+                            }
+                        </td></tr>
+                    }
+                }
+                @if (resultado.Ventas.Count == 0 && !cargando)
+                {
+                    <tr><td colspan="7" class="text-center text-muted py-4">Sin ventas en el rango seleccionado.</td></tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </div></div>
+
+    <div class="d-flex justify-content-between align-items-center mt-2">
+        <button class="btn btn-sm btn-outline-primary" disabled="@(resultado.Pagina <= 1 || cargando)" @onclick="Anterior">◀ Anterior</button>
+        <span class="text-muted small">Página @resultado.Pagina de @resultado.Paginas · @resultado.TotalRegistros registro(s)</span>
+        <button class="btn btn-sm btn-outline-primary" disabled="@(resultado.Pagina >= resultado.Paginas || cargando)" @onclick="Siguiente">Siguiente ▶</button>
+    </div>
+</div>

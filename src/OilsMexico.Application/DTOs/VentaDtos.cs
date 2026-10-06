@@ -28,3 +28,30 @@ public sealed record CatalogosSatDto(
     Dictionary<string, string> MetodosPago,
     Dictionary<string, string> UsosCfdi,
     Dictionary<string, string> Regimenes);
+
+public sealed record HistorialVentaDto(
+    int FacturaId, string FolioInterno, DateTime FechaEmision,
+    string Cliente, string Estado, decimal Subtotal, decimal Iva, decimal Total,
+    Guid? UuidSat, int Renglones);
+
+public sealed record HistorialResumenDto(int Ventas, decimal Subtotal, decimal Iva, decimal Total);
+
+public sealed record HistorialResultadoDto(
+    List<HistorialVentaDto> Ventas, HistorialResumenDto Resumen,
+    int TotalRegistros, int Pagina, int Paginas);
+
+public sealed record HistorialLineaDto(
+    string Producto, decimal Cantidad, string Unidad, decimal PrecioUnitario, decimal Importe);
+
+public sealed record HistorialDetalleDto(
+    int FacturaId, string FolioInterno, DateTime FechaEmision, string Cliente, string Estado,
+    string FormaPagoSat, string MetodoPagoSat, string UsoCfdi,
+    decimal Subtotal, decimal Iva, decimal Total, Guid? UuidSat,
+    string? SelloDigital, string? CadenaOriginal, List<HistorialLineaDto> Lineas);
+
+/// <summary>Renglón del módulo Facturación CFDI (listado de folios con estado fiscal).</summary>
+public sealed record FacturaListadoDto(
+    int FacturaId, string FolioInterno, DateTime FechaEmision, string Cliente,
+    string Estado, decimal Subtotal, decimal Iva, decimal Total,
+    string FormaPagoSat, string MetodoPagoSat, string UsoCfdi,
+    Guid? UuidSat, bool TieneXml, int Renglones, string? MotivoCancelacion);

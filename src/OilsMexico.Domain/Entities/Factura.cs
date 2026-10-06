@@ -23,6 +23,8 @@ public sealed class Factura
     public string FormaPagoSat { get; set; } = "01";    // Catálogo SAT c_FormaPago
     public string UsoCfdi { get; set; } = "G03";
     public EstadoFactura Estado { get; set; } = EstadoFactura.Pendiente;
+    /// <summary>Motivo de cancelación CFDI (requerido por el SAT al cancelar).</summary>
+    public string? MotivoCancelacion { get; set; }
     public List<FacturaDetalle> Detalles { get; set; } = [];
 }
 

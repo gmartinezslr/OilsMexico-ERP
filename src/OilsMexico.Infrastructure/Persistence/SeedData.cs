@@ -14,8 +14,30 @@ public static class SeedData
         await SchemaPatch.AplicarAsync(db);
         if (db.Sucursales.Any()) return;
 
-        var s1 = new Sucursal { Nombre = "Matriz CDMX", CodigoSucursal = "CDMX01", Direccion = "Av. Insurgentes Sur 123, CDMX", RfcEmisor = "OLU090101AAA" };
-        var s2 = new Sucursal { Nombre = "Sucursal Monterrey", CodigoSucursal = "MTY01", Direccion = "Av. Constitución 456, MTY", RfcEmisor = "OLU090101AAA" };
+        var s1 = new Sucursal
+        {
+            Nombre = "Matriz CDMX", CodigoSucursal = "CDMX01",
+            Direccion = "Av. Insurgentes Sur 123, Col. Nápoles, CP 03810, Benito Juárez, CDMX",
+            RfcEmisor = "OLU090101AAA",
+            RazonSocial = "OilsMexico Aceites y Lubricantes S.A. de C.V.",
+            RegimenFiscal = "601", CodigoPostal = "03810",
+            Calle = "Av. Insurgentes Sur", NumeroExterior = "123",
+            Colonia = "Nápoles", Municipio = "Benito Juárez",
+            Estado = "Ciudad de México", Ciudad = "Ciudad de México", Pais = "México",
+            Telefono = "55 5555 0101", Email = "matriz@oilsmexico.mx"
+        };
+        var s2 = new Sucursal
+        {
+            Nombre = "Sucursal Monterrey", CodigoSucursal = "MTY01",
+            Direccion = "Av. Constitución 456, Col. Centro, CP 64000, Monterrey, Nuevo León",
+            RfcEmisor = "OLU090101AAA",
+            RazonSocial = "OilsMexico Aceites y Lubricantes S.A. de C.V.",
+            RegimenFiscal = "601", CodigoPostal = "64000",
+            Calle = "Av. Constitución", NumeroExterior = "456",
+            Colonia = "Centro", Municipio = "Monterrey",
+            Estado = "Nuevo León", Ciudad = "Monterrey", Pais = "México",
+            Telefono = "81 8181 0101", Email = "monterrey@oilsmexico.mx"
+        };
         db.Sucursales.AddRange(s1, s2);
         await db.SaveChangesAsync();
 

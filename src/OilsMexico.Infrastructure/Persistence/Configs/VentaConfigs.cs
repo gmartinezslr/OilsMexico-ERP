@@ -26,6 +26,7 @@ public sealed class FacturaConfig : IEntityTypeConfiguration<Factura>
         e.Property(x => x.FormaPagoSat).HasColumnName("forma_pago_sat").HasMaxLength(2);
         e.Property(x => x.UsoCfdi).HasColumnName("uso_cfdi").HasMaxLength(5);
         e.Property(x => x.Estado).HasColumnName("estado").HasConversion<string>().HasMaxLength(20);
+        e.Property(x => x.MotivoCancelacion).HasColumnName("motivo_cancelacion").HasMaxLength(300);
         e.HasOne(x => x.Sucursal).WithMany().HasForeignKey(x => x.SucursalId);
         e.HasOne(x => x.Cliente).WithMany().HasForeignKey(x => x.ClienteId);
     }

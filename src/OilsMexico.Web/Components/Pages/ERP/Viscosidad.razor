@@ -1,0 +1,107 @@
+@page "/viscosidad"
+@rendermode InteractiveServer
+@inject OilsMexico.Infrastructure.Services.IAlmacenConsulta Consulta
+@inject OilsMexico.Application.Interfaces.ISucursalContext SucCtx
+@inject OilsMexico.Application.Interfaces.ISesionActual Sesion
+@inject NavigationManager Nav
+@using OilsMexico.Infrastructure.Services
+<PageTitle>Aceites por viscosidad | OilsMexico ERP</PageTitle>
+<div class="container-fluid py-3">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h3 class="fw-bold mb-0">Aceites por viscosidad <span class="badge bg-secondary">Suc @SucCtx.SucursalId</span></h3>
+        <span class="text-muted small">@(Sesion.Sesion?.Nombre ?? "") (@(Sesion.Sesion?.Rol ?? ""))</span>
+    </div>
+    @if (!Sesion.Autenticado)
+    {
+        <div class="alert alert-warning">Inicia sesion primero. <a href="/login">Ir al login</a></div>
+    }
+    @if (!string.IsNullOrEmpty(msg))
+    {
+        <div class="alert @(err ? "alert-danger" : "alert-success")">@msg</div>
+    }
+
+    <div class="row g-2 align-items-center mb-3">
+        <div class="col-md-5">
+            <input class="form-control" placeholder="Buscar por SKU, nombre, marca o viscosidad (ej: 5W-30)…"
+                   value="@texto" @oninput="AlEscribir" />
+        </div>
+        <div class="col-md-7">
+            <div class="d-flex flex-wrap gap-2 justify-content-md-end">
+                <span class="badge bg-dark fs-6">@Filtrados.Count() producto(s)</span>
+                <span class="badge bg-primary fs-6">@Filtrados.Sum(p => p.StockLitros).ToString("N2") L</span>
+                <span class="badge bg-success fs-6">Valor $@Filtrados.Sum(p => p.ValorStock).ToString("N2")</span>
+                @if (Filtrados.Count(p => p.BajoMinimo) > 0)
+                {
+                    <span class="badge bg-warning text-dark fs-6">@Filtrados.Count(p => p.BajoMinimo) bajo mínimo</span>
+                }
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-2 mb-3">
+        @foreach (var t in Tarjetas)
+        {
+            <div class="col-6 col-md-4 col-xl-2 d-flex">
+                <div class="card shadow-sm w-100 @(visc == t.Viscosidad ? "border-primary border-2" : "")"
+                     style="cursor:pointer" @onclick="() => SelVisc(t.Viscosidad)">
+                    <div class="card-body py-2 px-3">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <strong>@t.Viscosidad</strong>
+                            @if (t.Bajo > 0) { <span class="badge bg-warning text-dark">@t.Bajo ⚠</span> }
+                        </div>
+                        <div class="fs-5 fw-bold">@t.Litros.ToString("N1") L</div>
+                        <small class="text-muted">@t.Productos prod · $@t.Valor.ToString("N0")</small>
+                    </div>
+                </div>
+            </div>
+        }
+        @if (Tarjetas.Count == 0)
+        {
+            <div class="col-12"><div class="alert alert-info mb-0">Sin productos para el filtro actual.</div></div>
+        }
+    </div>
+
+    @if (visc != "")
+    {
+        <div class="mb-2 d-flex align-items-center gap-2">
+            <span class="badge bg-primary">Filtrando por viscosidad: <strong>@visc</strong></span>
+            <button class="btn btn-sm btn-outline-secondary" @onclick='() => visc = ""'>Quitar filtro</button>
+        </div>
+    }
+    <div class="card shadow-sm"><div class="card-body p-0">
+        <div class="table-responsive" style="max-height:60vh;overflow-y:auto">
+            <table class="table table-sm table-striped table-hover align-middle mb-0">
+                <thead class="table-dark position-sticky top-0">
+                    <tr><th>SKU</th><th>Producto</th><th>Viscosidad</th>
+                        <th class="text-end">Stock L</th><th class="text-end">Mínimo L</th>
+                        <th class="text-end">Precio</th><th class="text-end">Valor</th><th></th></tr>
+                </thead>
+                <tbody>
+                @foreach (var p in Filtrados)
+                {
+                    <tr class="@(p.BajoMinimo ? "table-warning" : "")">
+                        <td><small>@p.Sku</small></td>
+                        <td><strong>@p.Nombre</strong><br /><small class="text-muted">@p.Marca · @p.TipoBase</small></td>
+                        <td><span class="badge bg-dark">@p.Viscosidad</span></td>
+                        <td class="text-end"><strong>@p.StockLitros.ToString("N2")</strong>
+                            @if (p.BajoMinimo) { <span class="badge bg-warning text-dark">bajo mín</span> }</td>
+                        <td class="text-end text-muted">@p.StockMinimo.ToString("N0")</td>
+                        <td class="text-end">$@p.PrecioVenta.ToString("N2")</td>
+                        <td class="text-end">$@p.ValorStock.ToString("N2")</td>
+                        <td><a class="btn btn-sm btn-outline-primary" href="/almacen?producto=@p.ProductoId" target="_blank">Kardex</a></td>
+                    </tr>
+                }
+                @if (!Filtrados.Any() && !cargando)
+                {
+                    <tr><td colspan="8" class="text-center text-muted py-4">Sin productos que coincidan con el filtro.</td></tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </div></div>
+
+    <small class="text-muted d-block mt-2">
+        Stock en litros sumado por producto (todos sus lotes) de la sucursal en sesión.
+        El mínimo es la suma de stock mínimo configurado; "bajo mínimo" cuando stock ≤ mínimo.
+    </small>
+</div>

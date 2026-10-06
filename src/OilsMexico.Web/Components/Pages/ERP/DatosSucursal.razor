@@ -1,0 +1,97 @@
+@page "/sucursal"
+@rendermode InteractiveServer
+@inject OilsMexico.Infrastructure.Persistence.ErpDbContext Db
+@inject OilsMexico.Application.Interfaces.ICatalogosSatService Sat
+@inject OilsMexico.Application.Interfaces.ISesionActual Sesion
+@inject OilsMexico.Application.Interfaces.ISucursalContext SucCtx
+@inject NavigationManager Nav
+@using Microsoft.EntityFrameworkCore
+@using OilsMexico.Web.Components.Shared
+<PageTitle>Datos de la sucursal | OilsMexico ERP</PageTitle>
+<div class="container-fluid py-3">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h3 class="fw-bold mb-0">Datos de la sucursal <span class="badge bg-secondary">Suc @SucCtx.SucursalId</span></h3>
+        <span class="text-muted small">@(Sesion.Sesion?.Nombre ?? "") (@(Sesion.Sesion?.Rol ?? ""))</span>
+    </div>
+    @if (!Sesion.Autenticado)
+    {
+        <div class="alert alert-warning">Inicia sesion primero. <a href="/login">Ir al login</a></div>
+    }
+    else if (!esAdmin)
+    {
+        <div class="alert alert-info">Solo el rol <strong>Admin</strong> puede editar los datos fiscales de la sucursal. Vista de solo lectura.</div>
+    }
+    @if (!string.IsNullOrEmpty(msg))
+    {
+        <div class="alert @(err ? "alert-danger" : "alert-success")">@msg</div>
+    }
+    <div class="row g-3">
+        <div class="col-lg-4">
+            <div class="card shadow-sm">
+                <div class="card-header bg-dark text-white">Sucursales</div>
+                <div class="list-group list-group-flush" style="max-height:560px;overflow-y:auto">
+                    @foreach (var s in lista)
+                    {
+                        <button type="button" class="list-group-item list-group-item-action @(edit.Id == s.Id ? "active" : "")" @onclick="() => Editar(s.Id)">
+                            <strong>@s.Nombre</strong> @if (!s.Activa) { <span class="badge bg-warning text-dark">Inactiva</span> }<br />
+                            <small>@s.CodigoSucursal · @s.RfcEmisor · CP @(s.CodigoPostal ?? "—")</small>
+                            @if (s.Id == SucCtx.SucursalId) { <br /><small class="fw-bold">▾ Tu sucursal en sesión</small> }
+                        </button>
+                    }
+                    @if (lista.Count == 0)
+                    {
+                        <div class="list-group-item text-muted">Sin sucursales.</div>
+                    }
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-8">
+            <div class="card shadow-sm"><div class="card-body">
+                <h5 class="fw-bold">@(edit.Id == 0 ? "Nueva sucursal" : $"Editar: {edit.Nombre}")</h5>
+                <fieldset disabled="@(!esAdmin || guardando)">
+                    <div class="row g-2">
+                        <div class="col-md-6"><label class="form-label small">Nombre *</label>
+                            <input class="form-control" maxlength="100" @bind="edit.Nombre" /></div>
+                        <div class="col-md-3"><label class="form-label small">Código *</label>
+                            <input class="form-control" maxlength="10" @bind="edit.CodigoSucursal" /></div>
+                        <div class="col-md-3"><label class="form-label small">RFC emisor *</label>
+                            <input class="form-control" maxlength="13" @bind="edit.RfcEmisor" /></div>
+                        <div class="col-md-8"><label class="form-label small">Razón social (emisor CFDI)</label>
+                            <input class="form-control" maxlength="150" placeholder="Si está vacío se usa el Nombre" @bind="edit.RazonSocial" /></div>
+                        <div class="col-md-4"><label class="form-label small">Régimen fiscal emisor</label>
+                            <select class="form-select" @bind="edit.RegimenFiscal">
+                                @foreach (var kv in catalogos.Regimenes)
+                                {
+                                    <option value="@kv.Key">@kv.Value</option>
+                                }
+                            </select></div>
+                        <div class="col-md-4"><label class="form-label small">Teléfono</label>
+                            <input class="form-control" maxlength="20" @bind="edit.Telefono" /></div>
+                        <div class="col-md-4"><label class="form-label small">Email</label>
+                            <input class="form-control" maxlength="100" @bind="edit.Email" /></div>
+                        <div class="col-md-4 d-flex align-items-center gap-2">
+                            <input class="form-check-input" type="checkbox" id="sucActiva" @bind="edit.Activa" />
+                            <label class="form-check-label small" for="sucActiva">Sucursal activa</label>
+                        </div>
+                    </div>
+                    <h6 class="fw-bold mt-3">Domicilio fiscal (SEPOMEX)</h6>
+                    <DireccionSepomex @bind-CodigoPostal="edit.CodigoPostal" @bind-Colonia="edit.Colonia"
+                                      @bind-Calle="edit.Calle" @bind-NumeroExterior="edit.NumeroExterior"
+                                      @bind-NumeroInterior="edit.NumeroInterior" @bind-Municipio="edit.Municipio"
+                                      @bind-Estado="edit.Estado" @bind-Ciudad="edit.Ciudad" />
+                </fieldset>
+                <div class="d-flex gap-2 mt-3">
+                    <button class="btn btn-success" @onclick="Guardar" disabled="@(!esAdmin || guardando)">Guardar</button>
+                    @if (edit.Id != 0 && esAdmin)
+                    {
+                        <button class="btn btn-outline-primary" @onclick="() => Editar(edit.Id)">Descartar cambios</button>
+                    }
+                </div>
+                @if (!esAdmin)
+                {
+                    <small class="text-muted d-block mt-2">Los campos se deshabilitan para roles distintos a Admin (la configuración fiscal es central).</small>
+                }
+            </div></div>
+        </div>
+    </div>
+</div>

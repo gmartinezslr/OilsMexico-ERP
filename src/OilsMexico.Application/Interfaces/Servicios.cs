@@ -17,6 +17,13 @@ public interface IVentasService
     Task<VentaPosResult> RegistrarVentaAsync(VentaPosRequest request, CancellationToken ct = default);
     Task<VentaPosResult> SurtirAsync(int facturaId, CancellationToken ct = default);
     Task<VentaPosResult> DevolverAsync(int facturaId, string motivo, CancellationToken ct = default);
+
+    /// <summary>Historial paginado de ventas por sucursal con filtros de fecha/estado/texto y resumen.</summary>
+    Task<HistorialResultadoDto> HistorialAsync(int sucursalId, DateTime desde, DateTime hasta,
+        string? texto, string? estado, int pagina, CancellationToken ct = default);
+
+    /// <summary>Detalle de una venta (renglones + datos CFDI). null si no existe o es de otra sucursal.</summary>
+    Task<HistorialDetalleDto?> HistorialDetalleAsync(int facturaId, CancellationToken ct = default);
 }
 
 public interface IInventarioService
@@ -30,6 +37,18 @@ public interface IInventarioService
 public interface ICfdiSelladoService
 {
     Task<(string CadenaOriginal, string Sello, string XmlSellado)> SellarAsync(int facturaId, CancellationToken ct = default);
+}
+
+/// <summary>Módulo Facturación CFDI: listado de folios, timbrado diferido, cancelación y descarga de XML.</summary>
+public interface IFacturacionService
+{
+    Task<List<FacturaListadoDto>> ListarAsync(int sucursalId, string? estado, string? texto, CancellationToken ct = default);
+    /// <summary>Sella y timbra una factura en estado Pendiente (timbrado diferido fuera del POS).</summary>
+    Task<VentaPosResult> TimbrarAsync(int facturaId, CancellationToken ct = default);
+    /// <summary>Cancela una factura ya timbrada. Motivo obligatorio (SAT). Solo modo SIMULADO por ahora.</summary>
+    Task<VentaPosResult> CancelarAsync(int facturaId, string motivo, CancellationToken ct = default);
+    /// <summary>Devuelve el XML sellado/timbrado o null si no existe.</summary>
+    Task<string?> ObtenerXmlAsync(int facturaId, CancellationToken ct = default);
 }
 
 public interface IPacTimbradoService

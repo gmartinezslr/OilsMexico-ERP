@@ -1,0 +1,169 @@
+@page "/facturacion"
+@rendermode InteractiveServer
+@inject OilsMexico.Application.Interfaces.IFacturacionService Fact
+@inject OilsMexico.Application.Interfaces.IVentasService Ventas
+@inject OilsMexico.Application.Interfaces.ISucursalContext SucCtx
+@inject OilsMexico.Application.Interfaces.ISesionActual Sesion
+@inject NavigationManager Nav
+@using OilsMexico.Application.DTOs
+<PageTitle>Facturación CFDI | OilsMexico ERP</PageTitle>
+<div class="container-fluid py-3">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h3 class="fw-bold mb-0">Facturación CFDI 4.0 <span class="badge bg-secondary">Suc @SucCtx.SucursalId</span></h3>
+        <span class="text-muted small">@(Sesion.Sesion?.Nombre ?? "") (@(Sesion.Sesion?.Rol ?? ""))</span>
+    </div>
+    @if (!Sesion.Autenticado)
+    {
+        <div class="alert alert-warning">Inicia sesion primero. <a href="/login">Ir al login</a></div>
+    }
+    @if (!string.IsNullOrEmpty(msg))
+    {
+        <div class="alert @(err ? "alert-danger" : "alert-success")">@msg</div>
+    }
+
+    <div class="card shadow-sm mb-3"><div class="card-body py-2">
+        <div class="row g-2 align-items-end">
+            <div class="col-md-3"><label class="form-label small mb-1">Estado fiscal</label>
+                <select class="form-select form-select-sm" @bind="estado">
+                    <option value="">Todos</option>
+                    <option value="Pendiente">Pendiente (sin timbrar)</option>
+                    <option value="Timbrada">Timbrada</option>
+                    <option value="Entregada">Entregada</option>
+                    <option value="Cancelada">Cancelada</option>
+                    <option value="Surtida">Surtida</option>
+                    <option value="Devolucion">Devolución</option>
+                </select></div>
+            <div class="col-md-5"><label class="form-label small mb-1">Folio o cliente</label>
+                <input class="form-control form-control-sm" placeholder="Ej: V-1-2026... o Taller Hernández"
+                       value="@texto" @oninput="AlEscribir" /></div>
+            <div class="col-md-2">
+                <button class="btn btn-primary btn-sm w-100" @onclick="Buscar" disabled="@cargando">Buscar</button>
+            </div>
+            <div class="col-md-2 text-md-end">
+                <small class="text-muted">PAC: <strong>SIMULADO</strong> (sellado DEV auditable)</small>
+            </div>
+        </div>
+    </div></div>
+
+    <div class="d-flex flex-wrap gap-2 mb-3">
+        <span class="badge bg-dark fs-6">@lista.Count folio(s)</span>
+        <span class="badge bg-secondary fs-6">@lista.Count(f => f.Estado == "Pendiente") por timbrar</span>
+        <span class="badge bg-success fs-6">@lista.Count(f => f.Estado == "Timbrada") timbrada(s)</span>
+        <span class="badge bg-danger fs-6">@lista.Count(f => f.Estado == "Cancelada") cancelada(s)</span>
+        <span class="text-muted small align-self-center">Últimos 200 folios de la sucursal</span>
+    </div>
+    <div class="card shadow-sm"><div class="card-body p-0">
+        <div class="table-responsive" style="max-height:60vh;overflow-y:auto">
+            <table class="table table-sm table-striped table-hover align-middle mb-0">
+                <thead class="table-dark position-sticky top-0">
+                    <tr><th>Fecha</th><th>Folio</th><th>Cliente</th><th>Estado</th>
+                        <th class="text-end">Total</th><th>UUID SAT</th><th></th></tr>
+                </thead>
+                <tbody>
+                @foreach (var f in lista)
+                {
+                    <tr class="@(sel?.FacturaId == f.FacturaId ? "table-primary" : "")" style="cursor:pointer" @onclick="() => Expandir(f.FacturaId)">
+                        <td><small>@f.FechaEmision.ToLocalTime().ToString("dd/MM/yy HH:mm")</small></td>
+                        <td><strong>@f.FolioInterno</strong><br /><small class="text-muted">@f.Renglones renglón(es)</small></td>
+                        <td>@f.Cliente</td>
+                        <td><span class="badge @ClaseEstado(f.Estado)">@f.Estado</span></td>
+                        <td class="text-end"><strong>$@f.Total.ToString("N2")</strong></td>
+                        <td><small>@(f.UuidSat?.ToString() ?? "—")</small></td>
+                        <td class="text-center">
+                            @if (f.TieneXml) { <span class="badge bg-outline-success border">XML</span> }
+                            @((sel?.FacturaId == f.FacturaId) ? "▾" : "▸")
+                        </td>
+                    </tr>
+                    @if (sel?.FacturaId == f.FacturaId)
+                    {
+                        <tr><td colspan="7" class="bg-light">
+                            @if (detalle is null)
+                            {
+                                <em class="text-muted">Cargando detalle…</em>
+                            }
+                            else
+                            {
+                                <div class="row g-2">
+                                    <div class="col-lg-7">
+                                        <table class="table table-sm mb-0">
+                                            <thead><tr><th>Producto</th><th class="text-end">Cantidad</th>
+                                                <th class="text-end">P. unitario</th><th class="text-end">Importe</th></tr></thead>
+                                            <tbody>
+                                            @foreach (var l in detalle.Lineas)
+                                            {
+                                                <tr><td>@l.Producto</td>
+                                                    <td class="text-end">@l.Cantidad.ToString("N2") @l.Unidad</td>
+                                                    <td class="text-end">$@l.PrecioUnitario.ToString("N2")</td>
+                                                    <td class="text-end">$@l.Importe.ToString("N2")</td></tr>
+                                            }
+                                            </tbody>
+                                        </table>
+                                        <small class="text-muted">Pago: @detalle.FormaPagoSat · @detalle.MetodoPagoSat · Uso @detalle.UsoCfdi</small>
+                                    </div>
+                                    <div class="col-lg-5">
+                                        @if (sel.Estado == "Cancelada" && !string.IsNullOrEmpty(sel.MotivoCancelacion))
+                                        {
+                                            <div class="alert alert-danger py-1 px-2 mb-2 small">
+                                                <strong>Motivo de cancelación:</strong> @sel.MotivoCancelacion
+                                            </div>
+                                        }
+                                        @if (!string.IsNullOrEmpty(detalle.SelloDigital))
+                                        {
+                                            <div><small class="text-muted text-break">Sello: @detalle.SelloDigital</small></div>
+                                        }
+                                        @if (!string.IsNullOrEmpty(detalle.CadenaOriginal))
+                                        {
+                                            <div><small class="text-muted text-break">Cadena original: @(detalle.CadenaOriginal.Length > 140 ? detalle.CadenaOriginal[..140] + "…" : detalle.CadenaOriginal)</small></div>
+                                        }
+                                        <div class="mt-2 d-flex gap-2 flex-wrap">
+                                            <a class="btn btn-sm btn-outline-dark" href="/ticket/@sel.FacturaId" target="_blank">Ticket</a>
+                                            @if (sel.TieneXml)
+                                            {
+                                                <a class="btn btn-sm btn-success" href="/api/facturas/@sel.FacturaId/xml">⬇ Descargar XML</a>
+                                            }
+                                            @if (sel.Estado == "Pendiente")
+                                            {
+                                                <button class="btn btn-sm btn-primary" disabled="@cargando" @onclick="() => Timbrar(sel.FacturaId)">⏱ Timbrar</button>
+                                            }
+                                            @if (sel.Estado is "Timbrada" or "Entregada")
+                                            {
+                                                @if (puedeCancelar && !cancelando)
+                                                {
+                                                    <button class="btn btn-sm btn-outline-danger" @onclick="EmpezarCancelacion">✖ Cancelar CFDI</button>
+                                                }
+                                                else if (!puedeCancelar)
+                                                {
+                                                    <small class="text-muted align-self-center">Cancelación solo para roles Admin/Conta.</small>
+                                                }
+                                            }
+                                        </div>
+                                        @if (cancelando)
+                                        {
+                                            <div class="input-group input-group-sm mt-2">
+                                                <input class="form-control" maxlength="300" placeholder="Motivo de cancelación (obligatorio, SAT)…" @bind="motivoCancelacion" />
+                                                <button class="btn btn-danger" @onclick="() => ConfirmarCancelacion(sel.FacturaId)">Confirmar</button>
+                                                <button class="btn btn-outline-secondary" @onclick="() => cancelando = false">Cancelar</button>
+                                            </div>
+                                            <small class="text-muted">En modo SIMULADO se marca localmente como Cancelada con el motivo registrado.</small>
+                                        }
+                                    </div>
+                                </div>
+                            }
+                        </td></tr>
+                    }
+                }
+                @if (lista.Count == 0 && !cargando)
+                {
+                    <tr><td colspan="7" class="text-center text-muted py-4">Sin facturas para el filtro actual.</td></tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </div></div>
+
+    <small class="text-muted d-block mt-2">
+        Timbrar sella (RSA-SHA256) y envía al PAC — en modo SIMULADO el UUID es local y auditable
+        (revisar <code>XmlSellado</code> / <code>SelloDigital</code> de la factura). Para timbrado real:
+        configura <code>Cfdi:</code> en appsettings y la carpeta <code>certs/</code> (nunca al repo).
+    </small>
+</div>

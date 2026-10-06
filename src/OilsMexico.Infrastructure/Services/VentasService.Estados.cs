@@ -11,6 +11,8 @@ public sealed partial class VentasService
     {
         var f = await db.Facturas.FindAsync([facturaId], ct)
             ?? throw new InvalidOperationException("Factura no existe.");
+        if (f.SucursalId != ctx.SucursalId && ctx.Rol != "Admin")
+            throw new UnauthorizedAccessException("No puedes surtir ventas de otra sucursal.");
         f.Estado = EstadoFactura.Surtida;
         await db.SaveChangesAsync(ct);
         return new VentaPosResult(f.Id, f.FolioInterno, f.UuidSat,

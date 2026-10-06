@@ -63,7 +63,7 @@
 @foreach(var s in sucs){<option value="@s.Id">@s.Nombre</option>}
 </select>}
 <label class="form-label small">Motivo</label>
-<input class="form-control mb-2" value="@motivo" @oninput="e=>motivo=e.Value!.ToString()" />
+<input class="form-control mb-2" value="@motivo" @oninput="e=>motivo=e.Value?.ToString()??string.Empty" />
 <button class="btn btn-success w-100" @onclick="Aplicar" disabled="@aplicando">Aplicar movimiento</button>
 <small class="text-muted">Todo movimiento queda en kardex con usuario y fecha (auditoria estilo SAP).</small>
 </div></div></div>
@@ -74,10 +74,12 @@ string tipo="COMPRA"; int prodId=0, destId=0; decimal litros=0; string motivo=""
 List<OilsMexico.Infrastructure.Services.AlmacenStockDto> stock=[];
 List<OilsMexico.Application.DTOs.KardexDto> kardex=[];
 List<(int Id,string Nombre)> sucs=[];
+[Parameter, SupplyParameterFromQuery(Name="producto")] public int? ProductoQ{get;set;}
 protected override async Task OnInitializedAsync(){
 sucs=await Db.Sucursales.Select(s=>new ValueTuple<int,string>(s.Id,s.Nombre)).ToListAsync();
 if(sucs.Count>0) destId=sucs[0].Id;
 await Cargar();
+if(ProductoQ is int pq) await VerKardex(pq); // deep-link /almacen?producto={id}
 }
 protected override async Task OnAfterRenderAsync(bool first){
 if(!first) return;
@@ -85,7 +87,9 @@ if(!Sesion.Autenticado){
 var ok=await Sesion.RestaurarAsync();
 if(!ok){ Nav.NavigateTo("/login"); return; }
 if(sucs.Count>0) destId=sucs.First(s=>s.Id!=SucCtx.SucursalId).Id;
-await Cargar(); StateHasChanged();
+await Cargar();
+if(ProductoQ is int pq) await VerKardex(pq);
+StateHasChanged();
 }
 }
 async Task Cargar(){

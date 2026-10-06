@@ -39,6 +39,30 @@ public static class SchemaPatch
                 ON codigos_postales (codigo_postal, asentamiento_id);
             """);
 
+        // Datos de la sucursal: datos fiscales del emisor CFDI 4.0 + dirección desglosada.
+        // Columnas anulables para no romper filas existentes (el modelo las declara string?).
+        await db.Database.ExecuteSqlRawAsync("""
+            ALTER TABLE sucursales ADD COLUMN IF NOT EXISTS razon_social varchar(150);
+            ALTER TABLE sucursales ADD COLUMN IF NOT EXISTS regimen_fiscal varchar(10);
+            ALTER TABLE sucursales ADD COLUMN IF NOT EXISTS codigo_postal varchar(10);
+            ALTER TABLE sucursales ADD COLUMN IF NOT EXISTS calle varchar(150);
+            ALTER TABLE sucursales ADD COLUMN IF NOT EXISTS numero_exterior varchar(20);
+            ALTER TABLE sucursales ADD COLUMN IF NOT EXISTS numero_interior varchar(20);
+            ALTER TABLE sucursales ADD COLUMN IF NOT EXISTS colonia varchar(200);
+            ALTER TABLE sucursales ADD COLUMN IF NOT EXISTS municipio varchar(150);
+            ALTER TABLE sucursales ADD COLUMN IF NOT EXISTS estado varchar(100);
+            ALTER TABLE sucursales ADD COLUMN IF NOT EXISTS ciudad varchar(150);
+            ALTER TABLE sucursales ADD COLUMN IF NOT EXISTS pais varchar(60);
+            ALTER TABLE sucursales ADD COLUMN IF NOT EXISTS telefono varchar(20);
+            ALTER TABLE sucursales ADD COLUMN IF NOT EXISTS email varchar(100);
+            CREATE INDEX IF NOT EXISTS ix_sucursales_cp ON sucursales (codigo_postal);
+            """);
+
+        // Facturación CFDI: motivo de cancelación (obligatorio ante el SAT).
+        await db.Database.ExecuteSqlRawAsync("""
+            ALTER TABLE facturas ADD COLUMN IF NOT EXISTS motivo_cancelacion varchar(300);
+            """);
+
         // Proveedores con dirección desglosada.
         await db.Database.ExecuteSqlRawAsync("""
             CREATE TABLE IF NOT EXISTS proveedores (
