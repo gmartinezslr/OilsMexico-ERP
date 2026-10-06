@@ -15,7 +15,7 @@ src/
   OilsMexico.Domain/          # Entidades: Producto, UnidadMedida, Sucursal, Lotes, Inventario, Factura, Cliente, Usuario, Kardex
   OilsMexico.Application/     # DTOs, interfaces, sesión, catálogos SAT
   OilsMexico.Infrastructure/  # ErpDbContext, servicios (ventas/inventario/CFDI/PAC), seed
-  OilsMexico.Web/             # Blazor: Login PIN, POS, Almacén, Ticket 58mm, Hub SignalR
+  OilsMexico.Web/             # Blazor: Login PIN, POS, Historial, Facturación CFDI, Almacén, Viscosidad, Sucursal, Ticket 58mm, Hub SignalR
 ```
 
 ## Reglas de negocio (inmutables)
@@ -59,9 +59,11 @@ dotnet run --project src/OilsMexico.Web --urls "http://localhost:5200"
 # Esperado en consola: "Now listening on: http://localhost:5200"
 
 # 5. Abrir
-# http://localhost:5200/  (hub) -> /login -> /ventas-pos -> /almacen
+# http://localhost:5200/  (hub) -> /login -> /ventas-pos -> /historial-ventas -> /facturacion
 ```
-Abre `http://localhost:5200/` → Login → POS `/ventas-pos` → Almacén `/almacen` → Ticket `/ticket/{id}`.
+Abre `http://localhost:5200/` → Login → POS `/ventas-pos` → Historial `/historial-ventas` → Facturación `/facturacion` → Almacén `/almacen` → Ticket `/ticket/{id}`.
+
+**Todas las rutas:** `/ventas-pos`, `/historial-ventas`, `/facturacion`, `/almacen`, `/viscosidad`, `/clientes`, `/proveedores`, `/sucursal`, `/sepomex`, `/ticket/{id}`.
 
 ## Accesos demo (PIN)
 | PIN | Rol | Destino |
@@ -81,6 +83,13 @@ $env:PGPASSWORD='TU_PASSWORD'
 # Endpoints (esperado: 200)
 curl.exe -s -o NUL -w 'login:%{http_code} ' http://localhost:5200/login
 curl.exe -s -o NUL -w 'pos:%{http_code}' http://localhost:5200/ventas-pos
+curl.exe -s -o NUL -w 'historial:%{http_code}' http://localhost:5200/historial-ventas
+curl.exe -s -o NUL -w 'facturacion:%{http_code}' http://localhost:5200/facturacion
+curl.exe -s -o NUL -w 'viscosidad:%{http_code}' http://localhost:5200/viscosidad
+curl.exe -s -o NUL -w 'sucursal:%{http_code}' http://localhost:5200/sucursal
+curl.exe -s -o NUL -w 'almacen:%{http_code}' http://localhost:5200/almacen
+# XML de una factura (404 = endpoint activo, factura inexistente)
+curl.exe -s -o NUL -w 'xml:%{http_code}' http://localhost:5200/api/facturas/1/xml
 ```
 
 ## Solución de problemas
@@ -96,13 +105,19 @@ curl.exe -s -o NUL -w 'pos:%{http_code}' http://localhost:5200/ventas-pos
 ## Cómo está cableado (para el dev)
 - `Program.cs` → `UseNpgsql(GetConnectionString("ErpDb"))` → `SeedData.InicializarAsync` (`EnsureCreated` + `SchemaPatch` idempotente + seed si `Sucursales` vacía).
 - Tablas exactas del modelo: `productos, unidades_medida, sucursales, inventario_lotes, inventario_sucursal, facturas, factura_detalle, clientes, usuarios, movimientos_inventario, codigos_postales, proveedores`.
-- Seed: 2 sucursales (CDMX01/MTY01), 4 lubricantes, unidades Litro×1/Garrafa×19/Tambor×208, 2 clientes, 4 usuarios PIN (SHA-256), stock 100L por producto/sucursal.
+- Seed: 2 sucursales (CDMX01/MTY01) con datos fiscales del emisor (razón social, régimen 601, CP y domicilio SEPOMEX), 4 lubricantes, unidades Litro×1/Garrafa×19/Tambor×208, 2 clientes, 4 usuarios PIN (SHA-256), stock 100L por producto/sucursal.
 - CFDI sin CSD reales → modo `SIMULADO` (sello DEV auditable). Para timbrado real: carpeta `certs/` local (nunca al repo) + `Cfdi:PacModo` y credenciales PAC.
+- Columnas nuevas aplicadas por `SchemaPatch` (sin migraciones EF): dirección de clientes/proveedores, datos del emisor en `sucursales` (razón social, régimen, CP, domicilio, contacto) y `facturas.motivo_cancelacion`.
+- API mínima: `GET /api/facturas/{id}/xml` descarga el CFDI (`application/xml`; 404 si no existe).
 
 ## Módulos
 - **Login PIN** con sesión persistente (ProtectedSessionStorage).
 - **POS:** búsqueda SKU/marca/viscosidad, carrito, IVA 16%, FormaPago/Método/UsoCfdi SAT, toggle CFDI, SignalR por sucursal.
 - **Almacén:** entradas/compras, ajustes, traspasos, kardex auditado.
+- **Datos de la sucursal (`/sucursal`):** nombre, código, RFC/razón social/régimen/CP del emisor CFDI, domicilio con combo SEPOMEX y contacto; edición **solo rol Admin** (demás roles vista de solo lectura).
+- **Historial de ventas (`/historial-ventas`):** filtros por fecha/estado/folio-cliente, resumen (ventas, subtotal, IVA, total), paginación, detalle expandible con renglones + sello/cadena original, y acciones **Surtir** / **Devolver** con motivo (repone stock y deja rastro en kardex).
+- **Aceites por viscosidad (`/viscosidad`):** tarjetas por viscosidad (litros, valor del stock y alerta de bajo mínimo), tabla con stock/mínimo/precio, búsqueda por SKU/nombre/marca en cliente y botón **Kardex** que abre `/almacen?producto={id}`.
+- **Facturación CFDI (`/facturacion`):** listado de folios con estado fiscal y UUID, **timbrado diferido** (sellado RSA-SHA256 + PAC fuera del POS para ventas quedadas en Pendiente), **cancelación** con motivo obligatorio (solo Admin/Conta; modo SIMULADO por ahora) y **descarga de XML** (`/api/facturas/{id}/xml`).
 - **Clientes / Proveedores:** CRUD con dirección desglosada autocompletada por CP.
 - **SEPOMEX (`/sepomex`):** importación del catálogo nacional de Correos de México — **Excel oficial `.xls` (una hoja por estado, detectado por firma OLE2/ZIP)** o TXT/CSV (15 columnas, `|`/`,`/`;`/TAB, latin1/UTF-8, dedup por `codigo|asentamiento_id|nombre`); el componente `DireccionSepomex` consulta el catálogo por CP para llenar el **combo obligatorio de colonias** (sin captura libre; si el CP tiene una sola colonia, ésta se preselecciona) y autocompletar municipio/ciudad/estado —que se muestran como etiquetas de solo lectura— en clientes y proveedores.
 - **Ticket 58mm** imprimible (`window.print`).
