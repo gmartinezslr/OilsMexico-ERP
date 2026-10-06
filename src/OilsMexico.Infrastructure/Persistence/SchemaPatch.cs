@@ -147,5 +147,10 @@ public static class SchemaPatch
             ALTER TABLE clientes ADD COLUMN IF NOT EXISTS activo boolean DEFAULT true;
             CREATE INDEX IF NOT EXISTS ix_clientes_cp ON clientes (codigo_postal);
             """);
+
+        // Fiscal y caja: NC electrónica (Tipo E), cobros PPD + REP (Tipo P), cortes por turno.
+        await FiscalCajaPatch.AplicarAsync(db);
+        await RepPatch.AplicarAsync(db);
+        await CajaPatch.AplicarAsync(db);
     }
 }

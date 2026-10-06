@@ -116,6 +116,14 @@
                                             {
                                                 <button class="btn btn-sm btn-outline-danger" @onclick="EmpezarDevolucion">Devolver</button>
                                             }
+                                            @if (detalle.Estado is "Timbrada" or "Surtida" or "Entregada")
+                                            {
+                                                <a class="btn btn-sm btn-danger" href="/notas-credito?origen=@detalle.FacturaId">🧾 NC electrónica</a>
+                                            }
+                                            @if (detalle.MetodoPagoSat == "PPD")
+                                            {
+                                                <a class="btn btn-sm btn-success" href="/complementos-pago">💳 Cobrar / REP</a>
+                                            }
                                         </div>
                                         @if (devolviendo)
                                         {

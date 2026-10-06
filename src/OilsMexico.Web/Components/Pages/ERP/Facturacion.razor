@@ -125,6 +125,10 @@
                                             {
                                                 <button class="btn btn-sm btn-primary" disabled="@cargando" @onclick="() => Timbrar(sel.FacturaId)">⏱ Timbrar</button>
                                             }
+                                            @if (sel.Estado is "Timbrada" or "Surtida" or "Entregada")
+                                            {
+                                                <a class="btn btn-sm btn-outline-danger" href="/notas-credito?origen=@sel.FacturaId">🧾 NC electrónica</a>
+                                            }
                                             @if (sel.Estado is "Timbrada" or "Entregada")
                                             {
                                                 @if (puedeCancelar && !cancelando)

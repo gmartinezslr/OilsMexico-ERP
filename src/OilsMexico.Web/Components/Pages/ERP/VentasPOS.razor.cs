@@ -17,6 +17,8 @@ public partial class VentasPOS : ComponentBase
     [Inject] public IHubContext<ErpHub> Hub { get; set; } = default!;
     [Inject] public ISesionActual Sesion { get; set; } = default!;
     [Inject] public NavigationManager Nav { get; set; } = default!;
+    [Inject] public ICorteCajaService Caja { get; set; } = default!;
+    protected CorteAbiertoDto? corteAbierto;
 
     protected string filtro = "";
     protected List<ProductoDto> productos = [];
@@ -42,6 +44,7 @@ public partial class VentasPOS : ComponentBase
         clientes = await Db.Clientes.Select(c => new ValueTuple<int, string>(c.Id, c.Nombre)).ToListAsync();
         if (clientes.Count > 0) clienteId = clientes[0].Id;
         await Buscar();
+        try { corteAbierto = await Caja.AbiertoAsync(SucursalCtx.SucursalId); } catch { }
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)

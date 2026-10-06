@@ -3,7 +3,16 @@
 <PageTitle>Punto de Venta | OilsMexico ERP</PageTitle>
 <div class="container-fluid py-3">
 <div class="row mb-3 align-items-end">
-<div class="col"><h3 class="fw-bold">Punto de Venta <span class="badge bg-primary">Suc @SucursalCtx.SucursalId</span></h3></div>
+<div class="col"><h3 class="fw-bold">Punto de Venta <span class="badge bg-primary">Suc @SucursalCtx.SucursalId</span>
+@if (corteAbierto is null)
+{
+    <a href="/corte-caja" class="badge bg-warning text-dark text-decoration-none" title="Abrir turno">⚠ caja cerrada — abrir turno</a>
+}
+else
+{
+    <a href="/corte-caja" class="badge bg-success text-decoration-none" title="Ver corte">🟢 turno #@corteAbierto.CorteId</a>
+}
+</h3></div>
 <div class="col-auto"><label class="form-label mb-0 small">Sucursal en sesion</label>
 <select class="form-select" value="@SucursalCtx.SucursalId" @onchange="CambiarSucursal">
 @foreach(var s in sucursales){<option value="@s.Id">@s.Nombre</option>}

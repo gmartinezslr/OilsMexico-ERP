@@ -1,7 +1,6 @@
 # OilsMexico ERP — Aceites y Lubricantes Automotrices (México)
 
-ERP interno multi-sucursal con facturación electrónica **CFDI 4.0 nativa** (sin terceros, excepto timbrado PAC),
-control de inventarios por lotes y POS en tiempo real.
+Añade **Corte de caja** (apertura, fotografía del sistema, cuadrícula de contado y cierre), **NC electrónica** y **REP/cobro parcial** en el menú de Facturación/Historial.
 
 ## Stack
 - **.NET 10** (C#) — Arquitectura en capas: `Domain` / `Application` / `Infrastructure` / `Web`
@@ -59,7 +58,7 @@ dotnet run --project src/OilsMexico.Web --urls "http://localhost:5200"
 # Esperado en consola: "Now listening on: http://localhost:5200"
 
 # 5. Abrir
-# http://localhost:5200/  (hub) -> /login -> /ventas-pos -> /historial-ventas -> /facturacion
+http://localhost:5200/  (hub) -> /login -> /ventas-pos -> /historial-ventas -> /facturacion -> /corte-caja -> /notas-credito -> /complementos-pago
 ```
 Abre `http://localhost:5200/` → Login → POS `/ventas-pos` → Historial `/historial-ventas` → Facturación `/facturacion` → Almacén `/almacen` → Ticket `/ticket/{id}`.
 

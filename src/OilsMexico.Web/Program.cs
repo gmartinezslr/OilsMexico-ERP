@@ -26,6 +26,9 @@ builder.Services.AddScoped<ITicketService, TicketService>();
 builder.Services.AddScoped<ICfdiSelladoService, CfdiSelladoService>();
 builder.Services.AddScoped<IPacTimbradoService, PacTimbradoService>();
 builder.Services.AddScoped<IFacturacionService, FacturacionService>();
+builder.Services.AddScoped<INotaCreditoService, NotaCreditoService>();
+builder.Services.AddScoped<IComplementoPagoService, ComplementoPagoService>();
+builder.Services.AddScoped<ICorteCajaService, CorteCajaService>();
 builder.Services.AddScoped<IComprasService, ComprasService>();
 builder.Services.AddScoped<ISepomexService, SepomexService>();
 builder.Services.AddHttpClient();
@@ -58,6 +61,20 @@ app.MapGet("/api/facturas/{id:int}/xml", async (int id, ErpDbContext db) =>
     if (f is null || string.IsNullOrEmpty(f.XmlSellado)) return Results.NotFound();
     return Results.File(System.Text.Encoding.UTF8.GetBytes(f.XmlSellado),
         "application/xml", $"{f.FolioInterno}.xml");
+});
+app.MapGet("/api/notas-credito/{id:int}/xml", async (int id, ErpDbContext db) =>
+{
+    var n = await db.NotasCredito.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id);
+    if (n is null || string.IsNullOrEmpty(n.XmlSellado)) return Results.NotFound();
+    return Results.File(System.Text.Encoding.UTF8.GetBytes(n.XmlSellado),
+        "application/xml", $"{n.FolioInterno}.xml");
+});
+app.MapGet("/api/reps/{id:int}/xml", async (int id, ErpDbContext db) =>
+{
+    var r = await db.ComplementosPago.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id);
+    if (r is null || string.IsNullOrEmpty(r.XmlSellado)) return Results.NotFound();
+    return Results.File(System.Text.Encoding.UTF8.GetBytes(r.XmlSellado),
+        "application/xml", $"{r.FolioInterno}.xml");
 });
 
 app.MapRazorComponents<App>()

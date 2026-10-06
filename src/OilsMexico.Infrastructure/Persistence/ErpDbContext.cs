@@ -20,6 +20,12 @@ public sealed class ErpDbContext(DbContextOptions<ErpDbContext> options) : DbCon
     public DbSet<CompraDetalle> CompraDetalles => Set<CompraDetalle>();
     public DbSet<CompraPago> CompraPagos => Set<CompraPago>();
     public DbSet<MovimientoInventario> Movimientos => Set<MovimientoInventario>();
+    public DbSet<NotaCredito> NotasCredito => Set<NotaCredito>();
+    public DbSet<NotaCreditoDetalle> NotaCreditoDetalles => Set<NotaCreditoDetalle>();
+    public DbSet<VentaCobro> VentaCobros => Set<VentaCobro>();
+    public DbSet<ComplementoPago> ComplementosPago => Set<ComplementoPago>();
+    public DbSet<ComplementoPagoDetalle> ComplementoPagoDetalles => Set<ComplementoPagoDetalle>();
+    public DbSet<CorteCaja> CortesCaja => Set<CorteCaja>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {

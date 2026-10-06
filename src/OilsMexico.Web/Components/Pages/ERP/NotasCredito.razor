@@ -1,0 +1,130 @@
+@page "/notas-credito"
+@rendermode InteractiveServer
+@inject OilsMexico.Application.Interfaces.INotaCreditoService Nc
+@inject OilsMexico.Application.Interfaces.ISucursalContext SucCtx
+@inject OilsMexico.Application.Interfaces.ISesionActual Sesion
+@inject NavigationManager Nav
+@using OilsMexico.Application.DTOs
+<PageTitle>Notas de Crédito CFDI | OilsMexico ERP</PageTitle>
+<div class="container-fluid py-3">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h3 class="fw-bold mb-0">Notas de Crédito CFDI <span class="badge bg-secondary">Suc @SucCtx.SucursalId</span></h3>
+        <span class="text-muted small">@(Sesion.Sesion?.Nombre ?? "") (@(Sesion.Sesion?.Rol ?? ""))</span>
+    </div>
+    @if (!Sesion.Autenticado)
+    {
+        <div class="alert alert-warning">Inicia sesion primero. <a href="/login">Ir al login</a></div>
+    }
+    @if (!string.IsNullOrEmpty(msg))
+    {
+        <div class="alert @(err ? "alert-danger" : "alert-success")">@msg</div>
+    }
+    @if (preview is not null)
+    {
+        <div class="card shadow-sm border-warning mb-3">
+            <div class="card-header bg-warning text-dark fw-bold">
+                Nueva NC electrónica — origen @preview.FolioOrigen (@preview.EstadoOrigen)
+            </div>
+            <div class="card-body">
+                <div class="row g-2 mb-2">
+                    <div class="col-md-4"><small class="text-muted">Cliente</small><div><strong>@preview.Cliente</strong></div></div>
+                    <div class="col-md-4"><small class="text-muted">UUID origen (relación 01)</small>
+                        <div><code class="small">@(preview.UuidOrigen?.ToString() ?? "— sin timbrar —")</code></div></div>
+                    <div class="col-md-4"><small class="text-muted">NC a emitir (Tipo E, Uso G02)</small>
+                        <div><strong class="text-danger">$@preview.Total.ToString("N2")</strong></div></div>
+                </div>
+                @if (preview.TieneNcPrevia)
+                {
+                    <div class="alert alert-danger py-2">Esta factura ya tiene una NC activa.</div>
+                }
+                <div class="row g-2 align-items-end">
+                    <div class="col-md-3"><label class="form-label small mb-1">Motivo NC</label>
+                        <select class="form-select form-select-sm" @bind="motivo">
+                            <option value="Devolucion">Devolución de mercancía</option>
+                            <option value="Descuento">Descuento / bonificación</option>
+                            <option value="Bonificacion">Bonificación</option>
+                        </select></div>
+                    <div class="col-md-6"><label class="form-label small mb-1">Observaciones</label>
+                        <input class="form-control form-control-sm" maxlength="300" @bind="observaciones" /></div>
+                    <div class="col-md-3 d-flex gap-2">
+                        <button class="btn btn-danger btn-sm flex-fill" disabled="@cargando"
+                                @onclick="CrearTimbrar">🧾 Emitir y timbrar</button>
+                        <button class="btn btn-outline-secondary btn-sm" @onclick="CerrarPreview">Cerrar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+
+    <div class="card shadow-sm mb-3"><div class="card-body py-2">
+        <div class="row g-2 align-items-end">
+            <div class="col-md-3"><label class="form-label small mb-1">Estado</label>
+                <select class="form-select form-select-sm" @bind="estado">
+                    <option value="">Todas</option>
+                    <option value="Timbrada">Timbrada</option>
+                    <option value="Cancelada">Cancelada</option>
+                </select></div>
+            <div class="col-md-5"><label class="form-label small mb-1">Folio o cliente</label>
+                <input class="form-control form-control-sm" placeholder="Ej: NC-1-2026…"
+                       value="@texto" @oninput="AlEscribir" /></div>
+            <div class="col-md-2">
+                <button class="btn btn-primary btn-sm w-100" @onclick="Buscar" disabled="@cargando">Buscar</button>
+            </div>
+            <div class="col-md-2 text-md-end"><small class="text-muted">Tipo E · Uso G02 · Rel. 01</small></div>
+        </div>
+    </div></div>
+
+    <div class="card shadow-sm"><div class="card-body p-0">
+        <div class="table-responsive" style="max-height:55vh;overflow-y:auto">
+            <table class="table table-sm table-striped table-hover align-middle mb-0">
+                <thead class="table-dark position-sticky top-0">
+                    <tr><th>Fecha</th><th>Folio NC</th><th>Cliente</th><th>Origen</th>
+                        <th>Motivo</th><th>Estado</th><th class="text-end">Total</th><th></th></tr>
+                </thead>
+                <tbody>
+                @foreach (var n in lista)
+                {
+                    <tr>
+                        <td class="small">@n.FechaEmision.ToLocalTime().ToString("dd/MM HH:mm")</td>
+                        <td><strong>@n.FolioInterno</strong></td>
+                        <td class="small">@n.Cliente</td>
+                        <td class="small">@n.FolioOrigen</td>
+                        <td class="small">@n.Motivo</td>
+                        <td><span class="badge @(n.Estado == "Timbrada" ? "bg-success" : "bg-danger")">@n.Estado</span></td>
+                        <td class="text-end">$@n.Total.ToString("N2")</td>
+                        <td class="text-nowrap">
+                            @if (n.TieneXml)
+                            {
+                                <a class="btn btn-sm btn-success" href="/api/notas-credito/@n.NotaId/xml">⬇ XML</a>
+                            }
+                            @if (n.Estado == "Timbrada" && puedeCancelar)
+                            {
+                                <button class="btn btn-sm btn-outline-danger" disabled="@cargando"
+                                        @onclick="() => EmpezarCancelar(n.NotaId)">✖</button>
+                            }
+                        </td>
+                    </tr>
+                    @if (cancelandoId == n.NotaId)
+                    {
+                        <tr><td colspan="8">
+                            <div class="input-group input-group-sm">
+                                <input class="form-control" maxlength="300"
+                                       placeholder="Motivo de cancelación (obligatorio, SAT)…" @bind="motivoCancelacion" />
+                                <button class="btn btn-danger" @onclick="() => ConfirmarCancelar(n.NotaId)">Confirmar</button>
+                                <button class="btn btn-outline-secondary" @onclick="() => cancelandoId = null">Cancelar</button>
+                            </div>
+                        </td></tr>
+                    }
+                }
+                @if (lista.Count == 0 && !cargando)
+                {
+                    <tr><td colspan="8" class="text-center text-muted py-4">
+                        Sin notas de crédito. Abre una factura timbrada en
+                        <a href="/facturacion">Facturación</a> y pulsa <strong>NC electrónica</strong>.
+                    </td></tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </div></div>
+</div>
