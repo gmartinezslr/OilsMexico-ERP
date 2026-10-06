@@ -1,0 +1,51 @@
+@rendermode InteractiveServer
+@inject OilsMexico.Application.Interfaces.ISesionActual Sesion
+@inject NavigationManager Nav
+
+<div class="user-info @(!Sesion.Autenticado ? "is-guest" : "")">
+    @if (!cargando && Sesion.Autenticado && Sesion.Sesion is { } s)
+    {
+        <span class="user-avatar" aria-hidden="true">@s.Iniciales</span>
+        <span class="user-meta">
+            <span class="user-name">@s.Nombre</span>
+            <span class="user-area">@s.Area · @s.SucursalNombre</span>
+        </span>
+        <button type="button" class="user-logout" title="Cerrar sesión" @onclick="CerrarSesionAsync">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><path d="m16 17 5-5-5-5" /><path d="M21 12H9" />
+            </svg>
+        </button>
+    }
+    else if (!cargando)
+    {
+        <a class="user-login" href="/login">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" /><path d="m10 17 5-5-5-5" /><path d="M15 12H3" />
+            </svg>
+            <span class="user-meta"><span class="user-name">Iniciar sesión</span><span class="user-area">Acceso por PIN</span></span>
+        </a>
+    }
+    else
+    {
+        <span class="user-avatar is-loading" aria-hidden="true"></span>
+    }
+</div>
+
+@code {
+    private bool cargando = true;
+
+    protected override async Task OnAfterRenderAsync(bool first)
+    {
+        if (!first) return;
+        if (!Sesion.Autenticado)
+            await Sesion.RestaurarAsync();
+        cargando = false;
+        StateHasChanged();
+    }
+
+    private async Task CerrarSesionAsync()
+    {
+        await Sesion.CerrarAsync();
+        Nav.NavigateTo("/login");
+    }
+}

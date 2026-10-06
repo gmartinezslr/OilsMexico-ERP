@@ -1,17 +1,413 @@
 @page "/"
+@rendermode InteractiveServer
+@inject OilsMexico.Infrastructure.Persistence.ErpDbContext Db
+@inject OilsMexico.Application.Interfaces.ISesionActual Sesion
+@inject NavigationManager Nav
+@using Microsoft.EntityFrameworkCore
+@using OilsMexico.Application.DTOs
+@using OilsMexico.Domain.Enums
 
-<PageTitle>OilsMexico ERP</PageTitle>
+<PageTitle>Inicio | OilsMexico ERP</PageTitle>
 
-<h1>OilsMexico ERP</h1>
-<p>Comercializadora de aceites y lubricantes · Multi-sucursal · CFDI 4.0</p>
-<div class="row g-3">
-<div class="col-md-4"><div class="card shadow-sm"><div class="card-body">
-<h5>Acceso por PIN</h5><p class="text-muted small">1234 Admin · 1111 Vendedor · 2222 Almacén · 3333 Conta</p>
-<a class="btn btn-dark" href="/login">Entrar</a></div></div></div>
-<div class="col-md-4"><div class="card shadow-sm"><div class="card-body">
-<h5>Punto de Venta</h5><p class="text-muted small">Carrito, IVA 16%, SAT, CFDI y ticket 58mm.</p>
-<a class="btn btn-primary" href="/ventas-pos">Abrir POS</a></div></div></div>
-<div class="col-md-4"><div class="card shadow-sm"><div class="card-body">
-<h5>Almacén</h5><p class="text-muted small">Entradas, ajustes, traspasos y kardex.</p>
-<a class="btn btn-success" href="/almacen">Abrir almacén</a></div></div></div>
-</div>
+@if (cargando)
+{
+    <div class="dash-loading">
+        <div class="spinner-border text-primary" role="status"></div>
+        <span>Cargando panel…</span>
+    </div>
+}
+else if (sesion is null)
+{
+    <section class="hero">
+        <div class="hero-copy">
+            <span class="hero-kicker">ERP multi-sucursal · CFDI 4.0</span>
+            <h1>OilsMexico ERP</h1>
+            <p>Punto de venta, inventario por lotes y facturación electrónica para aceites y lubricantes automotrices.</p>
+            <div class="hero-cta">
+                <a class="btn btn-accent btn-lg" href="/login">Entrar con PIN</a>
+                <a class="btn btn-outline-primary btn-lg" href="/ventas-pos">Abrir POS</a>
+            </div>
+        </div>
+        <div class="hero-panel">
+            <span class="hero-panel-title">PINs de demostración</span>
+            <div class="hero-pins">
+                <div class="hero-pin"><strong>1234</strong><span>Administración</span></div>
+                <div class="hero-pin"><strong>1111</strong><span>Ventas</span></div>
+                <div class="hero-pin"><strong>2222</strong><span>Almacén</span></div>
+                <div class="hero-pin"><strong>3333</strong><span>Contabilidad</span></div>
+            </div>
+        </div>
+    </section>
+}
+else
+{
+    <div class="dash">
+        <header class="dash-head">
+            <div>
+                <h2 class="page-title">Hola, @sesion.Nombre 👋</h2>
+                <p class="dash-sub">Área <strong>@sesion.Area</strong> · @sesion.SucursalNombre · @hoy</p>
+            </div>
+            <div class="dash-actions">
+                @if (sesion.Rol is "Vendedor" or "Admin")
+                {
+                    <a class="btn btn-accent" href="/clientes">+ Nuevo cliente</a>
+                    <a class="btn btn-primary" href="/ventas-pos">Abrir POS</a>
+                }
+                @if (sesion.Rol is "Almacen" or "Admin")
+                {
+                    <a class="btn btn-outline-primary" href="/almacen">Almacén</a>
+                }
+                @if (sesion.Rol == "Conta")
+                {
+                    <a class="btn btn-outline-primary" href="/sepomex">SEPOMEX</a>
+                }
+            </div>
+        </header>
+
+        <div class="kpi-grid">
+            @foreach (var k in kpis)
+            {
+                <div class="kpi kpi-@k.Tono">
+                    <div class="kpi-ico">@((MarkupString)IconoSvg(k.Ico))</div>
+                    <div class="kpi-txt">
+                        <span class="kpi-label">@k.Label</span>
+                        <span class="kpi-value">@k.Valor</span>
+                        <span class="kpi-sub">@k.Sub</span>
+                    </div>
+                </div>
+            }
+        </div>
+        <div class="dash-cols">
+            <div class="dash-main">
+                @if (mostrarStockCard)
+                {
+                    <div class="card">
+                        <div class="card-header">Stock bajo mínimo <span class="badge bg-danger">@stockBajo</span></div>
+                        <div class="card-body table-responsive">
+                            <table class="table table-sm">
+                                <thead><tr><th>Producto</th><th class="text-end">Stock</th><th class="text-end">Mínimo</th></tr></thead>
+                                <tbody>
+                                    @foreach (var s in stockLista)
+                                    {
+                                        <tr><td>@s.Nombre</td><td class="text-end">@s.Stock.ToString("N2") L</td><td class="text-end text-muted">@s.Min.ToString("N0") L</td></tr>
+                                    }
+                                    @if (stockLista.Count == 0)
+                                    {
+                                        <tr><td colspan="3" class="text-muted">Sin productos bajo mínimo ✅</td></tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                }
+
+                @if (mostrarGrafica)
+                {
+                    <div class="card">
+                        <div class="card-header">Ventas · últimos 14 días</div>
+                        <div class="card-body">
+                            @if (conDatos)
+                            {
+                                <div class="chart">
+                                    @foreach (var item in serie14)
+                                    {
+                                        var pct = maxSerie <= 0 ? 0d : (double)(item.Total / maxSerie) * 100d;
+                                        if (item.Total > 0 && pct < 3) pct = 3;
+                                        var tip = $"{item.Fecha:dd/MM} — ${item.Total:N2}";
+                                        <div class="chart-col" title="@tip">
+                                            <div class="chart-bar @(item.Fecha == hoyUtc ? "is-today" : "")" style="height:@(pct.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture))%"></div>
+                                            <span class="chart-lbl">@item.Fecha.ToString("dd")</span>
+                                        </div>
+                                    }
+                                </div>
+                            }
+                            else
+                            {
+                                <p class="text-muted mb-0">Sin ventas registradas en los últimos 14 días.</p>
+                            }
+                        </div>
+                    </div>
+                }
+
+                @if (mostrarEstimacion)
+                {
+                    <div class="card est-card">
+                        <div class="card-header">
+                            Ventas vs. estimación
+                            <span class="badge bg-secondary float-end">Módulo futuro</span>
+                        </div>
+                        <div class="card-body">
+                            <div class="est-row"><span>Ventas reales del mes</span><strong class="est-real">$@ventasMes.ToString("N2")</strong></div>
+                            <div class="est-row"><span>Estimación / meta del mes</span><strong class="text-muted">Por definir</strong></div>
+                            <div class="est-bar"><div class="est-bar-fill" style="width:0%"></div></div>
+                            <small class="text-muted">Próximamente podrás capturar metas por sucursal y vendedor y compararlas aquí.</small>
+                        </div>
+                    </div>
+                }
+            </div>
+
+            <aside class="dash-side">
+                <div class="card">
+                    <div class="card-header">Accesos rápidos</div>
+                    <div class="card-body">
+                        <div class="quick-grid">
+                            @if (sesion.Rol is "Vendedor" or "Admin")
+                            {
+                                <a class="quick-link" href="/ventas-pos">
+                                    <span class="quick-ico" style="--q-bg:#EFF6FF;--q-fg:#2563EB">🛒</span>
+                                    <span><strong>Punto de venta</strong><small>Cobrar y facturar</small></span>
+                                </a>
+                                <a class="quick-link" href="/clientes">
+                                    <span class="quick-ico" style="--q-bg:#FFF3E8;--q-fg:#FF7A1A">👥</span>
+                                    <span><strong>Clientes</strong><small>Altas y ediciones</small></span>
+                                </a>
+                            }
+                            @if (sesion.Rol is "Almacen" or "Admin")
+                            {
+                                <a class="quick-link" href="/almacen">
+                                    <span class="quick-ico" style="--q-bg:#ECFDF5;--q-fg:#059669">📦</span>
+                                    <span><strong>Almacén</strong><small>Movimientos y kardex</small></span>
+                                </a>
+                            }
+                            @if (sesion.Rol == "Conta")
+                            {
+                                <a class="quick-link" href="/sepomex">
+                                    <span class="quick-ico" style="--q-bg:#EFF6FF;--q-fg:#2563EB">📮</span>
+                                    <span><strong>SEPOMEX</strong><small>Códigos postales</small></span>
+                                </a>
+                            }
+                            <a class="quick-link" href="/proveedores">
+                                <span class="quick-ico" style="--q-bg:#F1F5F9;--q-fg:#475569">🚚</span>
+                                <span><strong>Proveedores</strong><small>Compras y contactos</small></span>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">@tituloActividad</div>
+                    <div class="card-body">
+                        @if (actividad.Count == 0)
+                        {
+                            <p class="text-muted mb-0">Sin actividad reciente.</p>
+                        }
+                        else
+                        {
+                            <ul class="act-list">
+                                @foreach (var a in actividad)
+                                {
+                                    <li>
+                                        <span class="act-dot" style="--dot:@a.Color"></span>
+                                        <span class="act-txt">
+                                            <strong>@a.Titulo</strong>
+                                            <small>@a.Sub</small>
+                                        </span>
+                                        <span class="act-meta">@a.Meta</span>
+                                    </li>
+                                }
+                            </ul>
+                        }
+                    </div>
+                </div>
+            </aside>
+        </div>
+    </div>
+}
+
+@code {
+    private bool cargando = true;
+    private SesionDto? sesion;
+    private string hoy = DateTime.Now.ToString("dddd, dd 'de' MMMM, yyyy");
+    private DateOnly hoyUtc = DateOnly.FromDateTime(DateTime.UtcNow);
+
+    private List<Kpi> kpis = [];
+    private bool mostrarStockCard;
+    private bool mostrarGrafica;
+    private bool mostrarEstimacion;
+    private int stockBajo;
+    private List<StockRow> stockLista = [];
+    private List<SeriePunto> serie14 = [];
+    private decimal maxSerie;
+    private bool conDatos;
+    private decimal ventasMes;
+    private string tituloActividad = "Actividad reciente";
+    private List<ActItem> actividad = [];
+
+    private sealed record Kpi(string Label, string Valor, string Sub, string Ico, string Tono);
+    private sealed record StockRow(string Nombre, decimal Stock, decimal Min);
+    private sealed record SeriePunto(DateOnly Fecha, decimal Total);
+    private sealed record ActItem(string Titulo, string Sub, string Meta, string Color);
+
+    protected override async Task OnAfterRenderAsync(bool first)
+    {
+        if (!first) return;
+        if (!Sesion.Autenticado)
+        {
+            var ok = await Sesion.RestaurarAsync();
+            if (!ok) { cargando = false; StateHasChanged(); return; }
+        }
+        sesion = Sesion.Sesion;
+        await CargarDashboard();
+        cargando = false;
+        StateHasChanged();
+    }
+
+    private async Task CargarDashboard()
+    {
+        if (sesion is null) return;
+        var rol = sesion.Rol;
+        var sid = sesion.SucursalId;
+        var inicioMes = new DateTime(hoyUtc.Year, hoyUtc.Month, 1);
+
+        try
+        {
+            var crudas = await Db.Facturas
+                .Where(f => f.SucursalId == sid
+                    && f.FechaEmision >= inicioMes
+                    && f.Estado != EstadoFactura.Cancelada)
+                .Select(f => new { f.FechaEmision, f.Total, f.ClienteId })
+                .ToListAsync();
+
+            ventasMes = crudas.Sum(f => f.Total);
+
+            serie14 = Enumerable.Range(0, 14)
+                .Select(i => hoyUtc.AddDays(-13 + i))
+                .Select(d => new SeriePunto(d, crudas
+                    .Where(f => DateOnly.FromDateTime(f.FechaEmision) == d)
+                    .Sum(f => f.Total)))
+                .ToList();
+            maxSerie = serie14.Count == 0 ? 0m : serie14.Max(s => s.Total);
+            conDatos = serie14.Any(s => s.Total > 0);
+
+            var atendidos = crudas.Select(f => f.ClienteId).Distinct().Count();
+            var totalClientes = await Db.Clientes.CountAsync(c => c.Activo);
+            var porAtender = Math.Max(0, totalClientes - atendidos);
+
+            var inv = await Db.InventarioSucursal
+                .Where(i => i.SucursalId == sid && i.StockActual < i.StockMinimo)
+                .Select(i => new StockRow(i.Producto!.Nombre, i.StockActual, i.StockMinimo))
+                .ToListAsync();
+            stockLista = inv.OrderBy(s => s.Stock - s.Min).Take(6).ToList();
+            stockBajo = inv.Count;
+
+            ConstruirKpis(rol, totalClientes, atendidos, porAtender);
+            await CargarActividad(rol, sid);
+        }
+        catch (Exception)
+        {
+            // Sin base de datos disponible: el dashboard se muestra en cero.
+            if (kpis.Count == 0)
+                kpis = [new Kpi("Sin conexión", "—", "Revisa la base de datos", "alert", "slate")];
+        }
+    }
+
+
+
+    private void ConstruirKpis(string rol, int totalClientes, int atendidos, int porAtender)
+    {
+        mostrarStockCard = rol is "Almacen" or "Admin";
+        mostrarGrafica = rol is "Vendedor" or "Admin" or "Conta";
+        mostrarEstimacion = rol is "Vendedor" or "Admin";
+
+        var lista = new List<Kpi>();
+
+        if (rol is "Vendedor" or "Admin")
+        {
+            lista.Add(new("Clientes atendidos (mes)", atendidos.ToString("N0"), $"de {totalClientes:N0} activos", "users", "blue"));
+            lista.Add(new("Clientes por atender", porAtender.ToString("N0"), "Aún no compran este mes", "clock", "orange"));
+            lista.Add(new("Ventas del mes", $"${ventasMes:N2}", "IVA 16% incluido", "cart", "green"));
+            if (rol == "Admin")
+                lista.Add(new("Stock bajo mínimo", stockBajo.ToString("N0"), "Productos por reponer", "alert", "red"));
+            else
+                lista.Add(new("Ventas · 14 días", $"${serie14.Sum(s => s.Total):N2}", "Acumulado quincenal", "trend", "blue"));
+        }
+        else if (rol == "Almacen")
+        {
+            lista.Add(new("Stock bajo mínimo", stockBajo.ToString("N0"), "Productos por reponer", "alert", "red"));
+            lista.Add(new("Movimientos del mes", "—", "Ver kardex en Almacén", "truck", "blue"));
+            lista.Add(new("Litros en stock", "—", "Consulta por producto", "drop", "green"));
+            lista.Add(new("Entradas pendientes", "—", "Por recibir", "box", "orange"));
+        }
+        else if (rol == "Conta")
+        {
+            lista.Add(new("Ventas del mes", $"${ventasMes:N2}", "Base para declaraciones", "cart", "green"));
+            lista.Add(new("IVA del mes (estimado)", $"${ventasMes * 0.16m:N2}", "16% sobre ventas", "doc", "blue"));
+            lista.Add(new("CFDI por timbrar", "0", "Módulo futuro (PAC)", "doc", "orange"));
+            lista.Add(new("Clientes activos", totalClientes.ToString("N0"), "Padrón vigente", "users", "slate"));
+        }
+        else
+        {
+            lista.Add(new("Bienvenido", rol, "Selecciona un módulo en el menú", "home", "blue"));
+        }
+
+        kpis = lista;
+    }
+
+
+    private async Task CargarActividad(string rol, int sid)
+    {
+        if (rol is "Vendedor" or "Admin")
+        {
+            tituloActividad = "Últimos clientes";
+            var tops = await Db.Clientes
+                .Where(c => c.Activo)
+                .OrderByDescending(c => c.Id)
+                .Take(5)
+                .Select(c => new { c.Nombre, c.Rfc })
+                .ToListAsync();
+            actividad = tops.Select(c => new ActItem(c.Nombre, c.Rfc, "Alta", "#2563EB")).ToList();
+        }
+        else if (rol == "Almacen")
+        {
+            tituloActividad = "Últimos movimientos";
+            var movs = await Db.Movimientos
+                .Where(m => m.SucursalId == sid)
+                .OrderByDescending(m => m.FechaUtc)
+                .Take(5)
+                .Select(m => new { m.Tipo, m.CantidadLitros, m.Motivo, m.FechaUtc })
+                .ToListAsync();
+            actividad = movs
+                .Select(m => new ActItem(
+                    m.Tipo,
+                    m.Motivo ?? "—",
+                    $"{m.CantidadLitros:N2} L · {m.FechaUtc:dd/MM}",
+                    m.CantidadLitros >= 0 ? "#059669" : "#DC2626"))
+                .ToList();
+        }
+        else if (rol == "Conta")
+        {
+            tituloActividad = "Últimas facturas";
+            var facs = await Db.Facturas
+                .Where(f => f.SucursalId == sid && f.Estado != EstadoFactura.Cancelada)
+                .OrderByDescending(f => f.FechaEmision)
+                .Take(5)
+                .Select(f => new { f.FolioInterno, f.Total, f.FechaEmision, Estado = f.Estado.ToString() })
+                .ToListAsync();
+            actividad = facs
+                .Select(f => new ActItem(f.FolioInterno, f.Estado, $"${f.Total:N2} · {f.FechaEmision:dd/MM}", "#2563EB"))
+                .ToList();
+        }
+        else
+        {
+            tituloActividad = "Actividad reciente";
+            actividad = [];
+        }
+    }
+
+
+    private static string IconoSvg(string name) => name switch
+    {
+        "users" => "<svg viewBox=\"0 0 24 24\" width=\"18\" height=\"18\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"9\" cy=\"8\" r=\"3.5\" /><path d=\"M2.5 20a6.5 6.5 0 0 1 13 0\" /><path d=\"M16 4.6a3.5 3.5 0 0 1 0 6.8M17.5 14.2a6.5 6.5 0 0 1 4 5.8\" /></svg>",
+        "clock" => "<svg viewBox=\"0 0 24 24\" width=\"18\" height=\"18\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"12\" cy=\"12\" r=\"9\" /><path d=\"M12 7v5l3.5 2\" /></svg>",
+        "cart" => "<svg viewBox=\"0 0 24 24\" width=\"18\" height=\"18\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"9\" cy=\"20\" r=\"1.4\" /><circle cx=\"18\" cy=\"20\" r=\"1.4\" /><path d=\"M2 3h3l2.6 11.4a1.5 1.5 0 0 0 1.5 1.2h8.2a1.5 1.5 0 0 0 1.5-1.2L21 7H6\" /></svg>",
+        "trend" => "<svg viewBox=\"0 0 24 24\" width=\"18\" height=\"18\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M3 17l6-6 4 4 8-8\" /><path d=\"M15 7h6v6\" /></svg>",
+        "alert" => "<svg viewBox=\"0 0 24 24\" width=\"18\" height=\"18\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M12 3 2 20h20L12 3z\" /><path d=\"M12 9v5M12 17.5h.01\" /></svg>",
+        "box" => "<svg viewBox=\"0 0 24 24\" width=\"18\" height=\"18\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M3 8.5 12 4l9 4.5v7L12 20l-9-4.5z\" /><path d=\"M3 8.5 12 13l9-4.5M12 13v7\" /></svg>",
+        "truck" => "<svg viewBox=\"0 0 24 24\" width=\"18\" height=\"18\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M2 6h11v11H2z\" /><path d=\"M13 9h4.5L21 12.5V17h-8\" /><circle cx=\"6.5\" cy=\"17.5\" r=\"1.8\" /><circle cx=\"17\" cy=\"17.5\" r=\"1.8\" /></svg>",
+        "drop" => "<svg viewBox=\"0 0 24 24\" width=\"18\" height=\"18\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M12 3c2.5 3 4.5 5.2 4.5 7.8a4.5 4.5 0 1 1-9 0C7.5 8.2 9.5 6 12 3z\" /></svg>",
+        "doc" => "<svg viewBox=\"0 0 24 24\" width=\"18\" height=\"18\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M6 3h9l4 4v14H6z\" /><path d=\"M14 3v5h5\" /><path d=\"M9 13h6M9 17h6\" /></svg>",
+        "home" => "<svg viewBox=\"0 0 24 24\" width=\"18\" height=\"18\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M3 10.5 12 3l9 7.5\" /><path d=\"M5 9.5V21h14V9.5\" /><path d=\"M9.5 21v-6h5v6\" /></svg>",
+        _ => "<svg viewBox=\"0 0 24 24\" width=\"18\" height=\"18\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"12\" cy=\"12\" r=\"9\" /><path d=\"M12 8v5\" /><path d=\"M12 16h.01\" /></svg>",
+    };
+}
+

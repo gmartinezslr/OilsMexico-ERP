@@ -1,54 +1,102 @@
-﻿<div class="top-row ps-3 navbar navbar-dark">
-    <div class="container-fluid">
-        <a class="navbar-brand" href="">OilsMexico.Web</a>
+﻿<nav class="nav-groups" aria-label="Menú principal">
+    <div class="nav-group">
+        <div class="nav-group-title">General</div>
+
+        <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
+            <span class="nav-ico" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5" /><path d="M5 9.5V21h14V9.5" /><path d="M9.5 21v-6h5v6" /></svg>
+            </span>
+            <span class="nav-link-text">Inicio</span>
+        </NavLink>
+
+        <NavLink class="nav-link" href="login">
+            <span class="nav-ico" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="11" rx="2" /><path d="M8 10V7a4 4 0 0 1 8 0v3" /></svg>
+            </span>
+            <span class="nav-link-text">Acceso PIN</span>
+        </NavLink>
     </div>
-</div>
 
-<input type="checkbox" title="Navigation menu" class="navbar-toggler" />
+    <div class="nav-group">
+        <div class="nav-group-title">Ventas</div>
 
-<div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
-    <nav class="nav flex-column">
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
-                <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Home
-            </NavLink>
-        </div>
+        <NavLink class="nav-link" href="ventas-pos">
+            <span class="nav-ico" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="20" r="1.4" /><circle cx="18" cy="20" r="1.4" /><path d="M2 3h3l2.6 11.4a1.5 1.5 0 0 0 1.5 1.2h8.2a1.5 1.5 0 0 0 1.5-1.2L21 7H6" /></svg>
+            </span>
+            <span class="nav-link-text">Punto de Venta</span>
+        </NavLink>
 
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="login">
-                <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Acceso PIN
-            </NavLink>
-        </div>
+        <span class="nav-link is-disabled" title="Módulo futuro">
+            <span class="nav-ico" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h9l4 4v14H6z" /><path d="M14 3v5h5" /><path d="M9 13h6M9 17h6" /></svg>
+            </span>
+            <span class="nav-link-text">Facturación CFDI</span>
+            <span class="nav-badge">pronto</span>
+        </span>
 
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="ventas-pos">
-                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Punto de Venta
-            </NavLink>
-        </div>
+        <span class="nav-link is-disabled" title="Módulo futuro">
+            <span class="nav-ico" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3.5 2" /></svg>
+            </span>
+            <span class="nav-link-text">Historial de ventas</span>
+            <span class="nav-badge">pronto</span>
+        </span>
+    </div>
 
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="almacen">
-                <span class="bi bi-plus-square-fill-nav-menu" aria-hidden="true"></span> Almacén
-            </NavLink>
-        </div>
+    <div class="nav-group">
+        <div class="nav-group-title">Almacén</div>
 
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="clientes">
-                <span class="bi bi-person-fill-nav-menu" aria-hidden="true"></span> Clientes
-            </NavLink>
-        </div>
+        <NavLink class="nav-link" href="almacen">
+            <span class="nav-ico" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5 12 4l9 4.5v7L12 20l-9-4.5z" /><path d="M3 8.5 12 13l9-4.5M12 13v7" /></svg>
+            </span>
+            <span class="nav-link-text">Inventario y Stock</span>
+        </NavLink>
 
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="proveedores">
-                <span class="bi bi-truck-nav-menu" aria-hidden="true"></span> Proveedores
-            </NavLink>
-        </div>
+        <span class="nav-link is-disabled" title="Módulo futuro">
+            <span class="nav-ico" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3c2.5 3 4.5 5.2 4.5 7.8a4.5 4.5 0 1 1-9 0C7.5 8.2 9.5 6 12 3z" /></svg>
+            </span>
+            <span class="nav-link-text">Aceites por viscosidad</span>
+            <span class="nav-badge">pronto</span>
+        </span>
+    </div>
 
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="sepomex">
-                <span class="bi bi-geo-alt-fill-nav-menu" aria-hidden="true"></span> SEPOMEX
-            </NavLink>
-        </div>
-    </nav>
-</div>
+    <div class="nav-group">
+        <div class="nav-group-title">Contactos</div>
 
+        <NavLink class="nav-link" href="clientes">
+            <span class="nav-ico" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5" /><path d="M2.5 20a6.5 6.5 0 0 1 13 0" /><path d="M16 4.6a3.5 3.5 0 0 1 0 6.8M17.5 14.2a6.5 6.5 0 0 1 4 5.8" /></svg>
+            </span>
+            <span class="nav-link-text">Clientes</span>
+        </NavLink>
+
+        <NavLink class="nav-link" href="proveedores">
+            <span class="nav-ico" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 6h11v11H2z" /><path d="M13 9h4.5L21 12.5V17h-8" /><circle cx="6.5" cy="17.5" r="1.8" /><circle cx="17" cy="17.5" r="1.8" /></svg>
+            </span>
+            <span class="nav-link-text">Proveedores</span>
+        </NavLink>
+    </div>
+
+    <div class="nav-group">
+        <div class="nav-group-title">Configuración</div>
+
+        <NavLink class="nav-link" href="sepomex">
+            <span class="nav-ico" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s7-6.1 7-11a7 7 0 1 0-14 0c0 4.9 7 11 7 11z" /><circle cx="12" cy="10" r="2.5" /></svg>
+            </span>
+            <span class="nav-link-text">SEPOMEX</span>
+        </NavLink>
+
+        <span class="nav-link is-disabled" title="Módulo futuro">
+            <span class="nav-ico" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v16" /><path d="M2 21h18" /><path d="M13 12h.01M13 8h.01M13 16h.01" /></svg>
+            </span>
+            <span class="nav-link-text">Datos de la sucursal</span>
+            <span class="nav-badge">pronto</span>
+        </span>
+    </div>
+</nav>

@@ -1,0 +1,87 @@
+.user-info {
+    display: flex;
+    align-items: center;
+    gap: .6rem;
+    padding: .35rem .45rem;
+    border-radius: 10px;
+    transition: background .13s ease;
+    min-width: 0;
+}
+
+.user-info:hover { background: rgba(255, 255, 255, .06); }
+
+.user-avatar {
+    flex: 0 0 34px;
+    width: 34px;
+    height: 34px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--oc-primary), #3B82F6);
+    color: #fff;
+    font-size: .78rem;
+    font-weight: 700;
+    letter-spacing: .02em;
+}
+.user-avatar.is-loading {
+    background: rgba(255, 255, 255, .12);
+    animation: oc-pulse 1.2s ease-in-out infinite;
+}
+
+.user-meta {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.2;
+    min-width: 0;
+    flex: 1;
+}
+
+.user-name {
+    color: #F1F5F9;
+    font-size: .82rem;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.user-area {
+    color: #64748B;
+    font-size: .68rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.user-logout {
+    flex: 0 0 auto;
+    display: grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    border: none;
+    border-radius: 8px;
+    background: transparent;
+    color: #94A3B8;
+    cursor: pointer;
+    transition: background .13s ease, color .13s ease;
+}
+.user-logout:hover { background: rgba(239, 68, 68, .18); color: #FCA5A5; }
+
+.user-login {
+    display: flex;
+    align-items: center;
+    gap: .6rem;
+    padding: .35rem .45rem;
+    border-radius: 10px;
+    color: #93C5FD;
+    text-decoration: none;
+    transition: background .13s ease;
+}
+.user-login:hover { background: rgba(255, 255, 255, .06); color: #BFDBFE; text-decoration: none; }
+.user-login .user-name { color: #93C5FD; }
+
+@keyframes oc-pulse {
+    0%, 100% { opacity: .5; }
+    50% { opacity: 1; }
+}

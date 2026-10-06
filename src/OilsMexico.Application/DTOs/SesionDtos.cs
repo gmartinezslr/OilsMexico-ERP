@@ -1,7 +1,31 @@
 namespace OilsMexico.Application.DTOs;
 
 public sealed record SesionDto(
-    int UsuarioId, string Nombre, string Rol, int SucursalId, string SucursalNombre);
+    int UsuarioId, string Nombre, string Rol, int SucursalId, string SucursalNombre)
+{
+    /// <summary>Área funcional legible del rol (para mostrar en UI).</summary>
+    public string Area => Rol switch
+    {
+        "Vendedor" => "Ventas",
+        "Almacen" => "Almacén",
+        "Conta" => "Contabilidad",
+        "Admin" => "Administración",
+        _ => Rol
+    };
+
+    /// <summary>Iniciales para el avatar (máx. 2 letras).</summary>
+    public string Iniciales
+    {
+        get
+        {
+            var partes = Nombre.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            if (partes.Length == 0) return "?";
+            return partes.Length == 1
+                ? partes[0].Substring(0, Math.Min(2, partes[0].Length)).ToUpperInvariant()
+                : $"{partes[0][0]}{partes[^1][0]}".ToUpperInvariant();
+        }
+    }
+}
 
 public sealed record LoginPinRequest(string Pin);
 
