@@ -1,0 +1,273 @@
+@page "/compras"
+@rendermode InteractiveServer
+@inject OilsMexico.Application.Interfaces.IComprasService ComprasSvc
+@inject OilsMexico.Application.Interfaces.IVentasService Ventas
+@inject OilsMexico.Application.Interfaces.ISucursalContext SucCtx
+@inject OilsMexico.Application.Interfaces.ISesionActual Sesion
+@inject OilsMexico.Infrastructure.Persistence.ErpDbContext Db
+@inject NavigationManager Nav
+@using Microsoft.EntityFrameworkCore
+@using OilsMexico.Application.DTOs
+<PageTitle>Compras | OilsMexico ERP</PageTitle>
+<div class="container-fluid py-3">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h3 class="fw-bold mb-0">Compras <span class="badge bg-secondary">Suc @SucCtx.SucursalId</span></h3>
+        <div class="d-flex gap-2">
+            <button class="btn btn-outline-primary" @onclick="VerCxP">Cuentas por pagar (@cxp.Count)</button>
+            <button class="btn btn-primary" @onclick="NuevaOrden">+ Nueva orden</button>
+        </div>
+    </div>
+    @if (!Sesion.Autenticado)
+    {
+        <div class="alert alert-warning">Inicia sesion primero. <a href="/login">Ir al login</a></div>
+    }
+    @if (!string.IsNullOrEmpty(msg))
+    {
+        <div class="alert @(err ? "alert-danger" : "alert-success")">@msg</div>
+    }
+    <div class="card shadow-sm mb-3"><div class="card-body py-2">
+        <div class="row g-2 align-items-end">
+            <div class="col-md-2"><label class="form-label small mb-1">Estado</label>
+                <select class="form-select form-select-sm" @bind="estado" @bind:after="Cargar">
+                    <option value="">Todos</option>
+                    <option value="Borrador">Borrador</option>
+                    <option value="Parcial">Parcial</option>
+                    <option value="Recibida">Recibida</option>
+                    <option value="Cancelada">Cancelada</option>
+                </select></div>
+            <div class="col-md-7"><label class="form-label small mb-1">Folio o proveedor</label>
+                <input class="form-control form-control-sm" placeholder="Ej: C-1-2026... o nombre del proveedor"
+                       value="@texto" @oninput="AlEscribir" /></div>
+            <div class="col-md-3">
+                <button class="btn btn-primary btn-sm w-100" @onclick="Cargar" disabled="@cargando">Buscar</button>
+            </div>
+        </div>
+    </div></div>
+    <div class="row g-3">
+        <div class="col-lg-5">
+            <div class="list-group" style="max-height:560px;overflow-y:auto">
+                @foreach (var c in lista)
+                {
+                    <button type="button" class="list-group-item list-group-item-action @(sel?.CompraId == c.CompraId ? "active" : "")" @onclick="() => Expandir(c.CompraId)">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <strong>@c.FolioInterno</strong>
+                                <span class="badge @ClaseEstado(c.Estado)">@c.Estado</span>
+                                <span class="badge @ClasePago(c.EstadoPago)">@c.EstadoPago</span>
+                                <br />
+                                <small>@c.Proveedor · @(c.FolioProveedor ?? "s/folio prov")</small><br />
+                                <small class="text-muted">@c.FechaEmision.ToLocalTime().ToString("dd/MM/yyyy HH:mm") · @c.Renglones reng · @c.PorcentajeRecibido% recibido</small><br />
+                                <small>Total $@c.Total.ToString("N2") · Saldo $@c.Saldo.ToString("N2")</small>
+                            </div>
+                        </div>
+                    </button>
+                }
+                @if (lista.Count == 0 && !cargando)
+                {
+                    <div class="list-group-item text-muted">Sin compras.</div>
+                }
+            </div>
+            @if (mostrarCxP)
+            {
+                <div class="card shadow-sm mt-3"><div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+                    <span>Cuentas por pagar</span>
+                    <button class="btn btn-sm btn-link text-white" @onclick="() => mostrarCxP = false">cerrar</button>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive" style="max-height:300px;overflow-y:auto">
+                        <table class="table table-sm table-striped mb-0">
+                            <thead><tr><th>Folio</th><th>Proveedor</th><th class="text-end">Saldo</th><th></th></tr></thead>
+                            <tbody>
+                                @foreach (var x in cxp)
+                                {
+                                    <tr>
+                                        <td><small>@x.FolioInterno</small></td>
+                                        <td><small>@x.Proveedor</small></td>
+                                        <td class="text-end"><strong>$@x.Saldo.ToString("N2")</strong></td>
+                                        <td><button class="btn btn-sm btn-outline-primary" @onclick="() => Expandir(x.CompraId)">Ver</button></td>
+                                    </tr>
+                                }
+                                @if (cxp.Count == 0)
+                                {
+                                    <tr><td colspan="4" class="text-center text-muted py-3">Sin saldos pendientes.</td></tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="p-2 border-top"><strong>Total CxP: $@cxp.Sum(x => x.Saldo).ToString("N2")</strong></div>
+                </div></div>
+            }
+        </div>
+        <div class="col-lg-7">
+            @if (creando)
+            {
+                <div class="card shadow-sm"><div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                    <span>Nueva orden de compra</span>
+                    <button class="btn btn-sm btn-light" @onclick="() => creando = false">Cancelar</button>
+                </div>
+                <div class="card-body">
+                    <div class="row g-2 mb-2">
+                        <div class="col-md-6"><label class="form-label small">Proveedor *</label>
+                            <select class="form-select" @bind="provId">
+                                @foreach (var p in proveedores)
+                                {
+                                    <option value="@p.Id">@p.Nombre</option>
+                                }
+                            </select></div>
+                        <div class="col-md-6"><label class="form-label small">Folio del proveedor</label>
+                            <input class="form-control" @bind="folioProv" placeholder="Factura/remisión del proveedor" /></div>
+                        <div class="col-12"><label class="form-label small">Notas</label>
+                            <input class="form-control" @bind="notas" placeholder="Notas internas" /></div>
+                    </div>
+                    <div class="row g-2 align-items-end mb-2">
+                        <div class="col-md-7"><label class="form-label small">Producto</label>
+                            <input class="form-control" placeholder="Buscar SKU, nombre, marca…" value="@busq" @oninput="BuscarProd" /></div>
+                        <div class="col-md-5"><small class="text-muted">Agrega renglones con costo (sin IVA).</small></div>
+                    </div>
+                    @if (busqProds.Count > 0)
+                    {
+                        <div class="list-group mb-2" style="max-height:200px;overflow-y:auto">
+                            @foreach (var p in busqProds)
+                            {
+                                <button type="button" class="list-group-item list-group-item-action py-1" @onclick="() => AgregarRenglon(p)">
+                                    <small><strong>@p.Sku</strong> · @p.Nombre · @p.UnidadVenta (x@p.FactorConversion)</small>
+                                </button>
+                            }
+                        </div>
+                    }
+                    <div class="table-responsive">
+                        <table class="table table-sm align-middle">
+                            <thead><tr><th>Producto</th><th class="text-end">Cant</th><th class="text-end">Costo</th><th class="text-end">Importe</th><th></th></tr></thead>
+                            <tbody>
+                                @foreach (var r in carrito)
+                                {
+                                    <tr>
+                                        <td><small><strong>@r.Sku</strong><br />@r.Nombre · @r.UnidadNombre</small></td>
+                                        <td class="text-end"><input type="number" step="0.01" min="0.01" class="form-control form-control-sm text-end" style="width:90px" @bind="r.Cantidad" /></td>
+                                        <td class="text-end"><input type="number" step="0.01" min="0" class="form-control form-control-sm text-end" style="width:100px" @bind="r.Costo" /></td>
+                                        <td class="text-end"><small>$@((r.Cantidad * r.Costo).ToString("N2"))</small></td>
+                                        <td><button class="btn btn-sm btn-outline-danger" @onclick="() => QuitarRenglon(r)">×</button></td>
+                                    </tr>
+                                }
+                                @if (carrito.Count == 0)
+                                {
+                                    <tr><td colspan="5" class="text-center text-muted py-3">Agrega productos a la orden.</td></tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div><small class="text-muted">Subtotal $@SubtotalCarrito.ToString("N2") · IVA $@IvaCarrito.ToString("N2")</small>
+                            <div><strong>Total estimado: $@TotalCarrito.ToString("N2")</strong></div></div>
+                        <button class="btn btn-success" @onclick="GuardarOrden" disabled="@(guardando || carrito.Count == 0)">Crear orden</button>
+                    </div>
+                </div></div>
+            }
+            else if (sel is not null && detalle is not null)
+            {
+                <div class="card shadow-sm"><div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+                    <span>@detalle.FolioInterno · @detalle.Estado · @detalle.EstadoPago</span>
+                    <small>@detalle.FechaEmision.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</small>
+                </div>
+                <div class="card-body">
+                    <div><strong>Proveedor:</strong> @detalle.Proveedor
+                        @if (!string.IsNullOrEmpty(detalle.FolioProveedor)) { <span class="text-muted">· Folio prov: @detalle.FolioProveedor</span> }</div>
+                    @if (!string.IsNullOrEmpty(detalle.Notas)) { <div><small class="text-muted">Notas: @detalle.Notas</small></div> }
+                    <div class="mb-2"><strong>Total: $@detalle.Total.ToString("N2")</strong>
+                        <span class="text-muted">(Sub $@detalle.Subtotal.ToString("N2") + IVA $@detalle.Iva.ToString("N2"))</span>
+                        · Pagado $@detalle.MontoPagado.ToString("N2") · <strong>Saldo $@detalle.Saldo.ToString("N2")</strong></div>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-striped align-middle">
+                            <thead><tr><th>Producto</th><th class="text-end">Pedida</th><th class="text-end">Recibida</th><th>Lote</th><th>Recibir</th></tr></thead>
+                            <tbody>
+                                @foreach (var l in detalle.Lineas)
+                                {
+                                    var pendiente = l.Cantidad - l.CantidadRecibida;
+                                    <tr>
+                                        <td><small><strong>@l.Sku</strong> · @l.Producto<br />@l.UnidadNombre · $@l.CostoUnitario.ToString("N2")</small></td>
+                                        <td class="text-end">@l.Cantidad.ToString("N2")</td>
+                                        <td class="text-end"><strong>@l.CantidadRecibida.ToString("N2")</strong>
+                                            @if (pendiente <= 0) { <span class="badge bg-success">ok</span> }</td>
+                                        <td><small>@(l.NumeroLote ?? "—")</small></td>
+                                        <td>
+                                            @if (pendiente > 0 && detalle.Estado != "Cancelada")
+                                            {
+                                                <div class="d-flex gap-1 flex-wrap">
+                                                    <input type="number" step="0.01" min="0" class="form-control form-control-sm" style="width:80px" placeholder="Cant" value="@CantRec(l.DetalleId)" @oninput="(e) => SetCantRec(l.DetalleId, e.Value?.ToString())" />
+                                                    <input class="form-control form-control-sm" style="width:90px" placeholder="Lote" value="@LoteRec(l.DetalleId)" @oninput="(e) => SetLoteRec(l.DetalleId, e.Value?.ToString())" />
+                                                    <input type="date" class="form-control form-control-sm" style="width:130px" value="@CadRec(l.DetalleId)" @onchange="(e) => SetCadRec(l.DetalleId, e.Value?.ToString())" />
+                                                </div>
+                                            }
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="d-flex gap-2 flex-wrap mt-2">
+                        @if (detalle.Estado is "Borrador" or "Parcial")
+                        {
+                            <button class="btn btn-sm btn-success" @onclick="ConfirmarRecepcion" disabled="@recibiendo">Recibir cantidades capturadas</button>
+                            <button class="btn btn-sm btn-outline-danger" @onclick="EmpezarCancel">Cancelar orden</button>
+                        }
+                        @if (cancelando)
+                        {
+                            <div class="input-group input-group-sm">
+                                <input class="form-control" placeholder="Motivo de cancelación" @bind="motivoCancel" />
+                                <button class="btn btn-danger" @onclick="ConfirmarCancel">Confirmar</button>
+                                <button class="btn btn-outline-secondary" @onclick="() => cancelando = false">Atrás</button>
+                            </div>
+                        }
+                        <a class="btn btn-sm btn-outline-primary" href="/almacen" target="_blank">Ver almacén</a>
+                    </div>
+                </div></div>
+                <div class="card shadow-sm mt-3"><div class="card-header">Pagos (CxP)</div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm mb-2">
+                            <thead><tr><th>Fecha</th><th class="text-end">Monto</th><th>Forma</th><th>Ref</th><th>Usuario</th></tr></thead>
+                            <tbody>
+                                @foreach (var p in detalle.Pagos)
+                                {
+                                    <tr><td><small>@p.Fecha.ToLocalTime().ToString("dd/MM HH:mm")</small></td>
+                                        <td class="text-end">$@p.Monto.ToString("N2")</td>
+                                        <td><small>@p.FormaPago</small></td><td><small>@(p.Referencia ?? "—")</small></td><td><small>@p.Usuario</small></td></tr>
+                                }
+                                @if (detalle.Pagos.Count == 0)
+                                {
+                                    <tr><td colspan="5" class="text-center text-muted">Sin pagos registrados.</td></tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                    @if (detalle.Saldo > 0.01m && detalle.Estado != "Cancelada")
+                    {
+                        <div class="row g-2 align-items-end">
+                            <div class="col-md-3"><label class="form-label small mb-1">Monto</label>
+                                <input type="number" step="0.01" min="0.01" class="form-control form-control-sm" @bind="pagoMonto" /></div>
+                            <div class="col-md-3"><label class="form-label small mb-1">Forma</label>
+                                <select class="form-select form-select-sm" @bind="pagoForma">
+                                    <option value="01">01 - Efectivo</option>
+                                    <option value="02">02 - Cheque</option>
+                                    <option value="03">03 - Transferencia</option>
+                                    <option value="04">04 - T. crédito</option>
+                                    <option value="28">28 - T. débito</option>
+                                    <option value="99">99 - Por definir</option>
+                                </select></div>
+                            <div class="col-md-4"><label class="form-label small mb-1">Referencia</label>
+                                <input class="form-control form-control-sm" @bind="pagoRef" placeholder="Folio transferencia…" /></div>
+                            <div class="col-md-2">
+                                <button class="btn btn-sm btn-success w-100" @onclick="RegistrarPago" disabled="@pagando">Pagar</button>
+                            </div>
+                        </div>
+                    }
+                </div></div>
+            }
+            else
+            {
+                <div class="alert alert-info">Selecciona una compra del listado o crea una orden nueva.</div>
+            }
+        </div>
+    </div>
+</div>
+

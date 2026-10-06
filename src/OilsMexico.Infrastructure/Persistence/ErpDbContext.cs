@@ -16,6 +16,9 @@ public sealed class ErpDbContext(DbContextOptions<ErpDbContext> options) : DbCon
     public DbSet<Proveedor> Proveedores => Set<Proveedor>();
     public DbSet<CodigoPostal> CodigosPostales => Set<CodigoPostal>();
     public DbSet<Usuario> Usuarios => Set<Usuario>();
+    public DbSet<Compra> Compras => Set<Compra>();
+    public DbSet<CompraDetalle> CompraDetalles => Set<CompraDetalle>();
+    public DbSet<CompraPago> CompraPagos => Set<CompraPago>();
     public DbSet<MovimientoInventario> Movimientos => Set<MovimientoInventario>();
 
     protected override void OnModelCreating(ModelBuilder b)

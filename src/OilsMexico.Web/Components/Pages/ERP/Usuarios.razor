@@ -1,0 +1,115 @@
+@page "/usuarios"
+@rendermode InteractiveServer
+@inject OilsMexico.Infrastructure.Persistence.ErpDbContext Db
+@inject OilsMexico.Application.Interfaces.ISesionActual Sesion
+@inject NavigationManager Nav
+@using Microsoft.EntityFrameworkCore
+<PageTitle>Usuarios | OilsMexico ERP</PageTitle>
+<div class="container-fluid py-3">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h3 class="fw-bold mb-0">Usuarios</h3>
+        <button class="btn btn-primary" @onclick="Nuevo" disabled="@(!esAdmin)">+ Nuevo usuario</button>
+    </div>
+    @if (!Sesion.Autenticado)
+    {
+        <div class="alert alert-warning">Inicia sesion primero. <a href="/login">Ir al login</a></div>
+    }
+    else if (!esAdmin)
+    {
+        <div class="alert alert-info">Solo el rol <strong>Admin</strong> puede gestionar usuarios. Vista de solo lectura.</div>
+    }
+    @if (!string.IsNullOrEmpty(msg))
+    {
+        <div class="alert @(err ? "alert-danger" : "alert-success")">@msg</div>
+    }
+    <div class="row g-3">
+        <div class="col-lg-5">
+            <input class="form-control mb-2" placeholder="Buscar nombre, rol o sucursal…" value="@filtro" @oninput="AlEscribir" />
+            <div class="form-check mb-2">
+                <input class="form-check-input" type="checkbox" id="chkActivosU" @bind="soloActivos" @bind:after="Cargar" />
+                <label class="form-check-label small" for="chkActivosU">Solo activos</label>
+            </div>
+            <div class="list-group" style="max-height:560px;overflow-y:auto">
+                @foreach (var u in lista)
+                {
+                    <button type="button" class="list-group-item list-group-item-action @(edit.Id == u.Id ? "active" : "")" @onclick="() => Editar(u.Id)">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <strong>@u.Nombre</strong>
+                                @if (u.Id == miId) { <span class="badge bg-info text-dark">tu</span> }
+                                <br />
+                                <small>@u.Rol · @u.Sucursal</small>
+                            </div>
+                            @if (!u.Activo)
+                            {
+                                <span class="badge bg-secondary">Inactivo</span>
+                            }
+                        </div>
+                    </button>
+                }
+                @if (lista.Count == 0)
+                {
+                    <div class="list-group-item text-muted">Sin resultados.</div>
+                }
+            </div>
+        <div class="col-lg-7">
+            <div class="card shadow-sm"><div class="card-body">
+                <h5 class="fw-bold">@(edit.Id == 0 ? "Nuevo usuario" : $"Editar #{edit.Id}")</h5>
+                <fieldset disabled="@(!esAdmin || guardando)">
+                    <div class="row g-2">
+                        <div class="col-md-7"><label class="form-label small">Nombre *</label>
+                            <input class="form-control" maxlength="100" @bind="edit.Nombre" placeholder="Nombre del operador" /></div>
+                        <div class="col-md-5"><label class="form-label small">Rol *</label>
+                            <select class="form-select" @bind="edit.Rol">
+                                <option value="Admin">Admin — Administración</option>
+                                <option value="Vendedor">Vendedor — Ventas</option>
+                                <option value="Almacen">Almacen — Almacén</option>
+                                <option value="Conta">Conta — Contabilidad</option>
+                            </select></div>
+                        <div class="col-md-7"><label class="form-label small">Sucursal asignada *</label>
+                            <select class="form-select" @bind="edit.SucursalId">
+                                @foreach (var s in sucursales)
+                                {
+                                    <option value="@s.Id">@s.Nombre (@s.Codigo)</option>
+                                }
+                            </select></div>
+                        <div class="col-md-5 d-flex align-items-center gap-2">
+                            <input class="form-check-input" type="checkbox" id="usrActivo" @bind="edit.Activo" />
+                            <label class="form-check-label small" for="usrActivo">Usuario activo (puede entrar con PIN)</label>
+                        </div>
+                    </div>
+                    <h6 class="fw-bold mt-3">@(edit.Id == 0 ? "PIN de acceso *" : "Resetear PIN (opcional)")</h6>
+                    <div class="row g-2">
+                        <div class="col-md-6"><label class="form-label small">@(edit.Id == 0 ? "PIN *" : "Nuevo PIN")</label>
+                            <input type="password" inputmode="numeric" maxlength="8" class="form-control" @bind="pin1" placeholder="4 a 8 digitos" /></div>
+                        <div class="col-md-6"><label class="form-label small">@(edit.Id == 0 ? "Confirmar PIN *" : "Confirmar nuevo PIN")</label>
+                            <input type="password" inputmode="numeric" maxlength="8" class="form-control" @bind="pin2" placeholder="Repite el PIN" /></div>
+                    </div>
+                    @if (edit.Id != 0)
+                    {
+                        <small class="text-muted d-block mt-1">Deja el PIN vacio para conservar el actual.</small>
+                    }
+                </fieldset>
+                <div class="d-flex gap-2 mt-3">
+                    <button class="btn btn-success" @onclick="Guardar" disabled="@(!esAdmin || guardando)">Guardar</button>
+                    @if (edit.Id != 0 && esAdmin)
+                    {
+                        @if (edit.Activo)
+                        {
+                            <button class="btn btn-outline-danger" @onclick="Desactivar">Desactivar</button>
+                        }
+                        else
+                        {
+                            <button class="btn btn-outline-success" @onclick="Reactivar">Reactivar</button>
+                        }
+                    }
+                </div>
+                @if (!esAdmin)
+                {
+                    <small class="text-muted d-block mt-2">Los campos se deshabilitan para roles distintos a Admin.</small>
+                }
+            </div></div>
+        </div>
+    </div>
+</div>
+        </div>

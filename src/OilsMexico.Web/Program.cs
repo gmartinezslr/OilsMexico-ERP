@@ -26,6 +26,7 @@ builder.Services.AddScoped<ITicketService, TicketService>();
 builder.Services.AddScoped<ICfdiSelladoService, CfdiSelladoService>();
 builder.Services.AddScoped<IPacTimbradoService, PacTimbradoService>();
 builder.Services.AddScoped<IFacturacionService, FacturacionService>();
+builder.Services.AddScoped<IComprasService, ComprasService>();
 builder.Services.AddScoped<ISepomexService, SepomexService>();
 builder.Services.AddHttpClient();
 builder.Services.AddSignalR();

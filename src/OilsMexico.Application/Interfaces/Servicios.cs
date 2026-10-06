@@ -61,3 +61,15 @@ public interface ICatalogosSatService
 {
     CatalogosSatDto Obtener();
 }
+
+/// <summary>Módulo Compras: orden → recepción (suma stock + kardex) → CxP (pagos).</summary>
+public interface IComprasService
+{
+    Task<CompraResult> CrearOrdenAsync(CrearCompraRequest request, CancellationToken ct = default);
+    Task<CompraResult> RecibirAsync(RecepcionRequest request, CancellationToken ct = default);
+    Task<CompraResult> CancelarAsync(int compraId, string motivo, CancellationToken ct = default);
+    Task<CompraResult> RegistrarPagoAsync(PagoCompraRequest request, CancellationToken ct = default);
+    Task<List<CompraListadoDto>> ListarAsync(int sucursalId, string? estado, string? texto, CancellationToken ct = default);
+    Task<CompraDetalleDto?> DetalleAsync(int compraId, CancellationToken ct = default);
+    Task<List<CuentasPorPagarDto>> CuentasPorPagarAsync(int sucursalId, string? texto, CancellationToken ct = default);
+}

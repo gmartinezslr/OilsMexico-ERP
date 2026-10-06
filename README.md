@@ -63,7 +63,7 @@ dotnet run --project src/OilsMexico.Web --urls "http://localhost:5200"
 ```
 Abre `http://localhost:5200/` → Login → POS `/ventas-pos` → Historial `/historial-ventas` → Facturación `/facturacion` → Almacén `/almacen` → Ticket `/ticket/{id}`.
 
-**Todas las rutas:** `/ventas-pos`, `/historial-ventas`, `/facturacion`, `/almacen`, `/viscosidad`, `/clientes`, `/proveedores`, `/sucursal`, `/sepomex`, `/ticket/{id}`.
+**Todas las rutas:** `/ventas-pos`, `/historial-ventas`, `/facturacion`, `/almacen`, `/viscosidad`, `/compras`, `/productos`, `/clientes`, `/proveedores`, `/sucursal`, `/usuarios`, `/sepomex`, `/ticket/{id}`.
 
 ## Accesos demo (PIN)
 | PIN | Rol | Destino |
@@ -104,7 +104,7 @@ curl.exe -s -o NUL -w 'xml:%{http_code}' http://localhost:5200/api/facturas/1/xm
 
 ## Cómo está cableado (para el dev)
 - `Program.cs` → `UseNpgsql(GetConnectionString("ErpDb"))` → `SeedData.InicializarAsync` (`EnsureCreated` + `SchemaPatch` idempotente + seed si `Sucursales` vacía).
-- Tablas exactas del modelo: `productos, unidades_medida, sucursales, inventario_lotes, inventario_sucursal, facturas, factura_detalle, clientes, usuarios, movimientos_inventario, codigos_postales, proveedores`.
+- Tablas exactas del modelo: `productos, unidades_medida, sucursales, inventario_lotes, inventario_sucursal, facturas, factura_detalle, clientes, usuarios, movimientos_inventario, codigos_postales, proveedores, compras, compra_detalle, compra_pagos`.
 - Seed: 2 sucursales (CDMX01/MTY01) con datos fiscales del emisor (razón social, régimen 601, CP y domicilio SEPOMEX), 4 lubricantes, unidades Litro×1/Garrafa×19/Tambor×208, 2 clientes, 4 usuarios PIN (SHA-256), stock 100L por producto/sucursal.
 - CFDI sin CSD reales → modo `SIMULADO` (sello DEV auditable). Para timbrado real: carpeta `certs/` local (nunca al repo) + `Cfdi:PacModo` y credenciales PAC.
 - Columnas nuevas aplicadas por `SchemaPatch` (sin migraciones EF): dirección de clientes/proveedores, datos del emisor en `sucursales` (razón social, régimen, CP, domicilio, contacto) y `facturas.motivo_cancelacion`.
@@ -118,7 +118,8 @@ curl.exe -s -o NUL -w 'xml:%{http_code}' http://localhost:5200/api/facturas/1/xm
 - **Historial de ventas (`/historial-ventas`):** filtros por fecha/estado/folio-cliente, resumen (ventas, subtotal, IVA, total), paginación, detalle expandible con renglones + sello/cadena original, y acciones **Surtir** / **Devolver** con motivo (repone stock y deja rastro en kardex).
 - **Aceites por viscosidad (`/viscosidad`):** tarjetas por viscosidad (litros, valor del stock y alerta de bajo mínimo), tabla con stock/mínimo/precio, búsqueda por SKU/nombre/marca en cliente y botón **Kardex** que abre `/almacen?producto={id}`.
 - **Facturación CFDI (`/facturacion`):** listado de folios con estado fiscal y UUID, **timbrado diferido** (sellado RSA-SHA256 + PAC fuera del POS para ventas quedadas en Pendiente), **cancelación** con motivo obligatorio (solo Admin/Conta; modo SIMULADO por ahora) y **descarga de XML** (`/api/facturas/{id}/xml`).
-- **Clientes / Proveedores:** CRUD con dirección desglosada autocompletada por CP.
+- **Clientes / Proveedores / Productos / Usuarios:** CRUD (productos con presentaciones y stock por sucursal; usuarios solo-Admin con PIN SHA-256).
+- **Compras (`/compras`):** ciclo orden → recepción parcial/total (suma stock + lote + kardex COMPRA) → CxP (pagos con forma SAT, estados Pagada/Parcial/Pendiente).
 - **SEPOMEX (`/sepomex`):** importación del catálogo nacional de Correos de México — **Excel oficial `.xls` (una hoja por estado, detectado por firma OLE2/ZIP)** o TXT/CSV (15 columnas, `|`/`,`/`;`/TAB, latin1/UTF-8, dedup por `codigo|asentamiento_id|nombre`); el componente `DireccionSepomex` consulta el catálogo por CP para llenar el **combo obligatorio de colonias** (sin captura libre; si el CP tiene una sola colonia, ésta se preselecciona) y autocompletar municipio/ciudad/estado —que se muestran como etiquetas de solo lectura— en clientes y proveedores.
 - **Ticket 58mm** imprimible (`window.print`).
 - **CFDI:** sellado RSA-SHA256 + PAC (modo `SIMULADO` por defecto; configura `Cfdi:` en appsettings y `certs/` local, nunca al repo).

@@ -1,0 +1,180 @@
+@page "/productos"
+@rendermode InteractiveServer
+@inject OilsMexico.Infrastructure.Persistence.ErpDbContext Db
+@inject OilsMexico.Application.Interfaces.ISesionActual Sesion
+@inject OilsMexico.Application.Interfaces.ISucursalContext SucCtx
+@inject NavigationManager Nav
+@using Microsoft.EntityFrameworkCore
+<PageTitle>Productos | OilsMexico ERP</PageTitle>
+<div class="container-fluid py-3">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h3 class="fw-bold mb-0">Catalogo de Productos</h3>
+        <button class="btn btn-primary" @onclick="Nuevo">+ Nuevo producto</button>
+    </div>
+    @if (!string.IsNullOrEmpty(msg))
+    {
+        <div class="alert @(err ? "alert-danger" : "alert-success")">@msg</div>
+    }
+    <div class="row g-3">
+        <div class="col-lg-5">
+            <input class="form-control mb-2" placeholder="Buscar SKU, nombre, marca o viscosidad…" value="@filtro" @oninput="AlEscribir" />
+            <div class="form-check mb-2">
+                <input class="form-check-input" type="checkbox" id="chkActivos" @bind="soloActivos" @bind:after="Cargar" />
+                <label class="form-check-label small" for="chkActivos">Solo activos</label>
+            </div>
+            <div class="list-group" style="max-height:560px;overflow-y:auto">
+                @foreach (var p in lista)
+                {
+                    <button type="button" class="list-group-item list-group-item-action @(edit.Id == p.Id ? "active" : "")" @onclick="() => Editar(p.Id)">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <strong>@p.Nombre</strong><br />
+                                <small>@p.Sku · @p.Marca · @p.Viscosidad · @p.TipoBase</small><br />
+                                <small class="text-muted">Menudeo $@p.PrecioVenta.ToString("N2") · Mayoreo $@p.PrecioMayoreo.ToString("N2")</small>
+                            </div>
+                            @if (!p.Activo)
+                            {
+                                <span class="badge bg-secondary">Inactivo</span>
+                            }
+                        </div>
+                    </button>
+                }
+                @if (lista.Count == 0)
+                {
+                    <div class="list-group-item text-muted">Sin resultados.</div>
+                }
+            </div>
+        </div>
+        <div class="col-lg-7">
+            <div class="card shadow-sm"><div class="card-body">
+                <h5 class="fw-bold">@(edit.Id == 0 ? "Nuevo producto" : $"Editar #{edit.Id}")</h5>
+                <div class="row g-2">
+                    <div class="col-md-4"><label class="form-label small">SKU *</label>
+                        <input class="form-control" @bind="edit.Sku" placeholder="MOT-5W30-SYN-1L" /></div>
+                    <div class="col-md-8"><label class="form-label small">Nombre *</label>
+                        <input class="form-control" @bind="edit.Nombre" placeholder="Aceite Sintetico 5W-30 1L" /></div>
+                    <div class="col-md-4"><label class="form-label small">Marca *</label>
+                        <input class="form-control" @bind="edit.Marca" placeholder="Mobil" /></div>
+                    <div class="col-md-4"><label class="form-label small">Viscosidad *</label>
+                        <input class="form-control" @bind="edit.Viscosidad" placeholder="5W-30" /></div>
+                    <div class="col-md-4"><label class="form-label small">Tipo base *</label>
+                        <select class="form-select" @bind="edit.TipoBase">
+                            <option value="Sintetico">Sintetico</option>
+                            <option value="Semisintetico">Semisintetico</option>
+                            <option value="Mineral">Mineral</option>
+                        </select></div>
+                    <div class="col-md-6"><label class="form-label small">Precio menudeo *</label>
+                        <input type="number" step="0.01" min="0" class="form-control" @bind="edit.PrecioVenta" /></div>
+                    <div class="col-md-6"><label class="form-label small">Precio mayoreo *</label>
+                        <input type="number" step="0.01" min="0" class="form-control" @bind="edit.PrecioMayoreo" /></div>
+                    <div class="col-12"><label class="form-label small">Descripcion tecnica</label>
+                        <textarea class="form-control" rows="2" @bind="edit.DescripcionTecnica"></textarea></div>
+                    <div class="col-12">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="chkActivoProd" @bind="edit.Activo" />
+                            <label class="form-check-label small" for="chkActivoProd">Producto activo (visible en POS y reportes)</label>
+                        </div>
+                    </div>
+                </div>
+                <div class="d-flex gap-2 mt-3">
+                    <button class="btn btn-success" @onclick="Guardar" disabled="@guardando">Guardar</button>
+                    @if (edit.Id != 0)
+                    {
+                        @if (edit.Activo)
+                        {
+                            <button class="btn btn-outline-danger" @onclick="Desactivar">Desactivar</button>
+                        }
+                        else
+                        {
+                            <button class="btn btn-outline-success" @onclick="Reactivar">Reactivar</button>
+                        }
+                        <a class="btn btn-outline-primary" href="/almacen?producto=@edit.Id" target="_blank">Kardex</a>
+                    }
+                </div>
+            </div></div>
+            @if (edit.Id != 0)
+            {
+                <div class="card shadow-sm mt-3"><div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+                    <span>Presentaciones (unidades de venta)</span>
+                    <button class="btn btn-sm btn-light" @onclick="NuevaUnidad">+ Agregar</button>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-sm table-striped align-middle mb-0">
+                            <thead><tr><th>Unidad</th><th class="text-end">Litros / unidad</th><th>Cod. barra</th><th class="text-end">Precio</th><th></th></tr></thead>
+                            <tbody>
+                                @foreach (var u in unidades)
+                                {
+                                    <tr>
+                                        <td>@u.UnidadNombre</td>
+                                        <td class="text-end">@u.FactorConversion.ToString("N4")</td>
+                                        <td><small>@(string.IsNullOrEmpty(u.CodigoBarra) ? "-" : u.CodigoBarra)</small></td>
+                                        <td class="text-end">$@u.PrecioUnitario.ToString("N2")</td>
+                                        <td class="text-end text-nowrap">
+                                            <button class="btn btn-sm btn-outline-primary" @onclick="() => EditarUnidad(u.Id)">Editar</button>
+                                            <button class="btn btn-sm btn-outline-danger" @onclick="() => EliminarUnidad(u.Id)">Quitar</button>
+                                        </td>
+                                    </tr>
+                                }
+                                @if (unidades.Count == 0)
+                                {
+                                    <tr><td colspan="5" class="text-center text-muted py-3">Sin presentaciones. Agrega al menos Litro x 1.</td></tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="p-3 border-top">
+                        <h6 class="fw-bold">@(unidadEdit.Id == 0 ? "Nueva presentacion" : $"Editar presentacion #{unidadEdit.Id}")</h6>
+                        <div class="row g-2">
+                            <div class="col-md-3"><label class="form-label small">Unidad *</label>
+                                <select class="form-select" @bind="unidadEdit.UnidadNombre">
+                                    <option value="Litro">Litro</option>
+                                    <option value="Botella">Botella</option>
+                                    <option value="Garrafa">Garrafa</option>
+                                    <option value="Caja">Caja</option>
+                                    <option value="Tambor">Tambor</option>
+                                </select></div>
+                            <div class="col-md-3"><label class="form-label small">Litros por unidad *</label>
+                                <input type="number" step="0.0001" min="0.0001" class="form-control" @bind="unidadEdit.FactorConversion" /></div>
+                            <div class="col-md-3"><label class="form-label small">Codigo de barras</label>
+                                <input class="form-control" @bind="unidadEdit.CodigoBarra" /></div>
+                            <div class="col-md-3"><label class="form-label small">Precio unitario *</label>
+                                <input type="number" step="0.01" min="0" class="form-control" @bind="unidadEdit.PrecioUnitario" /></div>
+                        </div>
+                        <div class="d-flex gap-2 mt-2">
+                            <button class="btn btn-sm btn-success" @onclick="GuardarUnidad" disabled="@guardandoUnidad">Guardar presentacion</button>
+                            <button class="btn btn-sm btn-link" @onclick="NuevaUnidad">Limpiar</button>
+                        </div>
+                        <small class="text-muted">El POS usa Litro por defecto; el factor convierte a litros para el stock.</small>
+                    </div>
+                </div></div>
+                <div class="card shadow-sm mt-3"><div class="card-header">Stock por sucursal (solo lectura)</div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-sm table-striped mb-0">
+                            <thead><tr><th>Sucursal</th><th class="text-end">Stock L</th><th class="text-end">Minimo L</th></tr></thead>
+                            <tbody>
+                                @foreach (var s in stocks)
+                                {
+                                    <tr class="@(s.BajoMinimo ? "table-warning" : "")">
+                                        <td>@s.Sucursal</td>
+                                        <td class="text-end"><strong>@s.Stock.ToString("N2")</strong></td>
+                                        <td class="text-end text-muted">@s.Minimo.ToString("N0")</td>
+                                    </tr>
+                                }
+                                @if (stocks.Count == 0)
+                                {
+                                    <tr><td colspan="3" class="text-center text-muted py-3">Sin stock registrado.</td></tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div></div>
+            }
+            else
+            {
+                <div class="alert alert-info mt-3 mb-0">Guarda el producto para agregar sus presentaciones y ver su stock.</div>
+            }
+        </div>
+    </div>
+</div>
