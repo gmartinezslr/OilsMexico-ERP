@@ -1,7 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using OilsMexico.Application.DTOs;
 using OilsMexico.Application.Interfaces;
-using OilsMexico.Domain.Entities;
 using OilsMexico.Infrastructure.Persistence;
 
 namespace OilsMexico.Infrastructure.Services;
@@ -13,7 +12,7 @@ namespace OilsMexico.Infrastructure.Services;
 /// 1 cobro = 1 REP (trazabilidad simple, sin consolidar receptores distintos).
 /// </summary>
 public sealed partial class ComplementoPagoService(
-    ErpDbContext db, ISucursalContext ctx,
+    ErpDbContext db, ISucursalContext ctx, ICfdiSelladoService sellado,
     IPacTimbradoService pac) : IComplementoPagoService
 {
     public async Task<List<VentaPpdPendienteDto>> PendientesAsync(int sucursalId, CancellationToken ct = default)

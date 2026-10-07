@@ -35,7 +35,7 @@ public sealed partial class NotaCreditoService
         return n.XmlSellado;
     }
 
-    public async Task<NotaCreditoResult> CancelarAsync(int notaId, string motivo, CancellationToken ct = default)
+    public async Task<NotaCreditoResult> CancelarAsync(int notaId, string motivo, string? folioSustitucion = null, CancellationToken ct = default)
     {
         var n = await db.NotasCredito.FirstOrDefaultAsync(x => x.Id == notaId, ct)
             ?? throw new InvalidOperationException("Nota de crédito no existe.");
@@ -45,10 +45,16 @@ public sealed partial class NotaCreditoService
             throw new UnauthorizedAccessException("Solo Admin/Conta cancelan NC.");
         if (n.Estado != "Timbrada")
             throw new InvalidOperationException($"Solo se cancelan NC timbradas (actual: {n.Estado}).");
-        if (string.IsNullOrWhiteSpace(motivo))
-            throw new InvalidOperationException("El motivo de cancelación es obligatorio (SAT).");
+        var motivoSat = (motivo ?? string.Empty).Trim();
+        if (motivoSat is not ("01" or "02" or "03" or "04"))
+            throw new InvalidOperationException($"Motivo SAT inválido: '{motivoSat}'. Usa 01, 02, 03 o 04.");
+        if (n.UuidSat is null)
+            throw new InvalidOperationException("La NC no tiene UUID timbrado.");
+        await pac.CancelarAsync(n.UuidSat.Value, motivoSat,
+            motivoSat == "01" ? folioSustitucion?.Trim() : null, ct);
         n.Estado = "Cancelada";
-        n.MotivoCancelacion = motivo.Trim();
+        n.MotivoCancelacion = motivoSat == "01" && !string.IsNullOrWhiteSpace(folioSustitucion)
+            ? $"{motivoSat} (sustituye: {folioSustitucion.Trim()})" : motivoSat;
         await db.SaveChangesAsync(ct);
         return new NotaCreditoResult(n.Id, n.FolioInterno, n.UuidSat,
             n.Subtotal, n.Iva, n.Total, "CANCELADA");

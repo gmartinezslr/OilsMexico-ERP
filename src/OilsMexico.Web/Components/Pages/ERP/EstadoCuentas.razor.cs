@@ -1,9 +1,15 @@
-@using OilsMexico.Application.Interfaces
-@using OilsMexico.Application.DTOs
-@inject IEstadoCuentasService EstadoCuentas
-@inject ISucursalContext SucCtx
-@inject ISesionActual Sesion
-@code {
+using OilsMexico.Application.DTOs;
+using OilsMexico.Application.Interfaces;
+using Microsoft.AspNetCore.Components;
+
+namespace OilsMexico.Web.Components.Pages.ERP;
+
+public partial class EstadoCuentas
+{
+    [Inject] private IEstadoCuentasService EstadoCuentasSvc { get; set; } = default!;
+    [Inject] private ISucursalContext SucCtx { get; set; } = default!;
+    [Inject] private ISesionActual Sesion { get; set; } = default!;
+
     private List<EstadoCuentaClienteDto>? _estados;
     private bool _cargando;
 
@@ -17,7 +23,7 @@
         _cargando = true;
         try
         {
-            _estados = await EstadoCuentas.ListarEstadosCuentasAsync(SucCtx.SucursalId);
+            _estados = await EstadoCuentasSvc.ListarEstadosCuentasAsync(SucCtx.SucursalId);
         }
         finally
         {

@@ -10,6 +10,12 @@
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.0" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Hojas XSLT oficiales del SAT para la cadena original CFDI 4.0 (recurso embebido;
+         incluye utilerias.xslt y las hojas de complementos referenciadas con xsl:include). -->
+    <EmbeddedResource Include="Cfdi\xslt\**\*.xslt" />
+  </ItemGroup>
+
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>

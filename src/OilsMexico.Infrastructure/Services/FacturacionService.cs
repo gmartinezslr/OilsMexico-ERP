@@ -1,5 +1,4 @@
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
 using OilsMexico.Application.DTOs;
 using OilsMexico.Application.Interfaces;
 using OilsMexico.Domain.Enums;
@@ -9,12 +8,11 @@ namespace OilsMexico.Infrastructure.Services;
 
 /// <summary>
 /// Facturación CFDI 4.0: listado por sucursal, timbrado diferido (sellado + PAC)
-/// y cancelación (solo modo SIMULADO hasta integrar el WS real del PAC).
+/// y cancelación real ante Finkok (cancel_signature con CSD local).
 /// </summary>
 public sealed class FacturacionService(
     ErpDbContext db, ISucursalContext ctx,
-    ICfdiSelladoService sellado, IPacTimbradoService pac,
-    IConfiguration cfg) : IFacturacionService
+    ICfdiSelladoService sellado, IPacTimbradoService pac) : IFacturacionService
 {
     public async Task<List<FacturaListadoDto>> ListarAsync(
         int sucursalId, string? estado, string? texto, CancellationToken ct = default)
@@ -67,9 +65,11 @@ public sealed class FacturacionService(
             throw new InvalidOperationException("La factura ya tiene UUID timbrado.");
 
         // Mismo flujo que el POS (VentasService.RegistrarVentaAsync):
-        // sellado RSA-SHA256 (modo SIMULADO sin CSD) + timbrado vía PAC.
+        // sellado RSA-SHA256 (CSD real o sello DEV simulado) + timbrado vía PAC (Finkok o simulado).
         await sellado.SellarAsync(facturaId, ct);
-        f.UuidSat = await pac.TimbrarAsync(f.XmlSellado!, ct);
+        var (uuidTimbrado, xmlTimbrado) = await pac.TimbrarAsync(f.XmlSellado!, ct);
+        f.UuidSat = uuidTimbrado;
+        f.XmlSellado = xmlTimbrado; // XML con el Timbre Fiscal Digital del PAC
         f.Estado = EstadoFactura.Timbrada;
         await db.SaveChangesAsync(ct);
 
@@ -77,7 +77,7 @@ public sealed class FacturacionService(
             f.Subtotal, f.Iva, f.Total, "TIMBRADA");
     }
 
-    public async Task<VentaPosResult> CancelarAsync(int facturaId, string motivo, CancellationToken ct = default)
+    public async Task<VentaPosResult> CancelarAsync(int facturaId, string motivo, string? folioSustitucion = null, CancellationToken ct = default)
     {
         var f = await db.Facturas.FirstOrDefaultAsync(x => x.Id == facturaId, ct)
             ?? throw new InvalidOperationException("Factura no existe.");
@@ -86,14 +86,21 @@ public sealed class FacturacionService(
         if (f.Estado is not (EstadoFactura.Timbrada or EstadoFactura.Entregada))
             throw new InvalidOperationException(
                 $"Solo se cancelan facturas timbradas (estado actual: {f.Estado}). Para anular una venta sin timbrar usa Devolución en el Historial.");
-        if (string.IsNullOrWhiteSpace(motivo))
-            throw new InvalidOperationException("El motivo de cancelación es obligatorio (lo exige el SAT).");
-        if (!string.Equals(cfg["Cfdi:PacModo"] ?? "SIMULADO", "SIMULADO", StringComparison.OrdinalIgnoreCase))
-            throw new NotImplementedException(
-                "La cancelación contra el PAC real aún no está habilitada. Configura el WS de cancelación o usa Cfdi:PacModo=SIMULADO.");
+        var motivoSat = (motivo ?? string.Empty).Trim();
+        if (motivoSat is not ("01" or "02" or "03" or "04"))
+            throw new InvalidOperationException(
+                $"Motivo de cancelación SAT inválido: '{motivoSat}'. Usa 01 (sustitución con relación), 02, 03 o 04.");
+        if (f.UuidSat is null)
+            throw new InvalidOperationException("La factura no tiene UUID timbrado; no hay nada que cancelar ante el PAC.");
+
+        // Cancelación real ante Finkok (cancel_signature con CSD local). En SIMULADO no toca red.
+        await pac.CancelarAsync(f.UuidSat.Value, motivoSat,
+            motivoSat == "01" ? folioSustitucion?.Trim() : null, ct);
 
         f.Estado = EstadoFactura.Cancelada;
-        f.MotivoCancelacion = motivo.Trim();
+        f.MotivoCancelacion = motivoSat == "01" && !string.IsNullOrWhiteSpace(folioSustitucion)
+            ? $"{motivoSat} (sustituye: {folioSustitucion.Trim()})"
+            : motivoSat;
         await db.SaveChangesAsync(ct);
         return new VentaPosResult(f.Id, f.FolioInterno, f.UuidSat,
             f.Subtotal, f.Iva, f.Total, "CANCELADA");

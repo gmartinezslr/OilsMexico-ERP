@@ -7,7 +7,7 @@ namespace OilsMexico.Web.Components.Pages.ERP;
 public partial class Facturacion : ComponentBase
 {
     private List<FacturaListadoDto> lista = [];
-    private string estado = "", texto = "", msg = "", motivoCancelacion = "";
+    private string estado = "", texto = "", msg = "", motivoCancelacion = "02", folioSustitucion = "";
     private bool err, cargando, cancelando, puedeCancelar;
     private FacturaListadoDto? sel;
     private HistorialDetalleDto? detalle;
@@ -66,17 +66,20 @@ public partial class Facturacion : ComponentBase
         cargando = false;
     }
 
-    private void EmpezarCancelacion() { cancelando = true; motivoCancelacion = ""; }
+    private void EmpezarCancelacion() { cancelando = true; motivoCancelacion = "02"; folioSustitucion = ""; }
 
     private async Task ConfirmarCancelacion(int facturaId)
     {
-        if (string.IsNullOrWhiteSpace(motivoCancelacion))
-        { msg = "El motivo de cancelación es obligatorio (lo exige el SAT)."; err = true; return; }
+        if (motivoCancelacion is not ("01" or "02" or "03" or "04"))
+        { msg = "Motivo SAT inválido: usa 01, 02, 03 o 04."; err = true; return; }
+        if (motivoCancelacion == "01" && !Guid.TryParse(folioSustitucion?.Trim(), out _))
+        { msg = "El motivo 01 exige el UUID del CFDI sustituto."; err = true; return; }
         cargando = true;
         try
         {
-            var r = await Fact.CancelarAsync(facturaId, motivoCancelacion.Trim());
-            msg = $"Factura {r.FolioInterno} cancelada (motivo registrado)."; err = false;
+            var r = await Fact.CancelarAsync(facturaId, motivoCancelacion.Trim(),
+                motivoCancelacion == "01" ? folioSustitucion.Trim() : null);
+            msg = $"Factura {r.FolioInterno} cancelada ante el PAC (motivo {motivoCancelacion})."; err = false;
             await Cargar();
         }
         catch (Exception ex) { msg = "Error: " + ex.Message; err = true; }

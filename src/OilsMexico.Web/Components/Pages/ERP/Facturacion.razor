@@ -4,9 +4,11 @@
 @inject OilsMexico.Application.Interfaces.IVentasService Ventas
 @inject OilsMexico.Application.Interfaces.ISucursalContext SucCtx
 @inject OilsMexico.Application.Interfaces.ISesionActual Sesion
+@inject Microsoft.Extensions.Configuration.IConfiguration Config
 @inject NavigationManager Nav
 @using OilsMexico.Application.DTOs
 <PageTitle>Facturación CFDI | OilsMexico ERP</PageTitle>
+@{ var pacModo = (Config["Cfdi:PacModo"] ?? "SIMULADO").ToUpperInvariant(); }
 <div class="container-fluid py-3">
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h3 class="fw-bold mb-0">Facturación CFDI 4.0 <span class="badge bg-secondary">Suc @SucCtx.SucursalId</span></h3>
@@ -40,7 +42,7 @@
                 <button class="btn btn-primary btn-sm w-100" @onclick="Buscar" disabled="@cargando">Buscar</button>
             </div>
             <div class="col-md-2 text-md-end">
-                <small class="text-muted">PAC: <strong>SIMULADO</strong> (sellado DEV auditable)</small>
+                <small class="text-muted">PAC Finkok: <strong>@pacModo</strong>@(pacModo == "SIMULADO" ? " (sellado DEV auditable)" : "")</small>
             </div>
         </div>
     </div></div>
@@ -144,11 +146,22 @@
                                         @if (cancelando)
                                         {
                                             <div class="input-group input-group-sm mt-2">
-                                                <input class="form-control" maxlength="300" placeholder="Motivo de cancelación (obligatorio, SAT)…" @bind="motivoCancelacion" />
+                                                <select class="form-select" @bind="motivoCancelacion">
+                                                    <option value="02">02 - Sin relación</option>
+                                                    <option value="01">01 - Con relación (exige sustituto)</option>
+                                                    <option value="03">03 - No se llevó a cabo</option>
+                                                    <option value="04">04 - Nominativa relacionada</option>
+                                                </select>
                                                 <button class="btn btn-danger" @onclick="() => ConfirmarCancelacion(sel.FacturaId)">Confirmar</button>
                                                 <button class="btn btn-outline-secondary" @onclick="() => cancelando = false">Cancelar</button>
                                             </div>
-                                            <small class="text-muted">En modo SIMULADO se marca localmente como Cancelada con el motivo registrado.</small>
+                                            @if (motivoCancelacion == "01")
+                                            {
+                                                <div class="input-group input-group-sm mt-2">
+                                                    <input class="form-control" maxlength="36" placeholder="UUID del CFDI sustituto (obligatorio para 01)…" @bind="folioSustitucion" />
+                                                </div>
+                                            }
+                                            <small class="text-muted">Cancelación real ante Finkok (cancel_signature con CSD). En SIMULADO se marca localmente.</small>
                                         }
                                     </div>
                                 </div>
@@ -166,8 +179,11 @@
     </div></div>
 
     <small class="text-muted d-block mt-2">
-        Timbrar sella (RSA-SHA256) y envía al PAC — en modo SIMULADO el UUID es local y auditable
-        (revisar <code>XmlSellado</code> / <code>SelloDigital</code> de la factura). Para timbrado real:
-        configura <code>Cfdi:</code> en appsettings y la carpeta <code>certs/</code> (nunca al repo).
+        Timbrar sella el CFDI 4.0 (RSA-SHA256 sobre la cadena original del SAT) y lo envía al PAC Finkok;
+        el XML guardado incluye el Timbre Fiscal Digital. En modo SIMULADO el UUID es local y auditable
+        (revisar <code>XmlSellado</code> / <code>SelloDigital</code>). Para timbrado real:
+        <code>Cfdi:PacModo = TEST | PRODUCCION</code>, credenciales en <code>Cfdi:Pac</code> (user-secrets)
+        y CSD en <code>certs/</code> (nunca al repo). Cancelar exige motivo SAT 01|02|03|04
+        (01 exige el UUID sustituto) y firma con el CSD. NC (Tipo E) y REP (Pagos 2.0) timbran en modo real.
     </small>
 </div>

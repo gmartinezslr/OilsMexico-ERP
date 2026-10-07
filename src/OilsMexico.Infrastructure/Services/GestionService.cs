@@ -1,6 +1,8 @@
 using Microsoft.EntityFrameworkCore;
 using OilsMexico.Application.DTOs;
+using OilsMexico.Application.Interfaces;
 using OilsMexico.Domain.Entities;
+using OilsMexico.Domain.Enums;
 using OilsMexico.Infrastructure.Persistence;
 
 namespace OilsMexico.Infrastructure.Services;
@@ -45,18 +47,14 @@ public sealed partial class GestionService(ErpDbContext db, ISucursalContext ctx
             ingresos, iva, totalVentas, numVentas, promedio, unidadesVendidas, montoCosto, utilidad,
             ventasPorDia, totalCortes);
     }
-}
-    public Task<List<VentasPorDiaDto>> VentasPorDiaAsync(int sucursalId, DateTime desde, DateTime hasta, CancellationToken ct = default)
-    {
-        var desdeUtc = DateTime.SpecifyKind(desde.Date, DateTimeKind.Local).ToUniversalTime();
-        var hastaUtc = DateTime.SpecifyKind(hasta.Date.AddDays(1), DateTimeKind.Local).ToUniversalTime();
-    public Task<List<RotacionABCDto>> RotacionAbcAsync(int sucursalId, DateTime desde, DateTime hasta, CancellationToken ct = default)
+
+    public async Task<List<RotacionABCDto>> RotacionAbcAsync(int sucursalId, DateTime desde, DateTime hasta, CancellationToken ct = default)
     {
         var desdeUtc = DateTime.SpecifyKind(desde.Date, DateTimeKind.Local).ToUniversalTime();
         var hastaUtc = DateTime.SpecifyKind(hasta.Date.AddDays(1), DateTimeKind.Local).ToUniversalTime();
 
         var ventas = db.FacturaDetalles.AsNoTracking()
-            .Join(db.Facturas.AsNoTracking(), d => d.FacturaId, f => f.Id, (d, f) => (d, f))
+            .Join(db.Facturas.AsNoTracking(), d => d.FacturaId, f => f.Id, (d, f) => new { d, f })
             .Where(x => x.f.SucursalId == sucursalId
                 && x.f.FechaEmision >= desdeUtc && x.f.FechaEmision < hastaUtc
                 && x.f.Estado != EstadoFactura.Cancelada && x.f.Estado != EstadoFactura.Devolucion)
@@ -88,7 +86,7 @@ public sealed partial class GestionService(ErpDbContext db, ISucursalContext ctx
                 v.Cantidad, Math.Round(v.Importe, 2), Math.Round(acumulado / Math.Max(1m, total) * 100, 1), clase));
         }
 
-        return Task.FromResult(resultado);
+        return resultado;
     }
 
     public async Task<List<CorteSucursalDto>> CortesPorSucursalAsync(int sucursalId, CancellationToken ct = default)
@@ -189,6 +187,11 @@ public sealed partial class GestionService(ErpDbContext db, ISucursalContext ctx
     }
 
 
+    public Task<List<VentasPorDiaDto>> VentasPorDiaAsync(int sucursalId, DateTime desde, DateTime hasta, CancellationToken ct = default)
+    {
+        var desdeUtc = DateTime.SpecifyKind(desde.Date, DateTimeKind.Local).ToUniversalTime();
+        var hastaUtc = DateTime.SpecifyKind(hasta.Date.AddDays(1), DateTimeKind.Local).ToUniversalTime();
+
         var grupos = db.Facturas.AsNoTracking()
             .Where(f => f.SucursalId == sucursalId
                 && f.FechaEmision >= desdeUtc && f.FechaEmision < hastaUtc
@@ -224,4 +227,5 @@ public sealed partial class GestionService(ErpDbContext db, ISucursalContext ctx
             .Select(x => new VentasPorVendedorDto(
                 x.ClienteId, x.Total, x.NumFacturas)).ToList());
     }
+}
 

@@ -1,3 +1,4 @@
+using OilsMexico.Application.Interfaces;
 using OilsMexico.Domain.Entities;
 
 namespace OilsMexico.Infrastructure.Services;

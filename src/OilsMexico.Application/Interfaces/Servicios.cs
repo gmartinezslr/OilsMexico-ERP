@@ -37,6 +37,10 @@ public interface IInventarioService
 public interface ICfdiSelladoService
 {
     Task<(string CadenaOriginal, string Sello, string XmlSellado)> SellarAsync(int facturaId, CancellationToken ct = default);
+    /// <summary>Sella una Nota de Crédito CFDI 4.0 (Tipo E, CfdiRelacionados 01) con el CSD.</summary>
+    Task<(string CadenaOriginal, string Sello, string XmlSellado)> SellarNotaCreditoAsync(int notaId, CancellationToken ct = default);
+    /// <summary>Sella un Complemento de Pagos CFDI 4.0 (Tipo P + Pagos 2.0) con el CSD.</summary>
+    Task<(string CadenaOriginal, string Sello, string XmlSellado)> SellarRepAsync(int repId, CancellationToken ct = default);
 }
 
 /// <summary>Módulo Facturación CFDI: listado de folios, timbrado diferido, cancelación y descarga de XML.</summary>
@@ -45,16 +49,26 @@ public interface IFacturacionService
     Task<List<FacturaListadoDto>> ListarAsync(int sucursalId, string? estado, string? texto, CancellationToken ct = default);
     /// <summary>Sella y timbra una factura en estado Pendiente (timbrado diferido fuera del POS).</summary>
     Task<VentaPosResult> TimbrarAsync(int facturaId, CancellationToken ct = default);
-    /// <summary>Cancela una factura ya timbrada. Motivo obligatorio (SAT). Solo modo SIMULADO por ahora.</summary>
-    Task<VentaPosResult> CancelarAsync(int facturaId, string motivo, CancellationToken ct = default);
+    /// <summary>Cancela una factura ya timbrada ante el PAC (cancel_signature). Motivo SAT 01|02|03|04 obligatorio; motivo 01 exige el UUID sustituto.</summary>
+    Task<VentaPosResult> CancelarAsync(int facturaId, string motivo, string? folioSustitucion = null, CancellationToken ct = default);
     /// <summary>Devuelve el XML sellado/timbrado o null si no existe.</summary>
     Task<string?> ObtenerXmlAsync(int facturaId, CancellationToken ct = default);
 }
 
 public interface IPacTimbradoService
 {
-    /// <summary>Timbra vía Web Service del PAC. En dev/staging puede operar en modo simulado.</summary>
-    Task<Guid> TimbrarAsync(string xmlSellado, CancellationToken ct = default);
+    /// <summary>
+    /// Timbra vía Web Service del PAC (Finkok: SOAP stamp). SIMULADO devuelve un UUID local.
+    /// Devuelve el UUID SAT y el XML timbrado (con el Timbre Fiscal Digital) para persistirlo.
+    /// </summary>
+    Task<(Guid Uuid, string XmlTimbrado)> TimbrarAsync(string xmlSellado, CancellationToken ct = default);
+    /// <summary>
+    /// Cancela un CFDI timbrado vía Finkok (cancel_signature): firma la solicitud con el CSD
+    /// local (nunca viaja la llave al PAC) y envía Motivo SAT 01|02|03|04. SIMULADO no toca red.
+    /// </summary>
+    Task CancelarAsync(Guid uuid, string motivoSat, string? folioSustitucion = null, CancellationToken ct = default);
+    /// <summary>Consulta el estado de un CFDI ante el SAT vía Finkok (get_sat_status).</summary>
+    Task<string> EstadoSatAsync(Guid uuid, CancellationToken ct = default);
 }
 
 public interface ICatalogosSatService

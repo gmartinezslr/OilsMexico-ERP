@@ -80,8 +80,10 @@ public sealed partial class VentasService
         if (req.RequiereFactura)
         {
             await sellado.SellarAsync(factura.Id, ct);
-            uuid = await pac.TimbrarAsync(factura.XmlSellado!, ct);
-            factura.UuidSat = uuid;
+            var (uuidTimbrado, xmlTimbrado) = await pac.TimbrarAsync(factura.XmlSellado!, ct);
+            uuid = uuidTimbrado;
+            factura.UuidSat = uuidTimbrado;
+            factura.XmlSellado = xmlTimbrado; // XML con el Timbre Fiscal Digital del PAC
             factura.Estado = EstadoFactura.Timbrada;
             await db.SaveChangesAsync(ct);
         }

@@ -9,7 +9,7 @@ public partial class NotasCredito : ComponentBase
     private List<NotaCreditoListadoDto> lista = [];
     private NotaCreditoPreviewDto? preview;
     private string estado = "", texto = "", msg = "", motivo = "Devolucion";
-    private string observaciones = "", motivoCancelacion = "";
+    private string observaciones = "", motivoCancelacion = "02", folioSustitucionNc = "";
     private bool err, cargando, puedeCancelar;
     private int? cancelandoId, origenQuery;
 
@@ -76,17 +76,20 @@ public partial class NotasCredito : ComponentBase
         cargando = false;
     }
 
-    private void EmpezarCancelar(int id) { cancelandoId = id; motivoCancelacion = ""; }
+    private void EmpezarCancelar(int id) { cancelandoId = id; motivoCancelacion = "02"; folioSustitucionNc = ""; }
 
     private async Task ConfirmarCancelar(int id)
     {
-        if (string.IsNullOrWhiteSpace(motivoCancelacion))
-        { msg = "El motivo de cancelación es obligatorio (SAT)."; err = true; return; }
+        if (motivoCancelacion is not ("01" or "02" or "03" or "04"))
+        { msg = "Motivo SAT inválido: usa 01, 02, 03 o 04."; err = true; return; }
+        if (motivoCancelacion == "01" && !Guid.TryParse(folioSustitucionNc?.Trim(), out _))
+        { msg = "El motivo 01 exige el UUID del CFDI sustituto."; err = true; return; }
         cargando = true;
         try
         {
-            var r = await Nc.CancelarAsync(id, motivoCancelacion.Trim());
-            msg = $"NC {r.FolioInterno} cancelada."; err = false;
+            var r = await Nc.CancelarAsync(id, motivoCancelacion.Trim(),
+                motivoCancelacion == "01" ? folioSustitucionNc.Trim() : null);
+            msg = $"NC {r.FolioInterno} cancelada ante el PAC (motivo {motivoCancelacion})."; err = false;
             cancelandoId = null;
             await Cargar();
         }

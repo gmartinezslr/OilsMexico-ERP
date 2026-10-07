@@ -1,9 +1,5 @@
 @page "/estado-cuentas"
-@using OilsMexico.Application.Interfaces
-@using OilsMexico.Application.DTOs
-@inject IEstadoCuentasService EstadoCuentas
-@inject ISucursalContext SucCtx
-@inject ISesionActual Sesion
+@rendermode InteractiveServer
 @{
     var saldoInsoluto = _estados is null ? 0m : _estados.Sum(x => x.SaldoPendiente);
 }
@@ -33,11 +29,11 @@
                     var cls = e.SaldoPendiente > 0m ? "table-danger" : "table-success";
                     <tr class="@cls">
                         <td>@e.Nombre</td>
-                        <td>@e.Rfc</td>
-                        <td>@e.FacturasAbiertas.Count</td>
-                        <td class="text-end">@e.TotalFacturas:0.00</td>
-                        <td class="text-end">@e.TotalPagosAplicados:0.00</td>
-                        <td class="text-end fw-bold">@e.SaldoPendiente:0.00</td>
+                        <td>@e.RFC</td>
+                        <td>—</td>
+                        <td class="text-end">@e.TotalFacturasAbiertas.ToString("0.00")</td>
+                        <td class="text-end">@e.TotalPagosAplicados.ToString("0.00")</td>
+                        <td class="text-end fw-bold">@e.SaldoPendiente.ToString("0.00")</td>
                     </tr>
                 }
                 </tbody>

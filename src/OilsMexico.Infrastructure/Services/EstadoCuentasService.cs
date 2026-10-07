@@ -1,6 +1,8 @@
 using Microsoft.EntityFrameworkCore;
 using OilsMexico.Application.DTOs;
+using OilsMexico.Application.Interfaces;
 using OilsMexico.Domain.Entities;
+using OilsMexico.Domain.Enums;
 using OilsMexico.Infrastructure.Persistence;
 
 namespace OilsMexico.Infrastructure.Services;
@@ -9,54 +11,76 @@ public sealed partial class EstadoCuentasService(ErpDbContext db, ISucursalConte
 {
     public async Task<List<EstadoCuentaClienteDto>> ListarEstadosCuentasAsync(int sucursalId, CancellationToken ct = default)
     {
-        var q = db.Clientes.AsNoTracking()
-            .Where(c => c.SucursalId == sucursalId)
-            .Where(c => c.Activo)
-            .Select(c => new
-            {
-                c.Id, c.Nombre, c.Rfc, c.Telefono, c.Email,
-                TotalFacturas = c.Facturas.Where(f => f.SucursalId == sucursalId
-                        && f.Estado != EstadoFactura.Cancelada && f.Estado != EstadoFactura.Devolucion)
-                    .Sum(f => f.Total),
-                TotalPagos = c.VentaCobros.Where(v => v.SucursalId == sucursalId).Sum(v => v.Monto)
-            })
-            .Where(x => x.TotalFacturas > 0.01m)
-            .OrderByDescending(x => x.TotalFacturas)
+        var facturasPorCliente = await db.Facturas.AsNoTracking()
+            .Where(f => f.SucursalId == sucursalId
+                && f.Estado != EstadoFactura.Cancelada && f.Estado != EstadoFactura.Devolucion)
+            .GroupBy(f => f.ClienteId)
+            .Select(g => new { ClienteId = g.Key, Total = g.Sum(f => f.Total) })
+            .ToDictionaryAsync(x => x.ClienteId, x => x.Total, ct);
+
+        if (facturasPorCliente.Count == 0) return [];
+
+        var clienteIds = facturasPorCliente.Keys.ToList();
+
+        var cobrosPorCliente = await db.VentaCobros.AsNoTracking()
+            .Where(v => v.SucursalId == sucursalId && clienteIds.Contains(v.ClienteId))
+            .GroupBy(v => v.ClienteId)
+            .Select(g => new { ClienteId = g.Key, Total = g.Sum(v => v.Monto) })
+            .ToDictionaryAsync(x => x.ClienteId, x => x.Total, ct);
+
+        var clientes = await db.Clientes.AsNoTracking()
+            .Where(c => clienteIds.Contains(c.Id) && c.Activo)
             .ToListAsync(ct);
 
-        return q.Select(x => new EstadoCuentaClienteDto(
-            x.Id, x.Nombre, x.Rfc, x.Telefono ?? string.Empty, x.Email ?? string.Empty,
-            x.TotalFacturas, x.TotalPagos, Math.Round(x.TotalFacturas - x.TotalPagos, 2)))
-            .ToList();
+        var list = new List<EstadoCuentaClienteDto>();
+        foreach (var c in clientes)
+        {
+            var totalFac = facturasPorCliente.GetValueOrDefault(c.Id, 0m);
+            var totalCob = cobrosPorCliente.GetValueOrDefault(c.Id, 0m);
+            var saldo = Math.Round(totalFac - totalCob, 2);
+            if (totalFac > 0.01m)
+            {
+                list.Add(new EstadoCuentaClienteDto(
+                    c.Id, c.Nombre, c.Rfc, c.Telefono ?? string.Empty, c.Email ?? string.Empty,
+                    totalFac, totalCob, saldo));
+            }
+        }
+
+        return list.OrderByDescending(x => x.TotalFacturasAbiertas).ToList();
     }
 
-    public Task<ClienteEstadoCuentaDto?> ObtenerEstadoCuentaAsync(int clienteId, CancellationToken ct = default)
+    public async Task<ClienteEstadoCuentaDto?> ObtenerEstadoCuentaAsync(int clienteId, CancellationToken ct = default)
     {
-        var cliente = db.Clientes.AsNoTracking().FirstOrDefault(x => x.Id == clienteId);
-        if (cliente is null) return Task.FromResult<ClienteEstadoCuentaDto?>(null);
+        var cliente = await db.Clientes.AsNoTracking().FirstOrDefaultAsync(x => x.Id == clienteId, ct);
+        if (cliente is null) return null;
 
-        var facturasAbiertas = cliente.Facturas
-            .Where(f => f.SucursalId == cliente.SucursalId
+        var sucursalId = ctx.SucursalId;
+
+        var facturasAbiertas = await db.Facturas.AsNoTracking()
+            .Where(f => f.ClienteId == clienteId
+                && (sucursalId == 0 || f.SucursalId == sucursalId)
                 && f.Estado != EstadoFactura.Cancelada
                 && f.Estado != EstadoFactura.Devolucion)
+            .OrderByDescending(f => f.FechaEmision)
             .Select(f => new FacturaEstadoCuentaDto(
                 f.Id, f.FolioInterno, f.FechaEmision, f.Estado.ToString(), f.Total, f.UuidSat))
-            .OrderByDescending(f => f.FechaEmision)
-            .ToList();
+            .ToListAsync(ct);
 
-        var pagos = db.VentaCobros
-            .Where(v => v.SucursalId == cliente.SucursalId && v.ClienteId == clienteId)
+        var pagos = await db.VentaCobros.AsNoTracking()
+            .Where(v => v.ClienteId == clienteId && (sucursalId == 0 || v.SucursalId == sucursalId))
+            .OrderByDescending(v => v.FechaPagoUtc)
             .Select(v => new PagoCuentaDto(
-                v.Id, v.FechaPagoUtc, "VentaCobro", v.Monto, v.Referencia, null))
-            .OrderByDescending(v => v.Fecha)
-            .ToList();
+                v.Id, v.FechaPagoUtc, "VentaCobro", v.Monto, v.Referencia ?? string.Empty, null))
+            .ToListAsync(ct);
 
         var totalAbiertas = facturasAbiertas.Sum(f => f.Total);
         var totalPagos = pagos.Sum(p => p.Monto);
         var saldo = Math.Round(totalAbiertas - totalPagos, 2);
 
-        return Task.FromResult<ClienteEstadoCuentaDto?>(saldo <= 0.01m ? null : new ClienteEstadoCuentaDto(
+        if (saldo <= 0.01m && facturasAbiertas.Count == 0) return null;
+
+        return new ClienteEstadoCuentaDto(
             cliente.Id, cliente.Nombre, cliente.Rfc, cliente.Telefono ?? string.Empty, cliente.Email ?? string.Empty,
-            facturasAbiertas, pagos, saldo));
+            facturasAbiertas, pagos, saldo);
     }
 }

@@ -1,8 +1,6 @@
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
 using OilsMexico.Application.DTOs;
 using OilsMexico.Application.Interfaces;
-using OilsMexico.Domain.Entities;
 using OilsMexico.Infrastructure.Persistence;
 
 namespace OilsMexico.Infrastructure.Services;
@@ -13,8 +11,8 @@ namespace OilsMexico.Infrastructure.Services;
 /// la NC es el documento fiscal electrónico con UUID propio.
 /// </summary>
 public sealed partial class NotaCreditoService(
-    ErpDbContext db, ISucursalContext ctx,
-    IPacTimbradoService pac, IConfiguration cfg) : INotaCreditoService
+    ErpDbContext db, ISucursalContext ctx, ICfdiSelladoService sellado,
+    IPacTimbradoService pac) : INotaCreditoService
 {
     public async Task<NotaCreditoPreviewDto> PreviewAsync(int facturaOrigenId, CancellationToken ct = default)
     {

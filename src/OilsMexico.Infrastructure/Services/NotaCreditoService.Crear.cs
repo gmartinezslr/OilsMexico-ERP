@@ -1,5 +1,3 @@
-using System.Security.Cryptography;
-using System.Text;
 using Microsoft.EntityFrameworkCore;
 using OilsMexico.Application.DTOs;
 using OilsMexico.Domain.Entities;
@@ -71,19 +69,11 @@ public sealed partial class NotaCreditoService
         nc.RepusoStock = true;
         await db.SaveChangesAsync(ct);
 
-        // Sellado SIMULADO Tipo E + timbrado PAC.
-        var cadena = $"||4.0|E|{nc.FolioInterno}|{nc.FechaEmision:yyyy-MM-ddTHH:mm:ss}|" +
-            $"01|{nc.UuidFacturaOrigen}|G02|{nc.Subtotal:N2}|{nc.Total:N2}|DEV|";
-        var sello = Convert.ToBase64String(SHA256.HashData(
-            Encoding.UTF8.GetBytes(cadena + (cfg["Cfdi:KeyPassword"] ?? string.Empty))));
-        nc.CadenaOriginal = cadena;
-        nc.SelloDigital = sello;
-        nc.XmlSellado = $"<cfdi:Comprobante xmlns:cfdi=\"http://www.sat.gob.mx/cfd/4\" " +
-            $"Version=\"4.0\" TipoDeComprobante=\"E\" Folio=\"{nc.FolioInterno}\" " +
-            $"UuidRelacionado=\"{nc.UuidFacturaOrigen}\" FolioOrigen=\"{f.FolioInterno}\" " +
-            $"SubTotal=\"{nc.Subtotal:N2}\" Total=\"{nc.Total:N2}\" Sello=\"{sello}\" />";
-        await db.SaveChangesAsync(ct);
-        nc.UuidSat = await pac.TimbrarAsync(nc.XmlSellado!, ct);
+        // Sellado real Tipo E (CSD + XSLT SAT) + timbrado PAC (Finkok o SIMULADO).
+        await sellado.SellarNotaCreditoAsync(nc.Id, ct);
+        var (uuidNc, xmlNcTimbrado) = await pac.TimbrarAsync(nc.XmlSellado!, ct);
+        nc.UuidSat = uuidNc;
+        nc.XmlSellado = xmlNcTimbrado;
         nc.Estado = "Timbrada";
         await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);

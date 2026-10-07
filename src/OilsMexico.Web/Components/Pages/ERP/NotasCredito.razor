@@ -108,11 +108,22 @@
                     {
                         <tr><td colspan="8">
                             <div class="input-group input-group-sm">
-                                <input class="form-control" maxlength="300"
-                                       placeholder="Motivo de cancelación (obligatorio, SAT)…" @bind="motivoCancelacion" />
+                                <select class="form-select" @bind="motivoCancelacion">
+                                    <option value="02">02 - Sin relación</option>
+                                    <option value="01">01 - Con relación (exige sustituto)</option>
+                                    <option value="03">03 - No se llevó a cabo</option>
+                                    <option value="04">04 - Nominativa relacionada</option>
+                                </select>
                                 <button class="btn btn-danger" @onclick="() => ConfirmarCancelar(n.NotaId)">Confirmar</button>
                                 <button class="btn btn-outline-secondary" @onclick="() => cancelandoId = null">Cancelar</button>
                             </div>
+                            @if (motivoCancelacion == "01")
+                            {
+                                <div class="input-group input-group-sm mt-2">
+                                    <input class="form-control" maxlength="36"
+                                           placeholder="UUID del CFDI sustituto (obligatorio para 01)…" @bind="folioSustitucionNc" />
+                                </div>
+                            }
                         </td></tr>
                     }
                 }

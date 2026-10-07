@@ -24,7 +24,12 @@ builder.Services.AddScoped<IInventarioService, InventarioService>();
 builder.Services.AddScoped<IAlmacenConsulta, AlmacenConsultaService>();
 builder.Services.AddScoped<ITicketService, TicketService>();
 builder.Services.AddScoped<ICfdiSelladoService, CfdiSelladoService>();
-builder.Services.AddScoped<IPacTimbradoService, PacTimbradoService>();
+// Cliente HTTP del PAC Finkok (named client con timeout); PacTimbradoService lo recibe vía DI.
+builder.Services.AddHttpClient("finkok", c => c.Timeout = TimeSpan.FromSeconds(30));
+builder.Services.AddScoped<IPacTimbradoService>(sp => new PacTimbradoService(
+    sp.GetRequiredService<IConfiguration>(),
+    sp.GetRequiredService<IHttpClientFactory>().CreateClient("finkok"),
+    sp.GetRequiredService<ErpDbContext>()));
 builder.Services.AddScoped<IFacturacionService, FacturacionService>();
 builder.Services.AddScoped<INotaCreditoService, NotaCreditoService>();
 builder.Services.AddScoped<IComplementoPagoService, ComplementoPagoService>();

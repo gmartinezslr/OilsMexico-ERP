@@ -10,11 +10,12 @@ public interface INotaCreditoService
 {
     /// <summary>Preview fiscal de la NC (renglones espejo + totales) sin persistir.</summary>
     Task<NotaCreditoPreviewDto> PreviewAsync(int facturaOrigenId, CancellationToken ct = default);
-    /// <summary>Crea + sella + timbra la NC (SIMULADO sin CSD) y repone stock.</summary>
+    /// <summary>Crea + sella (Tipo E real) + timbra la NC vía PAC y repone stock.</summary>
     Task<NotaCreditoResult> CrearYTimbrarAsync(CrearNotaCreditoRequest request, CancellationToken ct = default);
     Task<List<NotaCreditoListadoDto>> ListarAsync(int sucursalId, string? estado, string? texto, CancellationToken ct = default);
     Task<string?> ObtenerXmlAsync(int notaId, CancellationToken ct = default);
-    Task<NotaCreditoResult> CancelarAsync(int notaId, string motivo, CancellationToken ct = default);
+    /// <summary>Cancela la NC ante el PAC (cancel_signature). Motivo SAT 01|02|03|04; 01 exige sustituto.</summary>
+    Task<NotaCreditoResult> CancelarAsync(int notaId, string motivo, string? folioSustitucion = null, CancellationToken ct = default);
 }
 
 /// <summary>

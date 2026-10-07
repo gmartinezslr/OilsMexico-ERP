@@ -1,5 +1,3 @@
-using System.Security.Cryptography;
-using System.Text;
 using Microsoft.EntityFrameworkCore;
 using OilsMexico.Application.DTOs;
 using OilsMexico.Domain.Entities;
@@ -59,18 +57,11 @@ public sealed partial class ComplementoPagoService
         });
         await db.SaveChangesAsync(ct);
 
-        var cadena = $"||4.0|P|{rep.FolioInterno}|{rep.FechaEmision:yyyy-MM-ddTHH:mm:ss}|" +
-            $"CP01|{monto:N2}|{f.FolioInterno}|{numParc}|{saldoAnt:N2}|{insoluto:N2}|DEV|";
-        var sello = Convert.ToBase64String(SHA256.HashData(Encoding.UTF8.GetBytes(cadena)));
-        rep.CadenaOriginal = cadena;
-        rep.SelloDigital = sello;
-        rep.XmlSellado = $"<cfdi:Comprobante xmlns:cfdi=\"http://www.sat.gob.mx/cfd/4\" " +
-            $"Version=\"4.0\" TipoDeComprobante=\"P\" Folio=\"{rep.FolioInterno}\" " +
-            $"UuidRelacionado=\"{f.UuidSat}\" Parcialidad=\"{numParc}\" " +
-            $"ImpSaldoAnt=\"{saldoAnt:N2}\" ImpPagado=\"{monto:N2}\" ImpSaldoInsoluto=\"{insoluto:N2}\" " +
-            $"Total=\"{monto:N2}\" Sello=\"{sello}\" />";
-        await db.SaveChangesAsync(ct);
-        rep.UuidSat = await pac.TimbrarAsync(rep.XmlSellado!, ct);
+        // Sellado real Tipo P + Pagos 2.0 (CSD + XSLT SAT) + timbrado PAC.
+        await sellado.SellarRepAsync(rep.Id, ct);
+        var (uuidRep, xmlRepTimbrado) = await pac.TimbrarAsync(rep.XmlSellado!, ct);
+        rep.UuidSat = uuidRep;
+        rep.XmlSellado = xmlRepTimbrado;
         rep.Estado = "Timbrado";
         await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);

@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using OilsMexico.Application.DTOs;
+using OilsMexico.Application.Interfaces;
 using OilsMexico.Domain.Entities;
 using OilsMexico.Infrastructure.Persistence;
 
@@ -48,7 +49,6 @@ public sealed partial class CuentasContablesService(ErpDbContext db, ISucursalCo
             new() { Codigo = "6000", Nombre = "Gastos generales", Tipo = 5, Descripcion = "Gastos operativos" }
         };
     }
-}
 
     public async Task<RegistrarAsientoResult> RegistrarAsientoAsync(RegistrarAsientoRequest request, CancellationToken ct = default)
     {
@@ -117,7 +117,7 @@ public sealed partial class CuentasContablesService(ErpDbContext db, ISucursalCo
         var detallesDto = detalles.Select(d => new DetalleAsientoDto(
             d.Id, d.CuentaId, d.Cuenta!.Nombre, d.Cuenta.Codigo, d.TipoMovimiento, d.Importe, d.Descripcion)).ToList();
 
-        return new RegistrarAsientoResult(asiento.Id, asiento.Numeracion ?? $\"AS-{asiento.Id}\", detallesDto, totalDebitos, totalCreditos, true);
+        return new RegistrarAsientoResult(asiento.Id, asiento.Numeracion ?? $"AS-{asiento.Id}", detallesDto, totalDebitos, totalCreditos, true);
     }
 
     public Task<AsientoContableDto?> DetalleAsientoAsync(int asientoId, CancellationToken ct = default)
