@@ -1,87 +1,186 @@
+/* ==========================================
+   1. CONTENEDORES GENERALES Y GRUPOS (ACORDEÓN)
+   ========================================== */
 .nav-groups {
-    display: flex;
-    flex-direction: column;
-    gap: .9rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
 }
 
-/* ---- Grupo / caption ---- */
 .nav-group {
-    display: flex;
-    flex-direction: column;
-    gap: .18rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.18rem;
 }
 
 .nav-group-title {
-    font-size: .68rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: .1em;
-    color: #64748B;
-    padding: 0 .7rem;
-    margin-bottom: .28rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #64748b;
+  padding: 0 0.7rem;
+  margin-bottom: 0.28rem;
 }
 
-/* ---- Item ---- */
-.nav-link {
-    display: flex;
-    align-items: center;
-    gap: .65rem;
-    padding: .5rem .7rem;
-    border-radius: 8px;
-    color: #CBD5E1;
-    font-size: .88rem;
-    font-weight: 500;
-    line-height: 1.2;
-    text-decoration: none;
-    transition: background .13s ease, color .13s ease;
-    cursor: pointer;
+/* ---- Encabezados de grupo ---- */
+.nav-group-header {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  width: 100%;
+  padding: 0.55rem 0.7rem;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #e2e8f0;
+  font-size: 0.92rem;
+  font-weight: 700;
+  line-height: 1.2;
+  cursor: pointer;
+  transition:
+    background 0.13s ease,
+    color 0.13s ease;
 }
 
-.nav-link:hover {
-    background: rgba(255, 255, 255, .07);
-    color: #fff;
-    text-decoration: none;
+.nav-group-header:hover {
+  background: rgba(255, 255, 255, 0.07);
+  color: #fff;
 }
 
-.nav-link.active {
-    background: linear-gradient(90deg, rgba(37, 99, 235, .85), rgba(37, 99, 235, .45));
-    color: #fff;
-    font-weight: 600;
-    box-shadow: inset 3px 0 0 #60A5FA;
+.nav-group.is-open .nav-group-header {
+  background: rgba(37, 99, 235, 0.28);
+  color: #fff;
+  box-shadow: inset 3px 0 0 #60a5fa;
 }
 
-.nav-ico {
-    display: grid;
-    place-items: center;
-    flex: 0 0 20px;
-    color: inherit;
-    opacity: .9;
+.nav-chevron {
+  margin-left: auto;
+  flex: 0 0 auto;
+  opacity: 0.75;
+  transition: transform 0.15s ease;
 }
 
-.nav-link-text {
-    flex: 1;
-    min-width: 0;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+.nav-group.is-open .nav-chevron {
+  transform: rotate(180deg);
 }
 
-/* ---- Items futuros (sin enlace) ---- */
-.nav-link.is-disabled {
-    opacity: .55;
-    cursor: not-allowed;
+/* ==========================================
+   2. CONTENEDOR DEL SUBMENÚ (.nav-sub)
+   ========================================== */
+/* Volvemos a tu lógica original donde Blazor controla la renderización física */
+.nav-sub {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
-.nav-link.is-disabled:hover { background: rgba(255, 255, 255, .04); color: #CBD5E1; }
+
+/* ==========================================
+   3. ENLACES INTERNOS (.nav-link)
+   ========================================== */
+::deep .nav-link {
+  display: flex !important;
+  align-items: center !important;
+  flex-direction: row !important;
+  flex-wrap: nowrap !important;
+  gap: 0.65rem;
+  padding: 0.5rem 0.7rem;
+  border-radius: 8px;
+  color: #cbd5e1;
+  font-size: 0.88rem;
+  font-weight: 500;
+  line-height: 1.2;
+  text-decoration: none;
+  transition:
+    background 0.13s ease,
+    color 0.13s ease;
+  cursor: pointer;
+  box-sizing: border-box;
+  outline: none !important; /* 🔥 Asegura que nunca muestre contorno al recibir clics */
+}
+
+/* 🔥 CORRECCIÓN DE SANGRÍA: Desplazamos solo el contenido interno del enlace 
+   en lugar de mover todo el contenedor. Esto evita capas invisibles que bloqueen clics inferiores. */
+::deep .nav-sub .nav-link {
+  padding-left: 1.5rem !important;
+}
+
+::deep .nav-link:hover {
+  background: rgba(255, 255, 255, 0.07);
+  color: #fff;
+  text-decoration: none;
+}
+
+::deep .nav-link.active {
+  background: rgba(
+    255,
+    255,
+    255,
+    0.07
+  ) !important; /* Mismo fondo gris sutil que el hover */
+  color: #fff !important; /* Mantiene el texto en blanco brillante para resaltar que está seleccionado */
+  font-weight: 600;
+  box-shadow: inset 3px 0 0 #2563eb; /* Cambia la línea de la izquierda a un azul sólido más estético, o quítala si prefieres */
+}
+
+/* ==========================================
+   4. COMPONENTES INTERNOS (ICONOS, TEXTO, BADGES)
+   ========================================== */
+::deep .nav-ico {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex-shrink: 0 !important;
+  flex-basis: 20px;
+  color: inherit;
+  opacity: 0.9;
+}
+
+::deep .nav-ico svg {
+  display: block !important;
+  height: 18px;
+  width: 18px;
+}
+
+::deep .nav-link-text {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap !important;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block !important;
+}
+
+::deep .nav-link.is-disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+::deep .nav-link.is-disabled:hover {
+  background: rgba(255, 255, 255, 0.04);
+  color: #cbd5e1;
+}
 
 .nav-badge {
-    font-size: .6rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: .06em;
-    background: rgba(255, 122, 26, .18);
-    color: #FDBA74;
-    border: 1px solid rgba(255, 122, 26, .35);
-    border-radius: 999px;
-    padding: .1rem .4rem;
-    flex: 0 0 auto;
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  background: rgba(255, 122, 26, 0.18);
+  color: #fdba74;
+  border: 1px solid rgba(255, 122, 26, 0.35);
+  border-radius: 999px;
+  padding: 0.1rem 0.4rem;
+  flex: 0 0 auto;
+}
+
+::deep .nav-link.active,
+::deep .nav-link.active:focus,
+::deep .nav-link.active:active {
+  background: rgba(255, 255, 255, 0.07) !important;
+  color: #fff !important;
+  font-weight: 600;
+  outline: none !important; /* Quita el borde de enfoque nativo */
+  border: none !important; /* Quita cualquier borde físico */
+  box-shadow: none !important; /* 🔥 Quita la línea interna azul que causaba el efecto de contorno */
 }
