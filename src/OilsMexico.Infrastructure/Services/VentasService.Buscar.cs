@@ -34,9 +34,12 @@ public sealed partial class VentasService(
         {
             var f = filtro.Trim().ToLower();
             q = q.Where(x => x.p.Sku.ToLower().Contains(f)
+                || (x.p.SkuAnterior != null && x.p.SkuAnterior.ToLower().Contains(f))
                 || x.p.Nombre.ToLower().Contains(f)
                 || x.p.Marca.ToLower().Contains(f)
-                || x.p.Viscosidad.ToLower().Contains(f));
+                || x.p.Viscosidad.ToLower().Contains(f)
+                || (x.p.Categoria != null && x.p.Categoria.ToLower().Contains(f))
+                || (x.p.Especificacion != null && x.p.Especificacion.ToLower().Contains(f)));
         }
 
         return await q.Select(x => new ProductoDto(

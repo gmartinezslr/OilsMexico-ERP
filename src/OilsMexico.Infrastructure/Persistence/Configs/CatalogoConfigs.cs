@@ -16,11 +16,21 @@ public sealed class ProductoConfig : IEntityTypeConfiguration<Producto>
         e.Property(x => x.Marca).HasColumnName("marca").HasMaxLength(50).IsRequired();
         e.Property(x => x.Viscosidad).HasColumnName("viscosidad").HasMaxLength(20).IsRequired();
         e.Property(x => x.TipoBase).HasColumnName("tipo_base").HasMaxLength(30).IsRequired();
+        e.Property(x => x.Categoria).HasColumnName("categoria").HasMaxLength(50);
+        e.Property(x => x.SkuAnterior).HasColumnName("sku_anterior").HasMaxLength(50);
+        e.Property(x => x.Sae).HasColumnName("sae").HasMaxLength(20);
+        e.Property(x => x.Especificacion).HasColumnName("especificacion").HasMaxLength(100);
+        e.Property(x => x.PiezasPorCaja).HasColumnName("piezas_por_caja").HasDefaultValue(1);
+        e.Property(x => x.PrecioLista).HasColumnName("precio_lista").HasPrecision(12, 2).HasDefaultValue(0m);
+        e.Property(x => x.PrecioLpOroConIva).HasColumnName("precio_lp_oro_con_iva").HasPrecision(12, 2).HasDefaultValue(0m);
+        e.Property(x => x.PrecioUnitario).HasColumnName("precio_unitario").HasPrecision(12, 2).HasDefaultValue(0m);
         e.Property(x => x.DescripcionTecnica).HasColumnName("descripcion_tecnica");
         e.Property(x => x.PrecioVenta).HasColumnName("precio_venta").HasPrecision(12, 2);
         e.Property(x => x.PrecioMayoreo).HasColumnName("precio_mayoreo").HasPrecision(12, 2);
         e.Property(x => x.PrecioCosto).HasColumnName("precio_costo").HasPrecision(12, 2);
         e.Property(x => x.Activo).HasColumnName("activo").HasDefaultValue(true);
+        e.HasIndex(x => x.SkuAnterior);
+        e.HasIndex(x => x.Categoria);
     }
 }
 

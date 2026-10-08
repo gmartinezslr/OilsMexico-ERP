@@ -41,6 +41,7 @@ builder.Services.AddScoped<IComprasService, ComprasService>();
     builder.Services.AddScoped<IAsientoGeneradorService, AsientoGeneradorService>();
 
 builder.Services.AddScoped<ISepomexService, SepomexService>();
+builder.Services.AddScoped<IImportacionProductosService, ImportacionProductosService>();
 builder.Services.AddHttpClient();
 builder.Services.AddSignalR();
 builder.Services.Configure<Microsoft.AspNetCore.Components.Server.CircuitOptions>(o => o.DetailedErrors = true);
@@ -51,6 +52,20 @@ using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<ErpDbContext>();
     await SeedData.InicializarAsync(db);
+
+    if (args.Contains("--importar-aceites"))
+    {
+        var importador = scope.ServiceProvider.GetRequiredService<IImportacionProductosService>();
+        var ruta = Path.Combine(Directory.GetCurrentDirectory(), "lista_precios_aceites.xlsx");
+        if (!File.Exists(ruta)) ruta = Path.GetFullPath(Path.Combine(Directory.GetCurrentDirectory(), "..", "..", "lista_precios_aceites.xlsx"));
+        if (!File.Exists(ruta)) ruta = @"D:\GMS\Jerry\OilsMexico\lista_precios_aceites.xlsx";
+        Console.WriteLine($"[CLI] Importando aceites desde: {ruta}");
+        var res = await importador.ImportarDesdeArchivoLocalAsync(ruta, actualizarExistentes: true);
+        Console.WriteLine($"[CLI] {res.Mensaje}");
+        var totalProds = await db.Productos.CountAsync();
+        Console.WriteLine($"[CLI] Total de productos en la base de datos: {totalProds}");
+        return;
+    }
 }
 
 if (!app.Environment.IsDevelopment())

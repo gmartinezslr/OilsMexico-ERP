@@ -71,12 +71,22 @@ public static class SchemaPatch
             CREATE INDEX IF NOT EXISTS ix_sucursales_cp ON sucursales (codigo_postal);
             """);
 
-        // Productos: costo unitario (usado para margen/utilidad y contabilidad).
+        // Productos: costo unitario y características completas de lista de precios (Excel).
         await db.Database.ExecuteSqlRawAsync(@"
             DO $$
             BEGIN
                 IF EXISTS (SELECT 1 FROM pg_tables WHERE tablename = 'productos') THEN
                     ALTER TABLE productos ADD COLUMN IF NOT EXISTS precio_costo numeric(12,2) NOT NULL DEFAULT 0;
+                    ALTER TABLE productos ADD COLUMN IF NOT EXISTS categoria varchar(50);
+                    ALTER TABLE productos ADD COLUMN IF NOT EXISTS sku_anterior varchar(50);
+                    ALTER TABLE productos ADD COLUMN IF NOT EXISTS sae varchar(20);
+                    ALTER TABLE productos ADD COLUMN IF NOT EXISTS especificacion varchar(100);
+                    ALTER TABLE productos ADD COLUMN IF NOT EXISTS piezas_por_caja integer NOT NULL DEFAULT 1;
+                    ALTER TABLE productos ADD COLUMN IF NOT EXISTS precio_lista numeric(12,2) NOT NULL DEFAULT 0;
+                    ALTER TABLE productos ADD COLUMN IF NOT EXISTS precio_lp_oro_con_iva numeric(12,2) NOT NULL DEFAULT 0;
+                    ALTER TABLE productos ADD COLUMN IF NOT EXISTS precio_unitario numeric(12,2) NOT NULL DEFAULT 0;
+                    CREATE INDEX IF NOT EXISTS ix_productos_sku_anterior ON productos (sku_anterior);
+                    CREATE INDEX IF NOT EXISTS ix_productos_categoria ON productos (categoria);
                 END IF;
             END $$;
         ");
