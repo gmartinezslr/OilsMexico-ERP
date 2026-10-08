@@ -1,0 +1,43 @@
+@page "/configuracion"
+@rendermode InteractiveServer
+@inject OilsMexico.Application.Interfaces.ISesionActual Sesion
+@inject NavigationManager Nav
+<PageTitle>Configuración | OilsMexico ERP</PageTitle>
+<div class="container-fluid py-3">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h3 class="fw-bold mb-0">Configuración del sistema</h3>
+        <span class="text-muted small">@(Sesion.Sesion?.Nombre ?? "") (@(Sesion.Sesion?.Rol ?? ""))</span>
+    </div>
+    @if (!Sesion.Autenticado)
+    {
+        <div class="alert alert-warning">Inicia sesión primero. <a href="/login">Ir al login</a></div>
+    }
+    else if (!esAdmin)
+    {
+        <div class="alert alert-info">Solo el rol <strong>Admin</strong> puede modificar la configuración.</div>
+    }
+    @if (!string.IsNullOrEmpty(msg))
+    {
+        <div class="alert @(err ? "alert-danger" : "alert-success")">@msg</div>
+    }
+
+    <div class="row g-3">
+        <div class="col-lg-6">
+            <div class="card shadow-sm">
+                <div class="card-header bg-dark text-white">Sesión</div>
+                <div class="card-body">
+                    <label class="form-label" for="minTimeout">Cerrar sesión tras inactividad de (minutos)</label>
+                    <input id="minTimeout" type="number" min="1" max="480" class="form-control"
+                           style="max-width:160px" @bind="minutos" disabled="@(!esAdmin || guardando)" />
+                    <div class="form-text">
+                        Tras este tiempo sin actividad se cierra la sesión y se redirige al login.
+                        Rango permitido: 1 a 480 minutos (8 horas). Por defecto: 5 minutos.
+                    </div>
+                    <button class="btn btn-primary mt-3" @onclick="Guardar" disabled="@(!esAdmin || guardando)">
+                        @(guardando ? "Guardando…" : "Guardar")
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

@@ -16,7 +16,10 @@ foreach ($id in $pid5200) {
 dotnet build --nologo -v q
 if ($LASTEXITCODE -ne 0) { throw "El build falló; revisa los errores de arriba." }
 
-# 3) Corre el proyecto Web fijo en el puerto 5200 y abre el navegador.
-Start-Process $url
+# 3) Abre la pantalla de espera bonita (con spinner "Cargando... por favor espere").
+#    Esa página detecta sola cuándo el servidor ya responde y redirige al ERP,
+#    así ya no se ve el error "No se puede acceder a este sitio" del navegador.
+$splash = Join-Path $raiz 'iniciando-erp.html'
+Start-Process $splash
 $env:ASPNETCORE_ENVIRONMENT = 'Development'
 dotnet run --project src/OilsMexico.Web/OilsMexico.Web.csproj --urls $url

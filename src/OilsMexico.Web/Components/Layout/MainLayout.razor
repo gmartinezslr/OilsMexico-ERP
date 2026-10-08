@@ -1,67 +1,63 @@
 @inherits LayoutComponentBase
 @inject NavigationManager Nav
-@inject OilsMexico.Application.Interfaces.ISesionActual Sesion
 
+@* El login se muestra a pantalla completa sin el cromo del ERP. El resto de rutas renderizan el panel;
+   cada página interactiva se protege a sí misma (restaura la sesión y redirige a /login si no hay sesión). *@
 @if (Nav.ToBaseRelativePath(Nav.Uri).StartsWith("login", StringComparison.OrdinalIgnoreCase))
 {
     <main class="min-vh-100 bg-light">@Body</main>
 }
-else if (!Sesion.Autenticado)
-{
-    <main class="min-vh-100 bg-light d-flex align-items-center justify-content-center">
-        <a class="btn btn-primary" href="/login">Iniciar sesión</a>
-    </main>
-}
 else
 {
-<div class="page">
-    <input type="checkbox" id="sidebar-toggle" class="sidebar-toggle-check" title="Mostrar / ocultar menú" />
+    <OilsMexico.Web.Components.Layout.TemporizadorInactividad />
+    <div class="page">
+        <input type="checkbox" id="sidebar-toggle" class="sidebar-toggle-check" title="Mostrar / ocultar menú" />
 
-    <aside class="sidebar">
-        <div class="sidebar-brand">
-            <div class="brand-logo" aria-hidden="true">
-                <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M12 2.7s5.5 6.1 5.5 10.2a5.5 5.5 0 1 1-11 0C6.5 8.8 12 2.7 12 2.7z" />
-                    <path d="M9.5 13.6a2.6 2.6 0 0 0 2.6 2.6" />
-                </svg>
+        <aside class="sidebar">
+            <div class="sidebar-brand">
+                <div class="brand-logo" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 2.7s5.5 6.1 5.5 10.2a5.5 5.5 0 1 1-11 0C6.5 8.8 12 2.7 12 2.7z" />
+                        <path d="M9.5 13.6a2.6 2.6 0 0 0 2.6 2.6" />
+                    </svg>
+                </div>
+                <div class="brand-text">
+                    <strong>OilsMexico</strong>
+                    <small>ERP · CFDI 4.0</small>
+                </div>
+                <label for="sidebar-toggle" class="brand-close" title="Cerrar menú">✕</label>
             </div>
-            <div class="brand-text">
-                <strong>OilsMexico</strong>
-                <small>ERP · CFDI 4.0</small>
+
+            <div class="sidebar-scroll">
+                <NavMenu />
             </div>
-            <label for="sidebar-toggle" class="brand-close" title="Cerrar menú">✕</label>
+
+            <div class="sidebar-footer">
+                <UserInfo />
+            </div>
+        </aside>
+
+        <div class="main-col">
+            <header class="top-row">
+                <label for="sidebar-toggle" class="toggle-btn" title="Contraer / expandir menú">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                        <path d="M4 6h16M4 12h16M4 18h16" />
+                    </svg>
+                </label>
+                <span class="top-tagline">Comercializadora de aceites y lubricantes · Multi-sucursal</span>
+                <span class="top-date">@FechaLarga</span>
+            </header>
+
+            <article class="content px-4">
+                @Body
+            </article>
         </div>
-
-        <div class="sidebar-scroll">
-            <NavMenu />
-        </div>
-
-        <div class="sidebar-footer">
-            <UserInfo />
-        </div>
-    </aside>
-
-    <div class="main-col">
-        <header class="top-row">
-            <label for="sidebar-toggle" class="toggle-btn" title="Contraer / expandir menú">
-                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-                    <path d="M4 6h16M4 12h16M4 18h16" />
-                </svg>
-            </label>
-            <span class="top-tagline">Comercializadora de aceites y lubricantes · Multi-sucursal</span>
-            <span class="top-date">@FechaLarga</span>
-        </header>
-
-        <article class="content px-4">
-            @Body
-        </article>
     </div>
-</div>
 }
 
 <div id="blazor-error-ui" data-nosnippet>
-    An unhandled error has occurred.
-    <a href="." class="reload">Reload</a>
+    Ocurrió un error inesperado. Los menús siguen funcionando; si algo no responde, recargue la página.
+    <a href="." class="reload">Recargar</a>
     <span class="dismiss">🗙</span>
 </div>
 

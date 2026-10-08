@@ -11,11 +11,14 @@ public partial class Facturacion : ComponentBase
     private bool err, cargando, cancelando, puedeCancelar;
     private FacturaListadoDto? sel;
     private HistorialDetalleDto? detalle;
+    private bool _primeraCarga;
 
     protected override async Task OnInitializedAsync()
     {
         puedeCancelar = Sesion.Sesion?.Rol is "Admin" or "Conta";
-        await Cargar();
+        // No cargar aquí: OnAfterRenderAsync lo hace tras restaurar sesión.
+        // Cargar en ambos solapa dos consultas sobre el mismo DbContext
+        // ("A second operation was started on this context instance").
     }
 
     protected override async Task OnAfterRenderAsync(bool first)
@@ -24,12 +27,13 @@ public partial class Facturacion : ComponentBase
         if (!Sesion.Autenticado && !await Sesion.RestaurarAsync()) { Nav.NavigateTo("/login"); return; }
         if (Sesion.Sesion?.Rol is not ("Admin" or "Vendedor" or "Conta")) { Nav.NavigateTo("/"); return; }
         puedeCancelar = Sesion.Sesion?.Rol is "Admin" or "Conta";
-        await Cargar();
-        StateHasChanged();
+        if (!_primeraCarga) { _primeraCarga = true; await Cargar(); StateHasChanged(); }
     }
 
     private async Task Cargar()
     {
+        // Guardia de reentrada: no solapar consultas EF.
+        if (cargando) return;
         cargando = true;
         try
         {

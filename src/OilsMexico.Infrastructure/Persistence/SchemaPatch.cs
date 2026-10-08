@@ -223,5 +223,16 @@ public static class SchemaPatch
         await FiscalCajaPatch.AplicarAsync(db);
         await RepPatch.AplicarAsync(db);
         await CajaPatch.AplicarAsync(db);
+
+        // Parámetros de configuración del sistema (clave/valor).
+        // sesion_timeout_min: minutos de inactividad antes de cerrar la sesión (por defecto 5).
+        await db.Database.ExecuteSqlRawAsync("""
+            CREATE TABLE IF NOT EXISTS configuracion (
+                clave varchar(80) PRIMARY KEY,
+                valor varchar(200) NOT NULL
+            );
+            INSERT INTO configuracion (clave, valor) VALUES ('sesion_timeout_min', '5')
+            ON CONFLICT (clave) DO NOTHING;
+            """);
     }
 }

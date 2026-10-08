@@ -20,11 +20,14 @@ public partial class VentasGestion
     private List<CorteSucursalDto>? _cortes;
     private List<ViscosidadDto>? _viscosidad;
     private bool _cargando;
+    private string? _error;
 
     protected override async Task OnParametersSetAsync()
     {
-        if (Sesion.Autenticado && Sesion.Sesion?.Rol is ("Admin" or "Conta"))
-            await Cargar();
+        // No cargar aquí: OnAfterRenderAsync (first) ya lo hace tras restaurar sesión.
+        // Cargar en ambos disparaba dos Cargar() solapados sobre el mismo DbContext
+        // ("A second operation was started on this context instance").
+        await Task.CompletedTask;
     }
 
     // Tras el primer render interactivo se valida sesión y rol: sin sesión → /login y sin permiso → /.
@@ -38,7 +41,11 @@ public partial class VentasGestion
 
     private async Task Cargar()
     {
+        // Guardia de reentrada: si el usuario pulsa Actualizar mientras carga,
+        // o un re-render dispara otro ciclo, no solapar consultas EF.
+        if (_cargando) return;
         _cargando = true;
+        _error = null;
         try
         {
             _dashboard = await Gestion.DashboardAsync(SucCtx.SucursalId, Desde, Hasta);
@@ -46,7 +53,10 @@ public partial class VentasGestion
             _rotacion = await Gestion.RotacionAbcAsync(SucCtx.SucursalId, Desde, Hasta);
             _cortes = await Gestion.CortesPorSucursalAsync(SucCtx.SucursalId);
             _viscosidad = await Gestion.InventarioPorViscosidadAsync(SucCtx.SucursalId);
-            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            _error = "Error: " + ex.Message;
         }
         finally
         {

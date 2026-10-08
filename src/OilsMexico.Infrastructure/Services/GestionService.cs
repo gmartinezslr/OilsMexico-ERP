@@ -16,23 +16,33 @@ public sealed partial class GestionService(ErpDbContext db, ISucursalContext ctx
         var desdeUtc = DateTime.SpecifyKind(desde.Date, DateTimeKind.Local).ToUniversalTime();
         var hastaUtc = DateTime.SpecifyKind(hasta.Date.AddDays(1), DateTimeKind.Local).ToUniversalTime();
 
-        var ventas = await db.Facturas.AsNoTracking()
+        // Una sola ronda: facturas del periodo + detalles con join a Productos para el costo.
+        // Evita N consultas con .Result (FindAsync().Result bloquea y dispara
+        // "A second operation was started on this context instance").
+        var filas = await db.Facturas.AsNoTracking()
             .Where(f => f.SucursalId == sucursalId
                 && f.FechaEmision >= desdeUtc && f.FechaEmision < hastaUtc
                 && f.Estado != EstadoFactura.Cancelada && f.Estado != EstadoFactura.Devolucion)
+            .Select(f => new
+            {
+                f.Subtotal,
+                f.Iva,
+                f.Total,
+                Detalles = f.Detalles.Select(d => new
+                {
+                    d.Cantidad,
+                    PrecioCosto = d.Producto != null ? d.Producto.PrecioCosto : 0m
+                }).ToList()
+            })
             .ToListAsync(ct);
 
-        var detalles = await db.FacturaDetalles.AsNoTracking()
-            .Where(d => ventas.Select(f => f.Id).Contains(d.FacturaId))
-            .ToListAsync(ct);
+        var ingresos = filas.Sum(f => f.Subtotal);
+        var iva = filas.Sum(f => f.Iva);
+        var totalVentas = filas.Sum(f => f.Total);
+        var numVentas = filas.Count;
 
-        var ingresos = ventas.Sum(f => f.Subtotal);
-        var iva = ventas.Sum(f => f.Iva);
-        var totalVentas = ventas.Sum(f => f.Total);
-        var numVentas = ventas.Count;
-
-        var unidadesVendidas = detalles.Sum(d => d.Cantidad);
-        var montoCosto = detalles.Sum(d => d.Cantidad * (db.Productos.FindAsync([d.ProductoId], ct).Result?.PrecioCosto ?? 0m));
+        var unidadesVendidas = filas.SelectMany(f => f.Detalles).Sum(d => d.Cantidad);
+        var montoCosto = filas.SelectMany(f => f.Detalles).Sum(d => d.Cantidad * d.PrecioCosto);
         var utilidad = Math.Round(totalVentas - montoCosto, 2);
 
         var promedio = numVentas > 0 ? Math.Round(totalVentas / numVentas, 2) : 0m;
@@ -53,7 +63,7 @@ public sealed partial class GestionService(ErpDbContext db, ISucursalContext ctx
         var desdeUtc = DateTime.SpecifyKind(desde.Date, DateTimeKind.Local).ToUniversalTime();
         var hastaUtc = DateTime.SpecifyKind(hasta.Date.AddDays(1), DateTimeKind.Local).ToUniversalTime();
 
-        var ventas = db.FacturaDetalles.AsNoTracking()
+        var ventas = await db.FacturaDetalles.AsNoTracking()
             .Join(db.Facturas.AsNoTracking(), d => d.FacturaId, f => f.Id, (d, f) => new { d, f })
             .Where(x => x.f.SucursalId == sucursalId
                 && x.f.FechaEmision >= desdeUtc && x.f.FechaEmision < hastaUtc
@@ -66,7 +76,7 @@ public sealed partial class GestionService(ErpDbContext db, ISucursalContext ctx
                 Importe = g.Sum(x => x.d.Importe)
             })
             .OrderByDescending(x => x.Importe)
-            .ToList();
+            .ToListAsync(ct);
 
         var productos = await db.Productos.AsNoTracking()
             .Where(p => ventas.Select(v => v.ProductoId).Contains(p.Id))
@@ -120,112 +130,112 @@ public sealed partial class GestionService(ErpDbContext db, ISucursalContext ctx
             ventas.FirstOrDefault(v => v.SucursalId == s.Id)?.NumVentas ?? 0)).ToList();
     }
 
-    public Task<List<ViscosidadDto>> InventarioPorViscosidadAsync(int sucursalId, CancellationToken ct = default)
+    public async Task<List<ViscosidadDto>> InventarioPorViscosidadAsync(int sucursalId, CancellationToken ct = default)
     {
-        var resultado = from inv in db.InventarioSucursal.AsNoTracking()
-                        join p in db.Productos.AsNoTracking() on inv.ProductoId equals p.Id
-                        where inv.SucursalId == sucursalId && inv.StockActual > 0
-                        group inv by p.Viscosidad into g
-                        select new
-                        {
-                            Viscosidad = g.Key,
-                            Stock = g.Sum(x => x.StockActual),
-                            Productos = g.Count()
-                        };
-
-        return Task.FromResult(resultado
+        var filas = await (from inv in db.InventarioSucursal.AsNoTracking()
+                           join p in db.Productos.AsNoTracking() on inv.ProductoId equals p.Id
+                           where inv.SucursalId == sucursalId && inv.StockActual > 0
+                           group inv by p.Viscosidad into g
+                           select new
+                           {
+                               Viscosidad = g.Key,
+                               Stock = g.Sum(x => x.StockActual),
+                               Productos = g.Count()
+                           })
             .OrderByDescending(x => x.Stock)
-            .Select(x => new ViscosidadDto(x.Viscosidad!, x.Stock, x.Productos)).ToList());
+            .ToListAsync(ct);
+
+        return filas.Select(x => new ViscosidadDto(x.Viscosidad!, x.Stock, x.Productos)).ToList();
     }
 
-    public Task<List<VentasPorProductoDto>> VentasPorProductoAsync(int sucursalId, DateTime desde, DateTime hasta, CancellationToken ct = default)
+    public async Task<List<VentasPorProductoDto>> VentasPorProductoAsync(int sucursalId, DateTime desde, DateTime hasta, CancellationToken ct = default)
     {
         var desdeUtc = DateTime.SpecifyKind(desde.Date, DateTimeKind.Local).ToUniversalTime();
         var hastaUtc = DateTime.SpecifyKind(hasta.Date.AddDays(1), DateTimeKind.Local).ToUniversalTime();
 
-        var resultado = from d in db.FacturaDetalles.AsNoTracking()
-                        join f in db.Facturas.AsNoTracking() on d.FacturaId equals f.Id
-                        where f.SucursalId == sucursalId
-                              && f.FechaEmision >= desdeUtc && f.FechaEmision < hastaUtc
-                              && f.Estado != EstadoFactura.Cancelada && f.Estado != EstadoFactura.Devolucion
-                        group d by new { d.ProductoId } into g
-                        select new
-                        {
-                            ProductoId = g.Key.ProductoId,
-                            Cantidad = g.Sum(x => x.Cantidad),
-                            Importe = g.Sum(x => x.Importe)
-                        };
-
-        return Task.FromResult(resultado
+        var filas = await (from d in db.FacturaDetalles.AsNoTracking()
+                           join f in db.Facturas.AsNoTracking() on d.FacturaId equals f.Id
+                           where f.SucursalId == sucursalId
+                                 && f.FechaEmision >= desdeUtc && f.FechaEmision < hastaUtc
+                                 && f.Estado != EstadoFactura.Cancelada && f.Estado != EstadoFactura.Devolucion
+                           group d by new { d.ProductoId } into g
+                           select new
+                           {
+                               ProductoId = g.Key.ProductoId,
+                               Cantidad = g.Sum(x => x.Cantidad),
+                               Importe = g.Sum(x => x.Importe)
+                           })
             .OrderByDescending(x => x.Importe)
-            .Select(x => new VentasPorProductoDto(x.ProductoId, x.Cantidad, x.Importe)).ToList());
+            .ToListAsync(ct);
+
+        return filas.Select(x => new VentasPorProductoDto(x.ProductoId, x.Cantidad, x.Importe)).ToList();
     }
 
-    public Task<List<MarcaProductoDto>> VentasPorMarcaAsync(int sucursalId, DateTime desde, DateTime hasta, CancellationToken ct = default)
+    public async Task<List<MarcaProductoDto>> VentasPorMarcaAsync(int sucursalId, DateTime desde, DateTime hasta, CancellationToken ct = default)
     {
         var desdeUtc = DateTime.SpecifyKind(desde.Date, DateTimeKind.Local).ToUniversalTime();
         var hastaUtc = DateTime.SpecifyKind(hasta.Date.AddDays(1), DateTimeKind.Local).ToUniversalTime();
 
-        var resultado = from d in db.FacturaDetalles.AsNoTracking()
-                        join f in db.Facturas.AsNoTracking() on d.FacturaId equals f.Id
-                        where f.SucursalId == sucursalId
-                              && f.FechaEmision >= desdeUtc && f.FechaEmision < hastaUtc
-                              && f.Estado != EstadoFactura.Cancelada && f.Estado != EstadoFactura.Devolucion
-                        join p in db.Productos.AsNoTracking() on d.ProductoId equals p.Id
-                        where p.Marca != null
-                        group d by p.Marca into g
-                        select new
-                        {
-                            Marca = g.Key,
-                            Cantidad = g.Sum(x => x.Cantidad),
-                            Importe = g.Sum(x => x.Importe)
-                        };
-
-        return Task.FromResult(resultado
+        var filas = await (from d in db.FacturaDetalles.AsNoTracking()
+                           join f in db.Facturas.AsNoTracking() on d.FacturaId equals f.Id
+                           where f.SucursalId == sucursalId
+                                 && f.FechaEmision >= desdeUtc && f.FechaEmision < hastaUtc
+                                 && f.Estado != EstadoFactura.Cancelada && f.Estado != EstadoFactura.Devolucion
+                           join p in db.Productos.AsNoTracking() on d.ProductoId equals p.Id
+                           where p.Marca != null
+                           group d by p.Marca into g
+                           select new
+                           {
+                               Marca = g.Key,
+                               Cantidad = g.Sum(x => x.Cantidad),
+                               Importe = g.Sum(x => x.Importe)
+                           })
             .OrderByDescending(x => x.Importe)
-            .Select(x => new MarcaProductoDto(x.Marca!, x.Cantidad, x.Importe)).ToList());
+            .ToListAsync(ct);
+
+        return filas.Select(x => new MarcaProductoDto(x.Marca!, x.Cantidad, x.Importe)).ToList();
     }
 
 
-    public Task<List<VentasPorDiaDto>> VentasPorDiaAsync(int sucursalId, DateTime desde, DateTime hasta, CancellationToken ct = default)
+    public async Task<List<VentasPorDiaDto>> VentasPorDiaAsync(int sucursalId, DateTime desde, DateTime hasta, CancellationToken ct = default)
     {
         var desdeUtc = DateTime.SpecifyKind(desde.Date, DateTimeKind.Local).ToUniversalTime();
         var hastaUtc = DateTime.SpecifyKind(hasta.Date.AddDays(1), DateTimeKind.Local).ToUniversalTime();
 
-        var grupos = db.Facturas.AsNoTracking()
+        var grupos = await db.Facturas.AsNoTracking()
             .Where(f => f.SucursalId == sucursalId
                 && f.FechaEmision >= desdeUtc && f.FechaEmision < hastaUtc
                 && f.Estado != EstadoFactura.Cancelada && f.Estado != EstadoFactura.Devolucion)
             .GroupBy(f => f.FechaEmision.Date)
             .Select(g => new { Fecha = g.Key, Total = g.Sum(f => f.Total), Cantidad = g.Count() })
             .OrderBy(x => x.Fecha)
-            .ToList();
+            .ToListAsync(ct);
 
-        return Task.FromResult(grupos.Select(g => new VentasPorDiaDto(
-            g.Fecha, g.Total, g.Cantidad)).ToList());
+        return grupos.Select(g => new VentasPorDiaDto(
+            g.Fecha, g.Total, g.Cantidad)).ToList();
     }
 
-    public Task<List<VentasPorVendedorDto>> VentasPorVendedorAsync(int sucursalId, DateTime desde, DateTime hasta, CancellationToken ct = default)
+    public async Task<List<VentasPorVendedorDto>> VentasPorVendedorAsync(int sucursalId, DateTime desde, DateTime hasta, CancellationToken ct = default)
     {
         var desdeUtc = DateTime.SpecifyKind(desde.Date, DateTimeKind.Local).ToUniversalTime();
         var hastaUtc = DateTime.SpecifyKind(hasta.Date.AddDays(1), DateTimeKind.Local).ToUniversalTime();
 
-        var resultado = from f in db.Facturas.AsNoTracking()
-                        where f.SucursalId == sucursalId
-                              && f.FechaEmision >= desdeUtc && f.FechaEmision < hastaUtc
-                              && f.Estado != EstadoFactura.Cancelada && f.Estado != EstadoFactura.Devolucion
-                        group f by new { f.ClienteId } into g
-                        select new
-                        {
-                            ClienteId = g.Key.ClienteId,
-                            Total = g.Sum(f => f.Total),
-                            NumFacturas = g.Count()
-                        };
-
-        return Task.FromResult(resultado
+        var filas = await (from f in db.Facturas.AsNoTracking()
+                           where f.SucursalId == sucursalId
+                                 && f.FechaEmision >= desdeUtc && f.FechaEmision < hastaUtc
+                                 && f.Estado != EstadoFactura.Cancelada && f.Estado != EstadoFactura.Devolucion
+                           group f by new { f.ClienteId } into g
+                           select new
+                           {
+                               ClienteId = g.Key.ClienteId,
+                               Total = g.Sum(f => f.Total),
+                               NumFacturas = g.Count()
+                           })
             .OrderByDescending(x => x.Total)
-            .Select(x => new VentasPorVendedorDto(
-                x.ClienteId, x.Total, x.NumFacturas)).ToList());
+            .ToListAsync(ct);
+
+        return filas.Select(x => new VentasPorVendedorDto(
+                x.ClienteId, x.Total, x.NumFacturas)).ToList();
     }
 }
 

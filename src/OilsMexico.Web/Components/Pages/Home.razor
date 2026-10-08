@@ -18,17 +18,10 @@
 }
 else if (sesion is null)
 {
-    <section class="hero">
-        <div class="hero-copy">
-            <span class="hero-kicker">ERP multi-sucursal · CFDI 4.0</span>
-            <h1>OilsMexico ERP</h1>
-            <p>Punto de venta, inventario por lotes y facturación electrónica para aceites y lubricantes automotrices.</p>
-            <div class="hero-cta">
-                <a class="btn btn-accent btn-lg" href="/login">Iniciar sesión</a>
-            </div>
-        </div>
-
-    </section>
+    <div class="dash-loading">
+        <div class="spinner-border text-primary" role="status"></div>
+        <span>Verificando sesión…</span>
+    </div>
 }
 else
 {
@@ -232,11 +225,15 @@ else
     protected override async Task OnAfterRenderAsync(bool first)
     {
         if (!first) return;
-        if (!Sesion.Autenticado)
+        bool ok;
+        try { ok = Sesion.Autenticado || await Sesion.RestaurarAsync(); }
+        catch (InvalidOperationException)
         {
-            var ok = await Sesion.RestaurarAsync();
-            if (!ok) { Nav.NavigateTo("/login", forceLoad: true); return; }
+            // JS interop aún no disponible en este render temprano: reintentar en el siguiente.
+            try { StateHasChanged(); } catch { }
+            return;
         }
+        if (!ok) { Nav.NavigateTo("/login", forceLoad: true); return; }
         sesion = Sesion.Sesion;
         await CargarDashboard();
         cargando = false;
@@ -248,11 +245,13 @@ else
         if (sesion is null) return;
         var rol = sesion.Rol;
         var sid = sesion.SucursalId;
-        var inicioMes = new DateTime(hoyUtc.Year, hoyUtc.Month, 1);
+        // Kind=Utc para poder comparar contra facturas.fecha_emision (timestamptz);
+        // un DateTime con Kind=Unspecified hace que Npgsql lance ArgumentException.
+        var inicioMes = new DateTime(hoyUtc.Year, hoyUtc.Month, 1, 0, 0, 0, DateTimeKind.Utc);
 
         try
         {
-            var crudas = await Db.Facturas
+            var crudas = await Db.Facturas.AsNoTracking()
                 .Where(f => f.SucursalId == sid
                     && f.FechaEmision >= inicioMes
                     && f.Estado != EstadoFactura.Cancelada)
@@ -274,7 +273,7 @@ else
             var totalClientes = await Db.Clientes.CountAsync(c => c.Activo);
             var porAtender = Math.Max(0, totalClientes - atendidos);
 
-            var inv = await Db.InventarioSucursal
+            var inv = await Db.InventarioSucursal.AsNoTracking()
                 .Where(i => i.SucursalId == sid && i.StockActual < i.StockMinimo)
                 .Select(i => new StockRow(i.Producto!.Nombre, i.StockActual, i.StockMinimo))
                 .ToListAsync();
@@ -368,7 +367,7 @@ else
         else if (rol == "Conta")
         {
             tituloActividad = "Últimas facturas";
-            var facs = await Db.Facturas
+            var facs = await Db.Facturas.AsNoTracking()
                 .Where(f => f.SucursalId == sid && f.Estado != EstadoFactura.Cancelada)
                 .OrderByDescending(f => f.FechaEmision)
                 .Take(5)

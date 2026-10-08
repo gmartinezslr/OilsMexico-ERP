@@ -1,0 +1,91 @@
+@rendermode InteractiveServer
+@inject OilsMexico.Application.Interfaces.ITimeoutSesion Timeout
+@inject OilsMexico.Application.Interfaces.ISesionActual Sesion
+@inject OilsMexico.Application.Interfaces.IConfiguracionService Config
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+@implements IAsyncDisposable
+
+@* Sin UI: solo arma el temporizador de inactividad y escucha la actividad del cliente. *@
+
+@code {
+    private IJSObjectReference? _modulo;
+    private DotNetObjectReference<TemporizadorInactividad>? _selfRef;
+
+    protected override async Task OnAfterRenderAsync(bool first)
+    {
+        if (!first) return;
+        // Igual que el resto de páginas del layout, restaura la sesión aquí (único punto donde el
+        // ProtectedBrowserStorage está disponible). Si no hay sesión, otra parte redirige a /login.
+        bool ok;
+        try { ok = Sesion.Autenticado || await Sesion.RestaurarAsync(); }
+        catch (InvalidOperationException)
+        {
+            // JS interop aún no disponible: este render temprano no arma nada; el siguiente
+            // OnAfterRender del circuito (ya interactivo) lo reintentará. Nunca tumbar el circuito.
+            return;
+        }
+        if (!ok) return;
+
+        // Plazo leído de la configuración persistida (por defecto 5 minutos).
+        var minutos = await Config.ObtenerMinutosTimeoutAsync();
+        var plazo = TimeSpan.FromMinutes(Math.Max(1, minutos));
+
+        Timeout.Expirado += AlExpirar;
+        Timeout.Iniciar(plazo);
+
+        _selfRef = DotNetObjectReference.Create(this);
+        try
+        {
+            _modulo = await JS.InvokeAsync<IJSObjectReference>("import", "./js/sesion-inactividad.js");
+            // Throttle conservador: notificar como máximo cada 30 s (el plazo real es de minutos).
+            await _modulo.InvokeAsync<IJSObjectReference>("iniciarMonitoreoActividad", _selfRef, 30000);
+        }
+        // Prerender o JS no disponible: la expiración seguirá funcionando por el temporizador
+        // del servidor; esto nunca debe tumbar el circuito.
+        catch (InvalidOperationException) { }
+        catch (Microsoft.JSInterop.JSException) { }
+    }
+
+    [JSInvokable]
+    public void RegistrarActividad() => Timeout.RegistrarActividad();
+
+    private async Task AlExpirar()
+    {
+        try
+        {
+            await InvokeAsync(async () =>
+            {
+                // Revoca el token en BD: cierra también las demás sesiones abiertas del usuario.
+                await Sesion.CerrarAsync(revocarTokenEnBd: true);
+                Nav.NavigateTo("/login", forceLoad: true);
+            });
+        }
+        catch (ObjectDisposedException)
+        {
+            // El circuito se estaba disponiendo (p. ej. el usuario cerró la pestaña) justo al caducar.
+        }
+        catch (InvalidOperationException)
+        {
+            // Prerender/JS interop no disponible o renderer ocupado: no tumbar el circuito.
+            // Se reintenta la navegación simple por si el circuito sigue vivo.
+            try { Nav.NavigateTo("/login", forceLoad: true); } catch { }
+        }
+        catch (Exception)
+        {
+            // Cualquier otra falla transitoria al navegar no debe tumbar el circuito.
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        Timeout.Expirado -= AlExpirar;
+        try { Timeout.Detener(); } catch { }
+        if (_modulo is not null)
+        {
+            try { await _modulo.InvokeVoidAsync("detenerMonitoreoActividad"); } catch { }
+            try { await _modulo.DisposeAsync(); } catch { }
+        }
+        try { _selfRef?.Dispose(); } catch { }
+    }
+}

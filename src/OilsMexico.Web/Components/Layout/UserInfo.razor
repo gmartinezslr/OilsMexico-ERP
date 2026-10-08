@@ -37,10 +37,16 @@
     protected override async Task OnAfterRenderAsync(bool first)
     {
         if (!first) return;
-        if (!Sesion.Autenticado && !await Sesion.RestaurarAsync())
+        if (Sesion.Autenticado)
         {
             cargando = false;
             StateHasChanged();
+            return;
+        }
+        try { await Sesion.RestaurarAsync(); }
+        catch (InvalidOperationException)
+        {
+            try { StateHasChanged(); } catch { }
             return;
         }
         cargando = false;

@@ -5,10 +5,13 @@
 @inject NavigationManager Nav
 @using Microsoft.EntityFrameworkCore
 <PageTitle>Usuarios | OilsMexico ERP</PageTitle>
-<div class="container-fluid py-3">
-    <div class="d-flex justify-content-between align-items-center mb-3">
-        <h3 class="fw-bold mb-0">Usuarios</h3>
-        <button class="btn btn-primary" @onclick="Nuevo" disabled="@(!esAdmin)">+ Nuevo usuario</button>
+<div class="container-fluid py-4 px-4" style="max-width:1450px;">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+        <div>
+            <h3 class="fw-bold mb-1">Usuarios</h3>
+            <div class="text-muted">Administra accesos, roles, sucursales y contraseñas.</div>
+        </div>
+        <button class="btn btn-primary btn-lg px-4" @onclick="Nuevo" disabled="@(!esAdmin)">+ Nuevo usuario</button>
     </div>
     @if (!Sesion.Autenticado)
     {
@@ -22,14 +25,17 @@
     {
         <div class="alert @(err ? "alert-danger" : "alert-success")">@msg</div>
     }
-    <div class="row g-3">
-        <div class="col-lg-5">
-            <input class="form-control mb-2" placeholder="Buscar nombre, rol o sucursal…" value="@filtro" @oninput="AlEscribir" />
-            <div class="form-check mb-2">
-                <input class="form-check-input" type="checkbox" id="chkActivosU" @bind="soloActivos" @bind:after="Cargar" />
-                <label class="form-check-label small" for="chkActivosU">Solo activos</label>
-            </div>
-            <div class="list-group" style="max-height:560px;overflow-y:auto">
+    <div class="row g-4 align-items-start">
+        <div class="col-12 col-lg-4 col-xxl-4">
+            <div class="card shadow-sm border-0">
+                <div class="card-body p-3 p-xl-4">
+                    <label class="form-label fw-semibold mb-2">Buscar usuario</label>
+                    <input class="form-control form-control-lg mb-3" style="font-size:1rem;" placeholder="Buscar nombre, rol o sucursal…" value="@filtro" @oninput="AlEscribir" />
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="chkActivosU" @bind="soloActivos" @bind:after="Cargar" />
+                        <label class="form-check-label" for="chkActivosU">Solo activos</label>
+                    </div>
+                    <div class="list-group list-group-flush rounded-3 border" style="max-height:640px;overflow-y:auto">
                 @foreach (var u in lista)
                 {
                     <button type="button" class="list-group-item list-group-item-action @(edit.Id == u.Id ? "active" : "")" @onclick="() => Editar(u.Id)">
@@ -51,64 +57,79 @@
                 }
                 @if (lista.Count == 0)
                 {
-                    <div class="list-group-item text-muted">Sin resultados.</div>
+                    <div class="list-group-item text-muted text-center py-4">Sin resultados.</div>
                 }
+                    </div>
+                </div>
             </div>
-        <div class="col-lg-7">
-<div class="card shadow-sm"><div class="card-body">
-                <h5 class="fw-bold">@(edit.Id == 0 ? "Nuevo usuario" : $"Editar #{edit.Id}")</h5>
+        </div>
+        <div class="col-12 col-lg-8 col-xxl-8">
+            <div class="card shadow-sm border-0">
+                <div class="card-body p-4 p-xl-5">
+                    <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-1">
+                        <div>
+                            <h4 class="fw-bold mb-1">@(edit.Id == 0 ? "Nuevo usuario" : $"Editar #{edit.Id} · {edit.Nombre}")</h4>
+                            <div class="text-muted">Completa los datos de acceso y la sucursal del colaborador.</div>
+                        </div>
+                        @if (edit.Id != 0)
+                        {
+                            <span class="badge @(edit.Activo ? "bg-success" : "bg-secondary") fs-6 px-3 py-2">@(edit.Activo ? "Activo" : "Inactivo")</span>
+                        }
+                    </div>
+                    <hr class="my-4" />
+                    <h6 class="fw-bold text-uppercase text-muted small ls-1 mb-3">Datos de acceso</h6>
                 <fieldset disabled="@(!esAdmin || guardando)">
-                    <div class="row g-2">
-                        <div class="col-md-7"><label class="form-label small">Nombre *</label>
-                            <input class="form-control" maxlength="100" @bind="edit.Nombre" placeholder="Nombre del operador" /></div>
-                        <div class="col-md-5"><label class="form-label small">Correo de acceso @(edit.Id == 0 ? "*" : "")</label>
-                            <input type="email" class="form-control" maxlength="200" @bind="edit.Correo" placeholder="usuario@empresa.com" /></div>
-                        <div class="col-md-5"><label class="form-label small">Rol *</label>
-                            <select class="form-select" @bind="edit.Rol">
+                    <div class="row g-4">
+                        <div class="col-md-6"><label class="form-label fw-semibold">Nombre *</label>
+                            <input class="form-control form-control-lg" style="font-size:1rem;" maxlength="100" @bind="edit.Nombre" placeholder="Nombre del operador" /></div>
+                        <div class="col-md-6"><label class="form-label fw-semibold">Correo de acceso @(edit.Id == 0 ? "*" : "")</label>
+                            <input type="email" class="form-control form-control-lg" style="font-size:1rem;" maxlength="200" @bind="edit.Correo" placeholder="usuario@empresa.com" /></div>
+                        <div class="col-md-6"><label class="form-label fw-semibold">Rol *</label>
+                            <select class="form-select form-select-lg" style="font-size:1rem;" @bind="edit.Rol">
                                 <option value="Admin">Admin — Administración</option>
                                 <option value="Vendedor">Vendedor — Ventas</option>
                                 <option value="Almacen">Almacen — Almacén</option>
                                 <option value="Conta">Conta — Contabilidad</option>
                             </select></div>
-                        <div class="col-md-7"><label class="form-label small">Sucursal asignada *</label>
-                            <select class="form-select" @bind="edit.SucursalId">
+                        <div class="col-md-6"><label class="form-label fw-semibold">Sucursal asignada *</label>
+                            <select class="form-select form-select-lg" style="font-size:1rem;" @bind="edit.SucursalId">
                                 @foreach (var s in sucursales)
                                 {
                                     <option value="@s.Id">@s.Nombre (@s.Codigo)</option>
                                 }
                             </select></div>
-                        <div class="col-md-5 d-flex align-items-center gap-2">
-                            <input class="form-check-input" type="checkbox" id="usrActivo" @bind="edit.Activo" />
-                            <label class="form-check-label small" for="usrActivo">Usuario activo (puede iniciar sesión)</label>
+                        <div class="col-12">
+                            <div class="form-check form-switch p-3 border rounded-3 bg-light d-flex align-items-center gap-3">
+                                <input class="form-check-input ms-0" style="width:2.6rem;height:1.4rem;" type="checkbox" id="usrActivo" @bind="edit.Activo" />
+                                <label class="form-check-label" for="usrActivo">Usuario activo (puede iniciar sesión)</label>
+                            </div>
                         </div>
                     </div>
-                    <h6 class="fw-bold mt-3">@(edit.Id == 0 ? "Contraseña inicial *" : "Cambiar contraseña (opcional)")</h6>
-                    <div class="row g-2">
-                        <div class="col-md-6"><label class="form-label small">@(edit.Id == 0 ? "Contraseña *" : "Nueva contraseña")</label>
-                            <input type="password" minlength="8" maxlength="100" class="form-control" @bind="pin1" placeholder="Mínimo 8 caracteres" /></div>
-                        <div class="col-md-6"><label class="form-label small">@(edit.Id == 0 ? "Confirmar contraseña *" : "Confirmar nueva contraseña")</label>
-                            <input type="password" minlength="8" maxlength="100" class="form-control" @bind="pin2" placeholder="Repite la contraseña" /></div>
+                    <hr class="my-4" />
+                    <h6 class="fw-bold mb-1">@(edit.Id == 0 ? "Contraseña inicial *" : "Cambiar contraseña (opcional)")</h6>
+                    <p class="text-muted small mt-0 mb-3">Deja la contraseña vacía para conservar la actual.</p>
+                    <div class="row g-4">
+                        <div class="col-md-6"><label class="form-label fw-semibold">@(edit.Id == 0 ? "Contraseña *" : "Nueva contraseña")</label>
+                            <input type="password" minlength="8" maxlength="100" class="form-control form-control-lg" style="font-size:1rem;" @bind="pin1" placeholder="Mínimo 8 caracteres" /></div>
+                        <div class="col-md-6"><label class="form-label fw-semibold">@(edit.Id == 0 ? "Confirmar contraseña *" : "Confirmar nueva contraseña")</label>
+                            <input type="password" minlength="8" maxlength="100" class="form-control form-control-lg" style="font-size:1rem;" @bind="pin2" placeholder="Repite la contraseña" /></div>
                     </div>
-                    @if (edit.Id != 0)
-                    {
-                        <small class="text-muted d-block mt-1">Deja la contraseña vacía para conservar la actual.</small>
-                    }
                 </fieldset>
-                <div class="d-flex gap-2 mt-3">
-                    <button class="btn btn-success" @onclick="Guardar" disabled="@(!esAdmin || guardando)">Guardar</button>
+                <div class="d-flex flex-wrap gap-2 mt-4 pt-3 border-top">
+                    <button class="btn btn-success btn-lg px-5" @onclick="Guardar" disabled="@(!esAdmin || guardando)">@(guardando ? "Guardando…" : "Guardar")</button>
                     @if (edit.Id != 0 && esAdmin)
                     {
                         @if (edit.BloqueadoDefinitivamente || edit.BloqueadoHastaUtc is not null)
                         {
-                            <button class="btn btn-warning" @onclick="Desbloquear">Desbloquear acceso</button>
+                            <button class="btn btn-warning btn-lg px-4" @onclick="Desbloquear">Desbloquear acceso</button>
                         }
                         @if (edit.Activo)
                         {
-                            <button class="btn btn-outline-danger" @onclick="Desactivar">Desactivar</button>
+                            <button class="btn btn-outline-danger btn-lg px-4" @onclick="Desactivar">Desactivar</button>
                         }
                         else
                         {
-                            <button class="btn btn-outline-success" @onclick="Reactivar">Reactivar</button>
+                            <button class="btn btn-outline-success btn-lg px-4" @onclick="Reactivar">Reactivar</button>
                         }
                     }
                 </div>
@@ -116,8 +137,8 @@
                 {
                     <small class="text-muted d-block mt-2">Los campos se deshabilitan para roles distintos a Admin.</small>
                 }
-            </div></div>
+            </div>
+            </div>
         </div>
     </div>
 </div>
-        </div>

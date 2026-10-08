@@ -7,8 +7,9 @@ using OilsMexico.Infrastructure.Persistence;
 
 namespace OilsMexico.Web.Services;
 
+
 /// <summary>Sesión persistente por navegador: sobrevive navegaciones y recargas del circuito.</summary>
-public sealed class SesionActual(ProtectedSessionStorage storage, ISucursalContext ctx, ErpDbContext db) : ISesionActual
+public sealed class SesionActual(ProtectedSessionStorage storage, ISucursalContext ctx, IServiceScopeFactory scopes) : ISesionActual
 {
     private const string Clave = "oilsmexico.sesion";
     public SesionDto? Sesion { get; private set; }
@@ -21,10 +22,24 @@ public sealed class SesionActual(ProtectedSessionStorage storage, ISucursalConte
         await storage.SetAsync(Clave, sesion);
     }
 
-    public async Task CerrarAsync()
+    public async Task CerrarAsync(bool revocarTokenEnBd = false)
     {
+        var usuarioId = Sesion?.UsuarioId;
         Sesion = null;
-        await storage.DeleteAsync(Clave);
+        // Revoca el token en BD (UPDATE directo) para invalidar también las demás sesiones abiertas
+        // del mismo usuario: en su próxima revalidación RestaurarAsync las cerrará.
+        if (revocarTokenEnBd && usuarioId is int id && id > 0)
+        {
+            try
+            {
+                using var scope = scopes.CreateScope();
+                var db = scope.ServiceProvider.GetRequiredService<ErpDbContext>();
+                await db.Usuarios.Where(x => x.Id == id)
+                    .ExecuteUpdateAsync(s => s.SetProperty(x => x.SesionToken, (string?)null));
+            }
+            catch { }
+        }
+        try { await storage.DeleteAsync(Clave); } catch (InvalidOperationException) { }
     }
 
     /// <summary>
@@ -41,6 +56,8 @@ public sealed class SesionActual(ProtectedSessionStorage storage, ISucursalConte
             if (r.Success && r.Value is not null)
             {
                 var s = r.Value;
+                using var scope = scopes.CreateScope();
+                var db = scope.ServiceProvider.GetRequiredService<ErpDbContext>();
                 var u = await db.Usuarios.AsNoTracking().Include(x => x.Sucursal)
                     .FirstOrDefaultAsync(x => x.Id == s.UsuarioId);
                 if (!Valida(u, s.SesionToken))
@@ -52,6 +69,10 @@ public sealed class SesionActual(ProtectedSessionStorage storage, ISucursalConte
                 ctx.Establecer(Sesion.SucursalId, Sesion.UsuarioId, Sesion.Rol);
                 return true;
             }
+        }
+        catch (InvalidOperationException)
+        {
+            // Prerender estático: JS interop no disponible; el circuito interactivo lo reintentará.
         }
         catch { }
         return false;

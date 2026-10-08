@@ -31,6 +31,10 @@ public partial class VentasPOS : ComponentBase
     protected bool requiereFactura = false, procesando = false, esError = false;
     protected string mensaje = "";
     protected VentaPosResult? ultimo;
+    // Guarda contra búsquedas superpuestas (escribir rápido / doble render): una segunda
+    // operación sobre el mismo DbContext del circuito tumba Blazor con InvalidOperationException.
+    private int _busquedaEnCurso;
+    private string _ultimoFiltroBuscado = "\u0001";
 
     protected decimal SubtotalBruto => carrito.Sum(i => i.Importe);
     protected decimal Subtotal => Math.Round(SubtotalBruto / 1.16m, 2);
@@ -41,11 +45,9 @@ public partial class VentasPOS : ComponentBase
     {
         if (!Sesion.Autenticado) return;
         catalogos = Sat.Obtener();
-        sucursales = await Db.Sucursales.Select(s => new ValueTuple<int, string>(s.Id, s.Nombre)).ToListAsync();
-        clientes = await Db.Clientes.Select(c => new ValueTuple<int, string>(c.Id, c.Nombre)).ToListAsync();
-        if (clientes.Count > 0) clienteId = clientes[0].Id;
-        await Buscar();
-        try { corteAbierto = await Caja.AbiertoAsync(SucursalCtx.SucursalId); } catch { }
+        // NOTA: no se consulta la BD aquí. Las lecturas se hacen en OnAfterRenderAsync
+        // (circuito ya interactivo y sesión restaurada) para no chocar con el prerender
+        // ni con otras consultas concurrentes del mismo DbContext del circuito.
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -53,13 +55,44 @@ public partial class VentasPOS : ComponentBase
         if (!firstRender) return;
         if (!Sesion.Autenticado && !await Sesion.RestaurarAsync()) { Nav.NavigateTo("/login", forceLoad: true); return; }
         if (Sesion.Sesion?.Rol is not ("Admin" or "Vendedor")) { Nav.NavigateTo("/"); return; }
-        await Buscar();
+        try
+        {
+            sucursales = await Db.Sucursales.AsNoTracking().Select(s => new ValueTuple<int, string>(s.Id, s.Nombre)).ToListAsync();
+            clientes = await Db.Clientes.AsNoTracking().Select(c => new ValueTuple<int, string>(c.Id, c.Nombre)).ToListAsync();
+            if (clientes.Count > 0) clienteId = clientes[0].Id;
+            await Buscar();
+            try { corteAbierto = await Caja.AbiertoAsync(SucursalCtx.SucursalId); } catch { }
+        }
+        catch (InvalidOperationException)
+        {
+            // Circuito/JS aún estabilizándose: reintentar en el siguiente render, sin tumbar Blazor.
+            try { StateHasChanged(); } catch { }
+            return;
+        }
         StateHasChanged();
     }
 
     protected async Task Buscar()
     {
-        productos = await Ventas.BuscarProductosAsync(SucursalCtx.SucursalId, filtro);
+        // Serie: si ya hay una búsqueda en vuelo, se marca el filtro pendiente y esa misma
+        // búsqueda encadena la actualización al terminar (sin solapar operaciones en el DbContext).
+        var miFiltro = filtro;
+        if (System.Threading.Interlocked.Exchange(ref _busquedaEnCurso, 1) == 1)
+        {
+            _ultimoFiltroBuscado = miFiltro;
+            return;
+        }
+        try
+        {
+            do
+            {
+                _ultimoFiltroBuscado = miFiltro;
+                productos = await Ventas.BuscarProductosAsync(SucursalCtx.SucursalId, miFiltro);
+                miFiltro = _ultimoFiltroBuscado;
+            } while (miFiltro != filtro);
+            try { await InvokeAsync(StateHasChanged); } catch { }
+        }
+        finally { System.Threading.Interlocked.Exchange(ref _busquedaEnCurso, 0); }
     }
 
     protected async Task AlEscribir(ChangeEventArgs e)

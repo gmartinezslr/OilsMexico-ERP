@@ -102,6 +102,10 @@ a { text-decoration: none; }
     .sidebar-toggle-check:checked ~ .sidebar .nav-group { padding-inline: 0; }
     .sidebar-toggle-check:checked ~ .sidebar .nav-sub-item { justify-content: center; padding-inline: 0; }
     .sidebar-toggle-check:checked ~ .sidebar .user-info { justify-content: center; padding-inline: 0; }
+    .sidebar-toggle-check:checked ~ .sidebar .sidebar-scroll,
+    .sidebar-toggle-check:checked ~ .sidebar .sidebar-footer {
+        overflow: visible;
+    }
 }
 
 /* ---------- Validación Blazor ---------- */

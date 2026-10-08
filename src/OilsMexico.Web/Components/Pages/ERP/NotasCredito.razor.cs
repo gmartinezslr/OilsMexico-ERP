@@ -12,6 +12,7 @@ public partial class NotasCredito : ComponentBase
     private string observaciones = "", motivoCancelacion = "02", folioSustitucionNc = "";
     private bool err, cargando, puedeCancelar;
     private int? cancelandoId, origenQuery;
+    private bool _primeraCarga;
 
     [SupplyParameterFromQuery(Name = "origen")]
     public int? Origen { get; set; }
@@ -19,7 +20,9 @@ public partial class NotasCredito : ComponentBase
     protected override async Task OnInitializedAsync()
     {
         puedeCancelar = Sesion.Sesion?.Rol is "Admin" or "Conta";
-        await Cargar();
+        // No cargar aquí: OnAfterRenderAsync lo hace tras restaurar sesión.
+        // Cargar en ambos solapa dos consultas sobre el mismo DbContext
+        // ("A second operation was started on this context instance").
     }
 
     protected override async Task OnAfterRenderAsync(bool first)
@@ -33,12 +36,13 @@ public partial class NotasCredito : ComponentBase
             origenQuery = Origen;
             await PrecargarOrigen(Origen.Value);
         }
-        await Cargar();
-        StateHasChanged();
+        if (!_primeraCarga) { _primeraCarga = true; await Cargar(); StateHasChanged(); }
     }
 
     private async Task Cargar()
     {
+        // Guardia de reentrada: no solapar consultas EF.
+        if (cargando) return;
         cargando = true;
         try { lista = await Nc.ListarAsync(SucCtx.SucursalId, estado, texto); }
         catch (Exception ex) { msg = "Error: " + ex.Message; err = true; }

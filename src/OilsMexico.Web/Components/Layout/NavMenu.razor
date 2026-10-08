@@ -244,6 +244,14 @@
         {
             <div class="nav-sub" id="sub-config">
 
+        <NavLink class="nav-link" href="configuracion">
+            <span class="nav-ico" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3" /><path d="M12 2.7A9.3 9.3 0 0 0 12 21.3 9.3 9.3 0 0 0 12 2.7z" /><path d="M12 2.7c2.4 2.3 3.7 5 3.7 9.3s-1.3 7-3.7 9.3c-2.4-2.3-3.7-5-3.7-9.3s1.3-7 3.7-9.3z" /></svg>
+            </span>
+            <span class="nav-link-text">Configuración</span>
+        </NavLink>
+
+
         <NavLink class="nav-link" href="sepomex">
             <span class="nav-ico" aria-hidden="true">
                 <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s7-6.1 7-11a7 7 0 1 0-14 0c0 4.9 7 11 7 11z" /><circle cx="12" cy="10" r="2.5" /></svg>
@@ -287,14 +295,23 @@
     protected override async Task OnAfterRenderAsync(bool first)
     {
         if (!first || Sesion.Autenticado) return;
-        if (await Sesion.RestaurarAsync()) StateHasChanged();
-        else Nav.NavigateTo("/login");
+        try
+        {
+            if (await Sesion.RestaurarAsync()) StateHasChanged();
+            else Nav.NavigateTo("/login", forceLoad: true);
+        }
+        catch (InvalidOperationException)
+        {
+            // JS interop aún no disponible: reintentar en el siguiente render del circuito.
+            try { StateHasChanged(); } catch { }
+        }
     }
 
     private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
     {
-        ActualizarGrupoPorUrl();
-        StateHasChanged();
+        try { ActualizarGrupoPorUrl(); } catch { }
+        // Navegación SPA: puede llegar desde prerender sin sincronización; ir siempre por el dispatcher.
+        try { InvokeAsync(StateHasChanged); } catch { }
     }
 
     private void ActualizarGrupoPorUrl()
@@ -325,7 +342,7 @@
         {
             GrupoAbierto = "contactos";
         }
-        else if (url.StartsWith("sepomex") || url.StartsWith("sucursal") || url.StartsWith("usuarios"))
+        else if (url.StartsWith("sepomex") || url.StartsWith("sucursal") || url.StartsWith("usuarios") || url.StartsWith("configuracion"))
         {
             GrupoAbierto = "config";
         }

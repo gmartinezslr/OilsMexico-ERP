@@ -3,7 +3,13 @@
 @inject OilsMexico.Application.Interfaces.IAuthService Auth
 @inject OilsMexico.Application.Interfaces.ISesionActual Sesion
 @inject NavigationManager Nav
+@inject Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage.ProtectedLocalStorage AlmacenLocal
 @using Microsoft.AspNetCore.Components.Web
+<style>
+    .remember-row { user-select: none; }
+    .remember-switch .form-check-input { width: 2.75em; height: 1.5em; cursor: pointer; }
+    .remember-switch .form-check-input:focus { border-color: var(--oc-primary, #2563EB); box-shadow: 0 0 0 .18rem rgba(37, 99, 235, .25); }
+</style>
 <PageTitle>Acceso | OilsMexico ERP</PageTitle>
 <div class="container py-5 min-vh-100 d-flex align-items-center" style="max-width:420px">
 <div class="card shadow">
@@ -14,12 +20,42 @@
 <label class="form-label" for="contrasena">Contraseña</label>
 <input id="contrasena" type="password" autocomplete="current-password" class="form-control form-control-lg mb-2"
 placeholder="Contraseña" @bind="password" @onkeydown="AlTecla" />
+<div class="d-flex justify-content-between align-items-center mb-3 remember-row">
+<label class="form-check-label fw-semibold mb-0" for="recordar">Recordar mi usuario</label>
+<div class="form-check form-switch m-0 remember-switch">
+<input class="form-check-input" type="checkbox" id="recordar" @bind="recordarUsuario" @bind:after="AlCambiarRecordar" />
+</div>
+</div>
 @if(!string.IsNullOrEmpty(error)){<div class="alert alert-danger py-1">@error</div>}
 <button class="btn btn-primary btn-lg w-100" @onclick="Entrar" disabled="@cargando">Entrar</button>
 </div></div></div>
 @code{
+const string ClaveRecordar = "oilsmexico.recordar_usuario";
+const string ClaveUsuario = "oilsmexico.usuario";
 string identificador=""; string password=""; string error=""; bool cargando=false;
+bool recordarUsuario = true;
 async Task AlTecla(KeyboardEventArgs e){ if(e.Key=="Enter") await Entrar(); }
+protected override async Task OnAfterRenderAsync(bool firstRender){
+if(!firstRender) return;
+try{
+var pref = await AlmacenLocal.GetAsync<bool>(ClaveRecordar);
+// Sin preferencia guardada: encendido por defecto y campo vacío.
+recordarUsuario = !pref.Success || pref.Value;
+if(recordarUsuario){
+var g = await AlmacenLocal.GetAsync<string>(ClaveUsuario);
+if(g.Success && !string.IsNullOrWhiteSpace(g.Value)) identificador = g.Value!;
+}
+else identificador = "";
+}catch{ recordarUsuario = true; }
+StateHasChanged();
+}
+async Task AlCambiarRecordar(){
+try{
+await AlmacenLocal.SetAsync(ClaveRecordar, recordarUsuario);
+// Al apagarlo se borra el usuario guardado para que la próxima vez aparezca limpio.
+if(!recordarUsuario) await AlmacenLocal.DeleteAsync(ClaveUsuario);
+}catch{ }
+}
 async Task Entrar(){
 if(cargando) return;
 cargando=true; error=""; StateHasChanged();
@@ -28,8 +64,14 @@ var r=await Auth.LoginAsync(identificador, password);
 var s=r.Sesion;
 if(s is null){ error=r.MensajeError??"No fue posible iniciar sesión."; password=""; }
 else{
+var id = identificador.Trim();
+try{
+await AlmacenLocal.SetAsync(ClaveRecordar, recordarUsuario);
+if(recordarUsuario && id.Length > 0) await AlmacenLocal.SetAsync(ClaveUsuario, id);
+else await AlmacenLocal.DeleteAsync(ClaveUsuario);
+}catch{ }
 await Sesion.IniciarAsync(s);
-Nav.NavigateTo("/");
+Nav.NavigateTo("/", forceLoad: true);
 return;
 }
 }catch(Exception ex){ error="Error: "+ex.Message; }

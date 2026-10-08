@@ -13,10 +13,14 @@ builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
 builder.Services.AddDbContext<ErpDbContext>(opt =>
-    opt.UseNpgsql(builder.Configuration.GetConnectionString("ErpDb")));
+    opt.UseNpgsql(builder.Configuration.GetConnectionString("ErpDb")),
+    contextLifetime: ServiceLifetime.Transient,
+    optionsLifetime: ServiceLifetime.Singleton);
 
 builder.Services.AddScoped<ISucursalContext, SucursalContext>();
 builder.Services.AddScoped<ISesionActual, SesionActual>();
+builder.Services.AddScoped<ITimeoutSesion, TimeoutSesion>();
+builder.Services.AddScoped<IConfiguracionService, ConfiguracionService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<ICatalogosSatService, CatalogosSatService>();
 builder.Services.AddScoped<IVentasService, VentasService>();
@@ -77,6 +81,11 @@ app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages:
 app.MapStaticAssets();
 app.UseAntiforgery();
 app.MapHub<ErpHub>("/hubs/erp");
+
+// Salud: lo usa la pantalla de arranque (iniciando-erp.html) para saber
+// cuándo el servidor ya acepta conexiones y redirigir al ERP sin mostrar
+// el error ERR_CONNECTION_REFUSED del navegador.
+app.MapGet("/health", () => Results.Ok("ok"));
 
 // Descarga de XML CFDI (archivo). El acceso exige el token de sesión vigente (?t=...), el mismo
 // control que las páginas Blazor: usuario activo, sin bloqueo vigente y sesión no revocada.

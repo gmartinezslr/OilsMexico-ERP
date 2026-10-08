@@ -1,27 +1,25 @@
 @using OilsMexico.Application.DTOs
 @using OilsMexico.Application.Interfaces
 @inject IServiceScopeFactory ScopeFactory
+@inject ISesionActual Sesion
 
 <div class="border rounded p-3 bg-light">
+    @* Renglón 1: solo Código Postal y Colonia / Asentamiento *@
     <div class="row g-2">
-        <div class="col-md-3">
+        <div class="col-md-4">
             <label class="form-label small fw-bold">Código Postal *</label>
             <input class="form-control" maxlength="5" inputmode="numeric" placeholder="Ej: 20000"
                    value="@CodigoPostal" @oninput="AlEscribirCp" />
             @if (buscandoCp)
             {
-                <small class="text-muted">Buscando en SEPOMEX…</small>
+                <small class="text-muted">Buscando…</small>
             }
             else if (cpNoEncontrado)
             {
-                <small class="text-danger">CP no encontrado en catálogo SEPOMEX.</small>
-            }
-            else if (direccion is not null)
-            {
-                <small class="text-success">@direccion.Asentamientos.Count colonia(s) · @direccion.Municipio, @direccion.Estado</small>
+                <small class="text-danger">CP no encontrado en catálogo.</small>
             }
         </div>
-        <div class="col-md-5">
+        <div class="col-md-8">
             <label class="form-label small fw-bold">Colonia / Asentamiento *</label>
             <select class="form-select" value="@Colonia" @onchange="AlElegirColonia"
                     disabled="@(!HayOpcionesColonia)">
@@ -43,39 +41,62 @@
                     <option value="@Colonia" selected="selected">@Colonia</option>
                 }
             </select>
+            @if (!buscandoCp && !cpNoEncontrado && direccion is not null)
+            {
+                <small class="text-success">@direccion.Asentamientos.Count colonia(s) · @direccion.Municipio, @direccion.Estado</small>
+            }
         </div>
-        <div class="col-md-4">
+    </div>
+    @* Renglón 2: solo la Calle *@
+    <div class="row g-2 mt-1">
+        <div class="col-12">
             <label class="form-label small">Calle</label>
             <input class="form-control" value="@Calle" @oninput="e => CalleChanged.InvokeAsync(e.Value?.ToString())" />
         </div>
-        <div class="col-md-3">
-            <label class="form-label small">Núm. exterior</label>
+    </div>
+    @* Renglón 3: Número exterior y Número interior *@
+    <div class="row g-2 mt-1">
+        <div class="col-md-6">
+            <label class="form-label small">Número exterior</label>
             <input class="form-control" value="@NumeroExterior" @oninput="e => NumeroExteriorChanged.InvokeAsync(e.Value?.ToString())" />
         </div>
-        <div class="col-md-3">
-            <label class="form-label small">Núm. interior</label>
+        <div class="col-md-6">
+            <label class="form-label small">Número interior</label>
             <input class="form-control" value="@NumeroInterior" @oninput="e => NumeroInteriorChanged.InvokeAsync(e.Value?.ToString())" />
         </div>
-        <div class="col-md-3">
+    </div>
+    @* Renglón 4: Municipio / Alcaldía y Ciudad *@
+    <div class="row g-2 mt-1">
+        <div class="col-md-6">
             <label class="form-label small">Municipio / Alcaldía</label>
-            @* Etiqueta de solo lectura: lo llena el catálogo SEPOMEX al elegir la colonia. *@
+            @* Etiqueta de solo lectura: lo llena el catálogo al elegir la colonia. *@
             <label class="form-control bg-light text-muted text-truncate" title="@Municipio"
                    aria-readonly="true">@(string.IsNullOrWhiteSpace(Municipio) ? "—" : Municipio)</label>
         </div>
-        <div class="col-md-3">
+        <div class="col-md-6">
             <label class="form-label small">Ciudad</label>
-            @* Etiqueta de solo lectura: la llena el catálogo SEPOMEX. *@
+            @* Etiqueta de solo lectura: la llena el catálogo. *@
             <label class="form-control bg-light text-muted text-truncate" title="@Ciudad"
                    aria-readonly="true">@(string.IsNullOrWhiteSpace(Ciudad) ? "—" : Ciudad)</label>
         </div>
-        <div class="col-md-6">
+    </div>
+    @* Renglón 5: Estado + leyenda SEPOMEX solo para Admin *@
+    <div class="row g-2 mt-1">
+        <div class="@(EsAdmin ? "col-md-6" : "col-12")">
             <label class="form-label small">Estado</label>
-            @* Etiqueta de solo lectura: la llena el catálogo SEPOMEX. *@
+            @* Etiqueta de solo lectura: la llena el catálogo. *@
             <label class="form-control bg-light text-muted text-truncate" title="@Estado"
                    aria-readonly="true">@(string.IsNullOrWhiteSpace(Estado) ? "—" : Estado)</label>
         </div>
-        <div class="col-md-6 d-flex align-items-end">
-            <small class="text-muted">Fuente: catálogo nacional SEPOMEX. <a href="/sepomex">Actualizar catálogo</a></small>
-        </div>
+        @if (EsAdmin)
+        {
+            <div class="col-md-6 d-flex align-items-end">
+                <small class="text-muted">Fuente: catálogo nacional SEPOMEX. <a href="/sepomex">Actualizar catálogo</a></small>
+            </div>
+        }
     </div>
 </div>
+
+@code {
+    private bool EsAdmin => string.Equals(Sesion.Sesion?.Rol, "Admin", StringComparison.OrdinalIgnoreCase);
+}

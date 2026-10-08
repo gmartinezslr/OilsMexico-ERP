@@ -18,6 +18,10 @@
     {
         <div class="alert alert-light">Cargando dashboard…</div>
     }
+    else if (!string.IsNullOrEmpty(_error))
+    {
+        <div class="alert alert-danger">@_error</div>
+    }
     else if (_dashboard is null)
     {
         <div class="alert alert-warning">Sin datos para el período.</div>
