@@ -16,12 +16,13 @@ public partial class HistorialVentas : ComponentBase
     private HistorialDetalleDto? detalle;
     private int? detalleId;
 
-    protected override async Task OnInitializedAsync() => await Cargar();
+    protected override async Task OnInitializedAsync() { if (Sesion.Autenticado) await Cargar(); }
 
     protected override async Task OnAfterRenderAsync(bool first)
     {
         if (!first) return;
         if (!Sesion.Autenticado && !await Sesion.RestaurarAsync()) { Nav.NavigateTo("/login"); return; }
+        if (Sesion.Sesion?.Rol is not ("Admin" or "Vendedor" or "Conta")) { Nav.NavigateTo("/"); return; }
         await Cargar();
         StateHasChanged();
     }

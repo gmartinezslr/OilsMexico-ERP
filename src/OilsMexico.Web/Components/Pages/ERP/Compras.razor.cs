@@ -43,6 +43,7 @@ public partial class Compras : ComponentBase
 
     protected override async Task OnInitializedAsync()
     {
+        if (!Sesion.Autenticado) return;
         proveedores = await Db.Proveedores.AsNoTracking().Where(p => p.Activo)
             .OrderBy(p => p.Nombre).Select(p => new ProvRow(p.Id, p.Nombre)).ToListAsync();
         if (proveedores.Count > 0) provId = proveedores[0].Id;
@@ -54,6 +55,7 @@ public partial class Compras : ComponentBase
     {
         if (!first) return;
         if (!Sesion.Autenticado && !await Sesion.RestaurarAsync()) { Nav.NavigateTo("/login"); return; }
+        if (Sesion.Sesion?.Rol is not ("Admin" or "Almacen")) { Nav.NavigateTo("/"); return; }
         await Cargar();
         await CargarCxp();
         StateHasChanged();

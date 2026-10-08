@@ -10,12 +10,16 @@ public partial class Viscosidad : ComponentBase
     private string texto = "", visc = "", msg = "";
     private bool err, cargando;
 
-    protected override async Task OnInitializedAsync() => await Cargar();
+    protected override async Task OnInitializedAsync()
+    {
+        if (Sesion.Autenticado) await Cargar();
+    }
 
     protected override async Task OnAfterRenderAsync(bool first)
     {
         if (!first) return;
         if (!Sesion.Autenticado && !await Sesion.RestaurarAsync()) { Nav.NavigateTo("/login"); return; }
+        if (Sesion.Sesion?.Rol is not ("Admin" or "Almacen")) { Nav.NavigateTo("/"); return; }
         await Cargar();
         StateHasChanged();
     }

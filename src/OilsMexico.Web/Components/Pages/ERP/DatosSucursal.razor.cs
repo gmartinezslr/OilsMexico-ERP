@@ -15,6 +15,7 @@ public partial class DatosSucursal : ComponentBase
 
     protected override async Task OnInitializedAsync()
     {
+        if (!Sesion.Autenticado) return;
         catalogos = Sat.Obtener();
         esAdmin = Sesion.Sesion?.Rol == "Admin";
         await Cargar();
@@ -24,6 +25,7 @@ public partial class DatosSucursal : ComponentBase
     {
         if (!first) return;
         if (!Sesion.Autenticado && !await Sesion.RestaurarAsync()) { Nav.NavigateTo("/login"); return; }
+        if (Sesion.Sesion?.Rol is not ("Admin")) { Nav.NavigateTo("/"); return; }
         esAdmin = Sesion.Sesion?.Rol == "Admin";
         StateHasChanged();
     }

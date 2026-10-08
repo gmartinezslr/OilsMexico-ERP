@@ -13,12 +13,13 @@ public partial class CorteCaja : ComponentBase
     private string obs = "", msg = "";
     private bool err, cargando;
 
-    protected override async Task OnInitializedAsync() => await Cargar();
+    protected override async Task OnInitializedAsync() { if (Sesion.Autenticado) await Cargar(); }
 
     protected override async Task OnAfterRenderAsync(bool first)
     {
         if (!first) return;
         if (!Sesion.Autenticado && !await Sesion.RestaurarAsync()) { Nav.NavigateTo("/login"); return; }
+        if (Sesion.Sesion?.Rol is not ("Admin" or "Vendedor")) { Nav.NavigateTo("/"); return; }
         await Cargar();
         StateHasChanged();
     }

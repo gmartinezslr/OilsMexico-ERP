@@ -1,5 +1,19 @@
-﻿@inherits LayoutComponentBase
+@inherits LayoutComponentBase
+@inject NavigationManager Nav
+@inject OilsMexico.Application.Interfaces.ISesionActual Sesion
 
+@if (Nav.ToBaseRelativePath(Nav.Uri).StartsWith("login", StringComparison.OrdinalIgnoreCase))
+{
+    <main class="min-vh-100 bg-light">@Body</main>
+}
+else if (!Sesion.Autenticado)
+{
+    <main class="min-vh-100 bg-light d-flex align-items-center justify-content-center">
+        <a class="btn btn-primary" href="/login">Iniciar sesión</a>
+    </main>
+}
+else
+{
 <div class="page">
     <input type="checkbox" id="sidebar-toggle" class="sidebar-toggle-check" title="Mostrar / ocultar menú" />
 
@@ -43,6 +57,7 @@
         </article>
     </div>
 </div>
+}
 
 <div id="blazor-error-ui" data-nosnippet>
     An unhandled error has occurred.

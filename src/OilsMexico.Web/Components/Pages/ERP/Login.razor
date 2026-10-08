@@ -2,40 +2,34 @@
 @rendermode @(new InteractiveServerRenderMode(prerender: false))
 @inject OilsMexico.Application.Interfaces.IAuthService Auth
 @inject OilsMexico.Application.Interfaces.ISesionActual Sesion
-@inject OilsMexico.Application.Interfaces.ISucursalContext SucCtx
 @inject NavigationManager Nav
 @using Microsoft.AspNetCore.Components.Web
 <PageTitle>Acceso | OilsMexico ERP</PageTitle>
-<div class="container py-5" style="max-width:420px">
+<div class="container py-5 min-vh-100 d-flex align-items-center" style="max-width:420px">
 <div class="card shadow">
-<div class="card-header bg-dark text-white text-center"><h4 class="mb-0">OilsMexico ERP</h4><small>Acceso por PIN</small></div>
-<div class="card-body text-center">
-<p class="text-muted small">PINs demo: 1234 Admin - 1111 Vendedor - 2222 Almacen - 3333 Conta</p>
-<input type="password" inputmode="numeric" maxlength="8" class="form-control form-control-lg text-center mb-2"
-placeholder="PIN" value="@pin" @oninput="AlEscribir" @onkeydown="AlTecla" />
+<div class="card-header bg-dark text-white text-center"><h4 class="mb-0">OilsMexico ERP</h4><small>Inicia sesión</small></div>
+<div class="card-body">
+<label class="form-label" for="usuario">Correo o nombre de usuario</label>
+<input id="usuario" autocomplete="username" class="form-control form-control-lg mb-3" placeholder="usuario@empresa.com" @bind="identificador" />
+<label class="form-label" for="contrasena">Contraseña</label>
+<input id="contrasena" type="password" autocomplete="current-password" class="form-control form-control-lg mb-2"
+placeholder="Contraseña" @bind="password" @onkeydown="AlTecla" />
 @if(!string.IsNullOrEmpty(error)){<div class="alert alert-danger py-1">@error</div>}
 <button class="btn btn-primary btn-lg w-100" @onclick="Entrar" disabled="@cargando">Entrar</button>
-<div class="d-grid gap-1 mt-3">
-@foreach(var d in new[]{"1","2","3","4","5","6","7","8","9","0"}){
-<button class="btn btn-outline-secondary" @onclick="()=>Tecla(d)">@d</button>}
-</div>
-<button class="btn btn-link mt-2" @onclick="Borrar">Borrar</button>
 </div></div></div>
 @code{
-string pin=""; string error=""; bool cargando=false;
-void Tecla(string d){ if(pin.Length<8) pin+=d; }
-void Borrar(){ pin=""; }
-void AlEscribir(ChangeEventArgs e){ pin=e.Value?.ToString()??""; }
+string identificador=""; string password=""; string error=""; bool cargando=false;
 async Task AlTecla(KeyboardEventArgs e){ if(e.Key=="Enter") await Entrar(); }
 async Task Entrar(){
 if(cargando) return;
 cargando=true; error=""; StateHasChanged();
 try{
-var s=await Auth.LoginPorPinAsync(pin);
-if(s is null){ error="PIN incorrecto."; pin=""; }
+var r=await Auth.LoginAsync(identificador, password);
+var s=r.Sesion;
+if(s is null){ error=r.MensajeError??"No fue posible iniciar sesión."; password=""; }
 else{
 await Sesion.IniciarAsync(s);
-Nav.NavigateTo(s.Rol=="Almacen"?"/almacen":"/ventas-pos");
+Nav.NavigateTo("/");
 return;
 }
 }catch(Exception ex){ error="Error: "+ex.Message; }

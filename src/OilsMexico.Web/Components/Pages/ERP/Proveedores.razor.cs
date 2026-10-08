@@ -11,12 +11,13 @@ public partial class Proveedores : ComponentBase
     private List<Proveedor> lista = [];
     private Proveedor edit = new();
 
-    protected override async Task OnInitializedAsync() => await Cargar();
+    protected override async Task OnInitializedAsync() { if (Sesion.Autenticado) await Cargar(); }
 
     protected override async Task OnAfterRenderAsync(bool first)
     {
         if (!first) return;
         if (!Sesion.Autenticado && !await Sesion.RestaurarAsync()) { Nav.NavigateTo("/login"); return; }
+        if (Sesion.Sesion?.Rol is not ("Admin" or "Vendedor")) { Nav.NavigateTo("/"); return; }
         StateHasChanged();
     }
 

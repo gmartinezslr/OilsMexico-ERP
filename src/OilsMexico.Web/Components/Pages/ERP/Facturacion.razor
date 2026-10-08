@@ -121,7 +121,7 @@
                                             <a class="btn btn-sm btn-outline-dark" href="/ticket/@sel.FacturaId" target="_blank">Ticket</a>
                                             @if (sel.TieneXml)
                                             {
-                                                <a class="btn btn-sm btn-success" href="/api/facturas/@sel.FacturaId/xml">⬇ Descargar XML</a>
+                                                <a class="btn btn-sm btn-success" href="/api/facturas/@sel.FacturaId/xml?t=@Sesion.Sesion?.SesionToken">⬇ Descargar XML</a>
                                             }
                                             @if (sel.Estado == "Pendiente")
                                             {

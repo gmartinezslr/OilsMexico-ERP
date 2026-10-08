@@ -1,6 +1,8 @@
 @page "/ticket/{FacturaId:int}"
 @rendermode InteractiveServer
 @inject OilsMexico.Infrastructure.Services.ITicketService Tickets
+@inject OilsMexico.Application.Interfaces.ISesionActual Sesion
+@inject NavigationManager Nav
 <PageTitle>Ticket @FacturaId</PageTitle>
 <style>
 @@media print{ .no-print{display:none!important;} body{background:#fff;} }
@@ -37,5 +39,9 @@ else{
 @code{
 [Parameter] public int FacturaId{get;set;}
 OilsMexico.Application.DTOs.TicketVentaDto? t;
-protected override async Task OnInitializedAsync(){ t=await Tickets.ObtenerTicketAsync(FacturaId); }
+protected override async Task OnInitializedAsync(){
+    if (!Sesion.Autenticado && !await Sesion.RestaurarAsync()) { Nav.NavigateTo("/login"); return; }
+    if (Sesion.Sesion?.Rol is not ("Admin" or "Vendedor" or "Conta")) { Nav.NavigateTo("/"); return; }
+    t=await Tickets.ObtenerTicketAsync(FacturaId);
+}
 }

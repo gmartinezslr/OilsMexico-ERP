@@ -81,12 +81,18 @@
     bool reemplazar, subiendo, err, buscado;
     string msg = "", cpBuscar = "";
 
-    protected override async Task OnInitializedAsync() => stats = await SepomexSvc.EstadisticasAsync();
+    protected override async Task OnInitializedAsync()
+    {
+        if (!Sesion.Autenticado && !await Sesion.RestaurarAsync()) return;
+        if (Sesion.Sesion?.Rol == "Admin")
+            stats = await SepomexSvc.EstadisticasAsync();
+    }
 
     protected override async Task OnAfterRenderAsync(bool first)
     {
         if (!first) return;
         if (!Sesion.Autenticado && !await Sesion.RestaurarAsync()) { Nav.NavigateTo("/login"); return; }
+        if (Sesion.Sesion?.Rol is not ("Admin")) { Nav.NavigateTo("/"); return; }
         StateHasChanged();
     }
 

@@ -22,6 +22,8 @@ public partial class VentasGestion
 
     protected override async Task OnParametersSetAsync()
     {
+        if (!Sesion.Autenticado && !await Sesion.RestaurarAsync()) { return; }
+        if (Sesion.Sesion?.Rol is not ("Admin" or "Conta")) { return; }
         await Cargar();
     }
 

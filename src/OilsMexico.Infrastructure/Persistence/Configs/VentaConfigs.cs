@@ -87,10 +87,17 @@ public sealed class UsuarioConfig : IEntityTypeConfiguration<Usuario>
         e.ToTable("usuarios");
         e.HasKey(x => x.Id); e.Property(x => x.Id).HasColumnName("id");
         e.Property(x => x.Nombre).HasColumnName("nombre").HasMaxLength(100).IsRequired();
-        e.Property(x => x.PinHash).HasColumnName("pin_hash").HasMaxLength(64).IsRequired();
+        e.Property(x => x.Correo).HasColumnName("correo").HasMaxLength(200);
+        e.Property(x => x.PinHash).HasColumnName("pin_hash").HasMaxLength(64);
+        e.Property(x => x.PasswordHash).HasColumnName("password_hash").HasMaxLength(128).IsRequired();
         e.Property(x => x.Rol).HasColumnName("rol").HasMaxLength(20);
         e.Property(x => x.SucursalId).HasColumnName("sucursal_id");
         e.Property(x => x.Activo).HasColumnName("activo").HasDefaultValue(true);
+        e.Property(x => x.IntentosFallidos).HasColumnName("intentos_fallidos").HasDefaultValue(0);
+        e.Property(x => x.BloqueosTemporales).HasColumnName("bloqueos_temporales").HasDefaultValue(0);
+        e.Property(x => x.BloqueadoHastaUtc).HasColumnName("bloqueado_hasta_utc");
+        e.Property(x => x.BloqueadoDefinitivamente).HasColumnName("bloqueado_definitivamente").HasDefaultValue(false);
+        e.Property(x => x.SesionToken).HasColumnName("sesion_token").HasMaxLength(64);
         e.HasOne(x => x.Sucursal).WithMany().HasForeignKey(x => x.SucursalId);
     }
 }

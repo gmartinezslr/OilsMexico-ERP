@@ -48,16 +48,16 @@ else
 
 <div class="row g-2">
     <div class="row">
-        <div class="col-6"><label class="form-label small">Forma pago SAT</label>
+        <div class="col-7"><label class="form-label small">Forma pago SAT</label>
             <select class="form-select" @onchange="e=>formaPago=e.Value!.ToString()!">
             @foreach(var kv in catalogos.FormasPago){<option value="@kv.Key">@kv.Value</option>}
             </select>
         </div>
-        <div class="col-6">
-            <div class="form-check form-switch mt-4">
-                @* <label class="form-label small d-block">&nbsp;</label>  *@
-                <label class="form-check-label" for="cfdi">Facturacion CFDI 4.0</label>
-                <input class="form-check-input" type="checkbox" id="cfdi" @onchange="e=>requiereFactura=(bool)e.Value!" />
+        <div class="col-5">
+            <label class="form-label small d-block">&nbsp;</label>
+            <label class="form-check-label" for="cfdi">Facturacion CFDI 4.0</label>
+            <div class="form-check form-switch col-12 d-flex justify-content-center">
+                <input class="form-check-input" type="checkbox" checked="true" id="cfdi" @onchange="e=>requiereFactura=(bool)e.Value!" />
             </div>
         </div>
     </div>

@@ -37,8 +37,12 @@
     protected override async Task OnAfterRenderAsync(bool first)
     {
         if (!first) return;
-        if (!Sesion.Autenticado)
-            await Sesion.RestaurarAsync();
+        if (!Sesion.Autenticado && !await Sesion.RestaurarAsync())
+        {
+            cargando = false;
+            StateHasChanged();
+            return;
+        }
         cargando = false;
         StateHasChanged();
     }
@@ -46,6 +50,6 @@
     private async Task CerrarSesionAsync()
     {
         await Sesion.CerrarAsync();
-        Nav.NavigateTo("/login");
+        Nav.NavigateTo("/login", forceLoad: true);
     }
 }

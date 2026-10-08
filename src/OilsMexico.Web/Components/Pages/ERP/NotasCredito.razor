@@ -95,7 +95,7 @@
                         <td class="text-nowrap">
                             @if (n.TieneXml)
                             {
-                                <a class="btn btn-sm btn-success" href="/api/notas-credito/@n.NotaId/xml">⬇ XML</a>
+                                <a class="btn btn-sm btn-success" href="/api/notas-credito/@n.NotaId/xml?t=@Sesion.Sesion?.SesionToken">⬇ XML</a>
                             }
                             @if (n.Estado == "Timbrada" && puedeCancelar)
                             {

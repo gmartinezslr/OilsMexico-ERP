@@ -15,6 +15,7 @@ public partial class Clientes : ComponentBase
 
     protected override async Task OnInitializedAsync()
     {
+        if (!Sesion.Autenticado) return;
         catalogos = Sat.Obtener();
         await Cargar();
     }
@@ -23,6 +24,7 @@ public partial class Clientes : ComponentBase
     {
         if (!first) return;
         if (!Sesion.Autenticado && !await Sesion.RestaurarAsync()) { Nav.NavigateTo("/login"); return; }
+        if (Sesion.Sesion?.Rol is not ("Admin" or "Vendedor")) { Nav.NavigateTo("/"); return; }
         StateHasChanged();
     }
 

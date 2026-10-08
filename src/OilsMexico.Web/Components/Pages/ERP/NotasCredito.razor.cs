@@ -26,6 +26,7 @@ public partial class NotasCredito : ComponentBase
     {
         if (!first) return;
         if (!Sesion.Autenticado && !await Sesion.RestaurarAsync()) { Nav.NavigateTo("/login"); return; }
+        if (Sesion.Sesion?.Rol is not ("Admin" or "Vendedor" or "Conta")) { Nav.NavigateTo("/"); return; }
         puedeCancelar = Sesion.Sesion?.Rol is "Admin" or "Conta";
         if (Origen is not null && Origen != origenQuery)
         {

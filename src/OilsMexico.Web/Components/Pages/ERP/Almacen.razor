@@ -83,14 +83,12 @@ if(ProductoQ is int pq) await VerKardex(pq); // deep-link /almacen?producto={id}
 }
 protected override async Task OnAfterRenderAsync(bool first){
 if(!first) return;
-if(!Sesion.Autenticado){
-var ok=await Sesion.RestaurarAsync();
-if(!ok){ Nav.NavigateTo("/login"); return; }
+if(!Sesion.Autenticado && !await Sesion.RestaurarAsync()){ Nav.NavigateTo("/login", forceLoad: true); return; }
+if(Sesion.Sesion?.Rol is not ("Admin" or "Almacen")){ Nav.NavigateTo("/"); return; }
 if(sucs.Count>0) destId=sucs.First(s=>s.Id!=SucCtx.SucursalId).Id;
 await Cargar();
 if(ProductoQ is int pq) await VerKardex(pq);
 StateHasChanged();
-}
 }
 async Task Cargar(){
 stock=await Consulta.StockPorSucursalAsync(SucCtx.SucursalId,filtro);

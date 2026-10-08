@@ -1,7 +1,7 @@
 namespace OilsMexico.Application.DTOs;
 
 public sealed record SesionDto(
-    int UsuarioId, string Nombre, string Rol, int SucursalId, string SucursalNombre)
+    int UsuarioId, string Nombre, string Rol, int SucursalId, string SucursalNombre, string? SesionToken = null)
 {
     /// <summary>Área funcional legible del rol (para mostrar en UI).</summary>
     public string Area => Rol switch
@@ -28,6 +28,7 @@ public sealed record SesionDto(
 }
 
 public sealed record LoginPinRequest(string Pin);
+public sealed record LoginResultado(SesionDto? Sesion, string? MensajeError = null, DateTime? BloqueadoHastaUtc = null);
 
 public sealed record AlmacenMovimientoDto(
     int ProductoId, int? LoteId, decimal Litros, string Motivo);

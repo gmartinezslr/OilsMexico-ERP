@@ -63,24 +63,27 @@ app.MapStaticAssets();
 app.UseAntiforgery();
 app.MapHub<ErpHub>("/hubs/erp");
 
-// Descarga de XML CFDI (archivo). Mismo modelo de acceso que el resto del app (uso interno;
-// la sesión se valida en el circuito de Blazor, no en endpoints mínimos).
-app.MapGet("/api/facturas/{id:int}/xml", async (int id, ErpDbContext db) =>
+// Descarga de XML CFDI (archivo). El acceso exige el token de sesión vigente (?t=...), el mismo
+// control que las páginas Blazor: usuario activo, sin bloqueo vigente y sesión no revocada.
+app.MapGet("/api/facturas/{id:int}/xml", async (int id, ErpDbContext db, HttpContext ctx) =>
 {
+    if (!await TokenSesionValidoAsync(db, ctx)) return Results.Unauthorized();
     var f = await db.Facturas.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id);
     if (f is null || string.IsNullOrEmpty(f.XmlSellado)) return Results.NotFound();
     return Results.File(System.Text.Encoding.UTF8.GetBytes(f.XmlSellado),
         "application/xml", $"{f.FolioInterno}.xml");
 });
-app.MapGet("/api/notas-credito/{id:int}/xml", async (int id, ErpDbContext db) =>
+app.MapGet("/api/notas-credito/{id:int}/xml", async (int id, ErpDbContext db, HttpContext ctx) =>
 {
+    if (!await TokenSesionValidoAsync(db, ctx)) return Results.Unauthorized();
     var n = await db.NotasCredito.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id);
     if (n is null || string.IsNullOrEmpty(n.XmlSellado)) return Results.NotFound();
     return Results.File(System.Text.Encoding.UTF8.GetBytes(n.XmlSellado),
         "application/xml", $"{n.FolioInterno}.xml");
 });
-app.MapGet("/api/reps/{id:int}/xml", async (int id, ErpDbContext db) =>
+app.MapGet("/api/reps/{id:int}/xml", async (int id, ErpDbContext db, HttpContext ctx) =>
 {
+    if (!await TokenSesionValidoAsync(db, ctx)) return Results.Unauthorized();
     var r = await db.ComplementosPago.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id);
     if (r is null || string.IsNullOrEmpty(r.XmlSellado)) return Results.NotFound();
     return Results.File(System.Text.Encoding.UTF8.GetBytes(r.XmlSellado),
@@ -91,3 +94,15 @@ app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 
 app.Run();
+
+// Valida el token de sesión de las descargas XML (?t=...). El token se emite al iniciar sesión y
+// se revoca al desbloquear, desactivar o cambiar la contraseña, de modo que un usuario bloqueado
+// o desactivado pierde el acceso sin esperar a que cierre el navegador.
+static async Task<bool> TokenSesionValidoAsync(ErpDbContext db, HttpContext ctx)
+{
+    var t = ctx.Request.Query["t"].ToString();
+    if (string.IsNullOrWhiteSpace(t)) return false;
+    var u = await db.Usuarios.AsNoTracking().FirstOrDefaultAsync(x => x.SesionToken == t);
+    return u is { Activo: true, BloqueadoDefinitivamente: false }
+        && (u.BloqueadoHastaUtc is null || u.BloqueadoHastaUtc <= DateTime.UtcNow);
+}

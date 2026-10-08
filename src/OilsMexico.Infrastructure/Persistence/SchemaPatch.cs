@@ -12,6 +12,19 @@ public static class SchemaPatch
 {
     public static async Task AplicarAsync(ErpDbContext db)
     {
+        await db.Database.ExecuteSqlRawAsync("""
+            ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS correo varchar(200);
+            ALTER TABLE usuarios ALTER COLUMN pin_hash DROP NOT NULL;
+            ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS password_hash varchar(128) NOT NULL DEFAULT '';
+            ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS intentos_fallidos integer NOT NULL DEFAULT 0;
+            ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS bloqueos_temporales integer NOT NULL DEFAULT 0;
+            ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS bloqueado_hasta_utc timestamptz;
+            ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS bloqueado_definitivamente boolean NOT NULL DEFAULT false;
+            ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS sesion_token varchar(64);
+            ALTER TABLE usuarios ALTER COLUMN pin_hash DROP NOT NULL;
+            CREATE UNIQUE INDEX IF NOT EXISTS ix_usuarios_correo ON usuarios (lower(correo)) WHERE correo IS NOT NULL;
+            """);
+
         // Catálogo SEPOMEX (15 columnas del TXT oficial de Correos de México).
         await db.Database.ExecuteSqlRawAsync("""
             CREATE TABLE IF NOT EXISTS codigos_postales (

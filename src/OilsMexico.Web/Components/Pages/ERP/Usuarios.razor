@@ -44,6 +44,8 @@
                             {
                                 <span class="badge bg-secondary">Inactivo</span>
                             }
+                            @if (u.BloqueadoDefinitivo) { <span class="badge bg-danger">Bloqueo definitivo</span> }
+                            else if (u.BloqueadoTemporal) { <span class="badge bg-warning text-dark">Bloqueo temporal</span> }
                         </div>
                     </button>
                 }
@@ -53,12 +55,14 @@
                 }
             </div>
         <div class="col-lg-7">
-            <div class="card shadow-sm"><div class="card-body">
+<div class="card shadow-sm"><div class="card-body">
                 <h5 class="fw-bold">@(edit.Id == 0 ? "Nuevo usuario" : $"Editar #{edit.Id}")</h5>
                 <fieldset disabled="@(!esAdmin || guardando)">
                     <div class="row g-2">
                         <div class="col-md-7"><label class="form-label small">Nombre *</label>
                             <input class="form-control" maxlength="100" @bind="edit.Nombre" placeholder="Nombre del operador" /></div>
+                        <div class="col-md-5"><label class="form-label small">Correo de acceso @(edit.Id == 0 ? "*" : "")</label>
+                            <input type="email" class="form-control" maxlength="200" @bind="edit.Correo" placeholder="usuario@empresa.com" /></div>
                         <div class="col-md-5"><label class="form-label small">Rol *</label>
                             <select class="form-select" @bind="edit.Rol">
                                 <option value="Admin">Admin — Administración</option>
@@ -75,25 +79,29 @@
                             </select></div>
                         <div class="col-md-5 d-flex align-items-center gap-2">
                             <input class="form-check-input" type="checkbox" id="usrActivo" @bind="edit.Activo" />
-                            <label class="form-check-label small" for="usrActivo">Usuario activo (puede entrar con PIN)</label>
+                            <label class="form-check-label small" for="usrActivo">Usuario activo (puede iniciar sesión)</label>
                         </div>
                     </div>
-                    <h6 class="fw-bold mt-3">@(edit.Id == 0 ? "PIN de acceso *" : "Resetear PIN (opcional)")</h6>
+                    <h6 class="fw-bold mt-3">@(edit.Id == 0 ? "Contraseña inicial *" : "Cambiar contraseña (opcional)")</h6>
                     <div class="row g-2">
-                        <div class="col-md-6"><label class="form-label small">@(edit.Id == 0 ? "PIN *" : "Nuevo PIN")</label>
-                            <input type="password" inputmode="numeric" maxlength="8" class="form-control" @bind="pin1" placeholder="4 a 8 digitos" /></div>
-                        <div class="col-md-6"><label class="form-label small">@(edit.Id == 0 ? "Confirmar PIN *" : "Confirmar nuevo PIN")</label>
-                            <input type="password" inputmode="numeric" maxlength="8" class="form-control" @bind="pin2" placeholder="Repite el PIN" /></div>
+                        <div class="col-md-6"><label class="form-label small">@(edit.Id == 0 ? "Contraseña *" : "Nueva contraseña")</label>
+                            <input type="password" minlength="8" maxlength="100" class="form-control" @bind="pin1" placeholder="Mínimo 8 caracteres" /></div>
+                        <div class="col-md-6"><label class="form-label small">@(edit.Id == 0 ? "Confirmar contraseña *" : "Confirmar nueva contraseña")</label>
+                            <input type="password" minlength="8" maxlength="100" class="form-control" @bind="pin2" placeholder="Repite la contraseña" /></div>
                     </div>
                     @if (edit.Id != 0)
                     {
-                        <small class="text-muted d-block mt-1">Deja el PIN vacio para conservar el actual.</small>
+                        <small class="text-muted d-block mt-1">Deja la contraseña vacía para conservar la actual.</small>
                     }
                 </fieldset>
                 <div class="d-flex gap-2 mt-3">
                     <button class="btn btn-success" @onclick="Guardar" disabled="@(!esAdmin || guardando)">Guardar</button>
                     @if (edit.Id != 0 && esAdmin)
                     {
+                        @if (edit.BloqueadoDefinitivamente || edit.BloqueadoHastaUtc is not null)
+                        {
+                            <button class="btn btn-warning" @onclick="Desbloquear">Desbloquear acceso</button>
+                        }
                         @if (edit.Activo)
                         {
                             <button class="btn btn-outline-danger" @onclick="Desactivar">Desactivar</button>

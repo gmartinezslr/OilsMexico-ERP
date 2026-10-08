@@ -1,5 +1,3 @@
-using System.Security.Cryptography;
-using System.Text;
 using Microsoft.AspNetCore.Components;
 using Microsoft.EntityFrameworkCore;
 using OilsMexico.Domain.Entities;
@@ -16,13 +14,17 @@ public partial class Usuarios : ComponentBase
     private List<UsuarioRow> lista = [];
     private Usuario edit = new() { Rol = "Vendedor", Activo = true };
     private List<SucRow> sucursales = [];
+    [Microsoft.AspNetCore.Components.Inject]
+    private OilsMexico.Application.Interfaces.IAuthService Auth { get; set; } = default!;
 
-    private sealed record UsuarioRow(int Id, string Nombre, string Rol, string Sucursal, bool Activo);
+    private sealed record UsuarioRow(int Id, string Nombre, string Rol, string Sucursal, bool Activo, bool BloqueadoDefinitivo, bool BloqueadoTemporal);
     private sealed record SucRow(int Id, string Nombre, string Codigo);
 
     protected override async Task OnInitializedAsync()
     {
+        if (!Sesion.Autenticado) return;
         esAdmin = Sesion.Sesion?.Rol == "Admin";
+        if (!esAdmin) { Nav.NavigateTo("/"); return; }
         miId = Sesion.Sesion?.UsuarioId ?? 0;
         sucursales = await Db.Sucursales.AsNoTracking().OrderBy(s => s.CodigoSucursal)
             .Select(s => new SucRow(s.Id, s.Nombre, s.CodigoSucursal)).ToListAsync();
@@ -34,6 +36,7 @@ public partial class Usuarios : ComponentBase
     {
         if (!first) return;
         if (!Sesion.Autenticado && !await Sesion.RestaurarAsync()) { Nav.NavigateTo("/login"); return; }
+        if (Sesion.Sesion?.Rol != "Admin") { Nav.NavigateTo("/"); return; }
         esAdmin = Sesion.Sesion?.Rol == "Admin";
         miId = Sesion.Sesion?.UsuarioId ?? 0;
         StateHasChanged();
@@ -41,6 +44,7 @@ public partial class Usuarios : ComponentBase
 
     private async Task Cargar()
     {
+        if (!esAdmin) { lista = []; return; }
         var q = from u in Db.Usuarios.AsNoTracking()
                 join s in Db.Sucursales.AsNoTracking() on u.SucursalId equals s.Id into sj
                 from s in sj.DefaultIfEmpty()
@@ -54,7 +58,7 @@ public partial class Usuarios : ComponentBase
                 || x.Suc.ToLower().Contains(f));
         }
         lista = await q.Take(200).Select(x =>
-            new UsuarioRow(x.u.Id, x.u.Nombre, x.u.Rol, x.Suc, x.u.Activo)).ToListAsync();
+            new UsuarioRow(x.u.Id, x.u.Nombre, x.u.Rol, x.Suc, x.u.Activo, x.u.BloqueadoDefinitivamente, x.u.BloqueadoHastaUtc != null && x.u.BloqueadoHastaUtc > DateTime.UtcNow)).ToListAsync();
         if (edit.Id == 0 && lista.Count > 0) await Editar(lista[0].Id);
     }
 
@@ -72,7 +76,7 @@ public partial class Usuarios : ComponentBase
     {
         var u = await Db.Usuarios.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id);
         if (u is null) return;
-        edit = new Usuario { Id = u.Id, Nombre = u.Nombre, PinHash = u.PinHash, Rol = u.Rol, SucursalId = u.SucursalId, Activo = u.Activo };
+        edit = u;
         pin1 = pin2 = "";
         msg = "";
     }
@@ -86,23 +90,32 @@ public partial class Usuarios : ComponentBase
         { msg = "El nombre es obligatorio."; err = true; return; }
         if (!RolesValidos.Contains(edit.Rol))
         { msg = "Rol invalido."; err = true; return; }
+        edit.Correo = string.IsNullOrWhiteSpace(edit.Correo) ? null : edit.Correo.Trim();
+        if (edit.Correo is not null && !new System.ComponentModel.DataAnnotations.EmailAddressAttribute().IsValid(edit.Correo))
+        { msg = "El correo de acceso no es válido."; err = true; return; }
+        if (edit.Id == 0 && edit.Correo is null)
+        { msg = "El correo es obligatorio para un usuario nuevo."; err = true; return; }
+        if (edit.Correo is not null && await Db.Usuarios.AnyAsync(x => x.Id != edit.Id && x.Correo != null && x.Correo.ToLower() == edit.Correo.ToLower()))
+        { msg = "Ese correo ya está asignado a otro usuario."; err = true; return; }
         if (!await Db.Sucursales.AnyAsync(s => s.Id == edit.SucursalId))
         { msg = "Selecciona una sucursal valida."; err = true; return; }
 
-        var quierePin = !string.IsNullOrEmpty(pin1) || !string.IsNullOrEmpty(pin2);
-        if (edit.Id == 0 && !quierePin)
-        { msg = "El PIN es obligatorio para un usuario nuevo."; err = true; return; }
-        if (quierePin)
+        var quierePassword = !string.IsNullOrEmpty(pin1) || !string.IsNullOrEmpty(pin2);
+        if (edit.Id == 0 && !quierePassword)
+        { msg = "La contraseña es obligatoria para un usuario nuevo."; err = true; return; }
+        if (quierePassword)
         {
             var p1 = (pin1 ?? "").Trim();
             var p2 = (pin2 ?? "").Trim();
-            if (p1.Length < 4 || p1.Length > 8 || !p1.All(char.IsDigit))
-            { msg = "El PIN debe tener de 4 a 8 digitos."; err = true; return; }
-            if (p1 != p2) { msg = "Los PIN no coinciden."; err = true; return; }
-            edit.PinHash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(p1)));
+            if (p1.Length < 8 || p1.Length > 100)
+            { msg = "La contraseña debe tener de 8 a 100 caracteres."; err = true; return; }
+            if (p1 != p2) { msg = "Las contraseñas no coinciden."; err = true; return; }
+            edit.PasswordHash = OilsMexico.Infrastructure.Services.AuthService.Hash(p1);
+            edit.PinHash = string.Empty;
+            edit.SesionToken = null; // Revoca sesiones abiertas al cambiar la contraseña.
         }
-        if (edit.Id == 0 && string.IsNullOrEmpty(edit.PinHash))
-        { msg = "El PIN es obligatorio."; err = true; return; }
+        if (edit.Id == 0 && string.IsNullOrEmpty(edit.PasswordHash))
+        { msg = "La contraseña es obligatoria."; err = true; return; }
 
         if (edit.Id == miId && !edit.Activo)
         { msg = "No puedes desactivar tu propio usuario."; err = true; return; }
@@ -130,11 +143,22 @@ public partial class Usuarios : ComponentBase
         if (!esAdmin) return;
         if (edit.Id == miId) { msg = "No puedes desactivar tu propio usuario."; err = true; return; }
         edit.Activo = false;
+        edit.SesionToken = null; // Revoca las sesiones abiertas del usuario desactivado.
         Db.Usuarios.Update(edit);
         await Db.SaveChangesAsync();
-        msg = "Usuario desactivado (ya no puede entrar con PIN)."; err = false;
+        msg = "Usuario desactivado (ya no puede iniciar sesión)."; err = false;
         await Cargar();
         await Editar(edit.Id);
+    }
+
+    private async Task Desbloquear()
+    {
+        if (!esAdmin || edit.Id == 0) return;
+        var id = edit.Id;
+        if (!await Auth.DesbloquearUsuarioAsync(id)) { msg = "No se encontró el usuario."; err = true; return; }
+        msg = "Acceso desbloqueado. El contador de bloqueos fue reiniciado."; err = false;
+        await Editar(id);
+        await Cargar();
     }
 
     private async Task Reactivar()

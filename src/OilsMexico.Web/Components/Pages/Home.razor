@@ -24,19 +24,10 @@ else if (sesion is null)
             <h1>OilsMexico ERP</h1>
             <p>Punto de venta, inventario por lotes y facturación electrónica para aceites y lubricantes automotrices.</p>
             <div class="hero-cta">
-                <a class="btn btn-accent btn-lg" href="/login">Entrar con PIN</a>
-                <a class="btn btn-outline-primary btn-lg" href="/ventas-pos">Abrir POS</a>
+                <a class="btn btn-accent btn-lg" href="/login">Iniciar sesión</a>
             </div>
         </div>
-        <div class="hero-panel">
-            <span class="hero-panel-title">PINs de demostración</span>
-            <div class="hero-pins">
-                <div class="hero-pin"><strong>1234</strong><span>Administración</span></div>
-                <div class="hero-pin"><strong>1111</strong><span>Ventas</span></div>
-                <div class="hero-pin"><strong>2222</strong><span>Almacén</span></div>
-                <div class="hero-pin"><strong>3333</strong><span>Contabilidad</span></div>
-            </div>
-        </div>
+
     </section>
 }
 else
@@ -244,7 +235,7 @@ else
         if (!Sesion.Autenticado)
         {
             var ok = await Sesion.RestaurarAsync();
-            if (!ok) { cargando = false; StateHasChanged(); return; }
+            if (!ok) { Nav.NavigateTo("/login", forceLoad: true); return; }
         }
         sesion = Sesion.Sesion;
         await CargarDashboard();

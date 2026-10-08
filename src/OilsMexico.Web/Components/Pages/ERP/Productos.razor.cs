@@ -16,12 +16,13 @@ public partial class Productos : ComponentBase
 
     private sealed record StockRow(string Sucursal, decimal Stock, decimal Minimo, bool BajoMinimo);
 
-    protected override async Task OnInitializedAsync() => await Cargar();
+    protected override async Task OnInitializedAsync() { if (Sesion.Autenticado) await Cargar(); }
 
     protected override async Task OnAfterRenderAsync(bool first)
     {
         if (!first) return;
         if (!Sesion.Autenticado && !await Sesion.RestaurarAsync()) { Nav.NavigateTo("/login"); return; }
+        if (Sesion.Sesion?.Rol is not ("Admin" or "Almacen")) { Nav.NavigateTo("/"); return; }
         await Cargar();
         StateHasChanged();
     }

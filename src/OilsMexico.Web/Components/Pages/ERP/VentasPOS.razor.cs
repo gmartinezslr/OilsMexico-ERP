@@ -39,6 +39,7 @@ public partial class VentasPOS : ComponentBase
 
     protected override async Task OnInitializedAsync()
     {
+        if (!Sesion.Autenticado) return;
         catalogos = Sat.Obtener();
         sucursales = await Db.Sucursales.Select(s => new ValueTuple<int, string>(s.Id, s.Nombre)).ToListAsync();
         clientes = await Db.Clientes.Select(c => new ValueTuple<int, string>(c.Id, c.Nombre)).ToListAsync();
@@ -50,13 +51,10 @@ public partial class VentasPOS : ComponentBase
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (!firstRender) return;
-        if (!Sesion.Autenticado)
-        {
-            var ok = await Sesion.RestaurarAsync();
-            if (!ok) { Nav.NavigateTo("/login"); return; }
-            await Buscar();
-            StateHasChanged();
-        }
+        if (!Sesion.Autenticado && !await Sesion.RestaurarAsync()) { Nav.NavigateTo("/login", forceLoad: true); return; }
+        if (Sesion.Sesion?.Rol is not ("Admin" or "Vendedor")) { Nav.NavigateTo("/"); return; }
+        await Buscar();
+        StateHasChanged();
     }
 
     protected async Task Buscar()

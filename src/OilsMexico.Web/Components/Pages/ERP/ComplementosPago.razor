@@ -75,7 +75,7 @@
                                     <td class="text-end">$@r.Total.ToString("N2")</td>
                                     <td><span class="badge bg-success">@r.Estado</span></td>
                                     <td class="text-nowrap">
-                                        @if (r.TieneXml) { <a class="btn btn-sm btn-success" href="/api/reps/@r.RepId/xml">XML</a> }
+                                        @if (r.TieneXml) { <a class="btn btn-sm btn-success" href="/api/reps/@r.RepId/xml?t=@Sesion.Sesion?.SesionToken">XML</a> }
                                         <button class="btn btn-sm btn-outline-primary" @onclick="() => VerDetalle(r.RepId)">Ver</button>
                                     </td>
                                 </tr>

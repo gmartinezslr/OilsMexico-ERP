@@ -1,9 +1,14 @@
-﻿@using Microsoft.AspNetCore.Components.Web
+@using Microsoft.AspNetCore.Components.Web
 @rendermode InteractiveServer
 @inject NavigationManager Nav
+@inject OilsMexico.Application.Interfaces.ISesionActual Sesion
 @implements IDisposable
 
+@if (Sesion.Autenticado)
+{
 <nav class="nav-groups" aria-label="Menú principal">
+    @if (Sesion.Sesion?.Rol is "Admin" or "Vendedor" or "Almacen" or "Conta")
+    {
     <div class="nav-group @(GrupoAbierto == "general" ? "is-open" : "")">
         <button type="button" class="nav-group-header" @onclick='() => Alternar("general")'
                 aria-expanded="@(GrupoAbierto == "general")" aria-controls="sub-general">
@@ -24,16 +29,14 @@
             <span class="nav-link-text">Inicio</span>
         </NavLink>
 
-        <NavLink class="nav-link" href="login">
-            <span class="nav-ico" aria-hidden="true">
-                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="11" rx="2" /><path d="M8 10V7a4 4 0 0 1 8 0v3" /></svg>
-            </span>
-            <span class="nav-link-text">Acceso PIN</span>
-        </NavLink>
+
             </div>
         }
     </div>
+    }
 
+    @if (Sesion.Sesion?.Rol is "Admin" or "Vendedor")
+    {
     <div class="nav-group @(GrupoAbierto == "ventas" ? "is-open" : "")">
         <button type="button" class="nav-group-header" @onclick='() => Alternar("ventas")'
                 aria-expanded="@(GrupoAbierto == "ventas")" aria-controls="sub-ventas">
@@ -91,8 +94,11 @@
             </div>
         }
     </div>
+    }
 
 
+    @if (Sesion.Sesion?.Rol is "Admin" or "Conta")
+    {
     <div class="nav-group @(GrupoAbierto == "gestion" ? "is-open" : "")">
         <button type="button" class="nav-group-header" @onclick='() => Alternar("gestion")'
                 aria-expanded="@(GrupoAbierto == "gestion")" aria-controls="sub-gestion">
@@ -122,8 +128,11 @@
             </div>
         }
     </div>
+    }
 
 
+    @if (Sesion.Sesion?.Rol is "Admin" or "Almacen")
+    {
     <div class="nav-group @(GrupoAbierto == "almacen" ? "is-open" : "")">
         <button type="button" class="nav-group-header" @onclick='() => Alternar("almacen")'
                 aria-expanded="@(GrupoAbierto == "almacen")" aria-controls="sub-almacen">
@@ -167,7 +176,10 @@
             </div>
         }
     </div>
+    }
 
+    @if (Sesion.Sesion?.Rol is "Admin" or "Vendedor")
+    {
     <div class="nav-group @(GrupoAbierto == "contactos" ? "is-open" : "")">
         <button type="button" class="nav-group-header" @onclick='() => Alternar("contactos")'
                 aria-expanded="@(GrupoAbierto == "contactos")" aria-controls="sub-contactos">
@@ -197,7 +209,10 @@
             </div>
         }
     </div>
+    }
 
+    @if (Sesion.Sesion?.Rol is "Admin")
+    {
     <div class="nav-group @(GrupoAbierto == "config" ? "is-open" : "")">
         <button type="button" class="nav-group-header" @onclick='() => Alternar("config")'
                 aria-expanded="@(GrupoAbierto == "config")" aria-controls="sub-config">
@@ -234,16 +249,28 @@
             </div>
         }
     </div>
+    }
 </nav>
+}
 
 @code {
     // Definimos la variable como un string normal y la inicializamos vacía para evitar advertencias
     private string GrupoAbierto { get; set; } = "ventas";
 
+    protected override void OnParametersSet() => RolActual = Sesion.Sesion?.Rol ?? "";
+    private string RolActual { get; set; } = "";
+
     protected override void OnInitialized()
     {
         Nav.LocationChanged += OnLocationChanged;
         ActualizarGrupoPorUrl();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool first)
+    {
+        if (!first || Sesion.Autenticado) return;
+        if (await Sesion.RestaurarAsync()) StateHasChanged();
+        else Nav.NavigateTo("/login");
     }
 
     private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
@@ -255,6 +282,7 @@
     private void ActualizarGrupoPorUrl()
     {
         var url = Nav.ToBaseRelativePath(Nav.Uri).ToLower();
+        RolActual = Sesion.Sesion?.Rol ?? "";
 
         if (string.IsNullOrEmpty(url) || url.StartsWith("login"))
         {
