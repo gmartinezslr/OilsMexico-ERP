@@ -14,12 +14,14 @@ public sealed partial class VentasService
         await using var tx = await db.Database.BeginTransactionAsync(ct);
         var cliente = await db.Clientes.FindAsync([req.ClienteId], ct)
             ?? throw new InvalidOperationException("Cliente no existe.");
+        var vendedorId = await ResolverVendedorAsync(req.VendedorId, cliente.VendedorId, ct);
         var factura = new Factura
         {
             SucursalId = sucursalId,
             FolioInterno = $"V-{sucursalId}-{DateTime.UtcNow:yyyyMMddHHmmss}",
             ClienteId = cliente.Id, FormaPagoSat = req.FormaPagoSat,
             MetodoPagoSat = req.MetodoPagoSat, UsoCfdi = req.UsoCfdi,
+            VendedorId = vendedorId,
             Estado = EstadoFactura.Pendiente
         };
         decimal subtotal = 0m;
@@ -71,6 +73,28 @@ public sealed partial class VentasService
         factura.Total = Math.Round(subtotal, 2);
         db.Facturas.Add(factura);
         await db.SaveChangesAsync(ct);
+
+        // CASH BASIS: la venta PUE (pago en una sola exhibición / contado) ya está cobrada al
+        // emitirse, así que se estampa su cobro automático. Deja PUE y PPD con UNA sola fuente
+        // de verdad (venta_cobros): comisiones, estado de cuenta y cortes leen lo mismo.
+        // Las PPD siguen cobrándose por REP en ComplementoPagoService (que rechaza facturas PUE,
+        // por lo que aquí no puede haber doble cobro).
+        if (factura.MetodoPagoSat == "PUE")
+        {
+            db.VentaCobros.Add(new VentaCobro
+            {
+                SucursalId = factura.SucursalId,
+                FacturaId = factura.Id,
+                ClienteId = factura.ClienteId,
+                Monto = factura.Total,
+                FormaPagoSat = factura.FormaPagoSat,
+                FechaPagoUtc = factura.FechaEmision,
+                Referencia = "PUE-CONTADO",
+                UsuarioId = ctx.UsuarioId
+            });
+            await db.SaveChangesAsync(ct);
+        }
+
         foreach (var m in db.ChangeTracker.Entries<MovimientoInventario>()
                      .Where(e => e.Entity.ReferenciaId == null && e.Entity.Tipo == "VENTA"))
             m.Entity.ReferenciaId = factura.Id;
@@ -91,4 +115,33 @@ public sealed partial class VentasService
             factura.Subtotal, factura.Iva, factura.Total,
             factura.Estado.ToString().ToUpperInvariant());
     }
+
+    /// <summary>
+    /// Resuelve quién se lleva el crédito de la venta. Cadena de precedencia:
+    /// 1) el vendedor elegido explícitamente en la UI (si es inválido se rechaza la venta, no se
+    ///    silencia: así no se redirigen comisiones por error o por manipulación del request),
+    /// 2) el dueño comercial ACTUAL del cliente (si sigue activo),
+    /// 3) el usuario de sesión (mostrador / cajero, o fallback si el dueño del cliente ya no está activo).
+    /// El resultado se congela en Factura.VendedorId: reasignar el cliente después NO lo cambia.
+    /// </summary>
+    private async Task<int> ResolverVendedorAsync(int? vendedorSolicitado, int? vendedorCliente, CancellationToken ct)
+    {
+        if (vendedorSolicitado.HasValue)
+        {
+            if (!await EsVendedorValidoAsync(vendedorSolicitado.Value, ct))
+                throw new InvalidOperationException(
+                    "El vendedor seleccionado no existe, no está activo o no tiene rol Vendedor/Admin.");
+            return vendedorSolicitado.Value;
+        }
+
+        if (vendedorCliente.HasValue && await EsVendedorValidoAsync(vendedorCliente.Value, ct))
+            return vendedorCliente.Value;
+
+        return ctx.UsuarioId;
+    }
+
+    /// <summary>Un vendedor sólo puede recibir crédito si el usuario existe, está activo y su rol lo permite.</summary>
+    private async Task<bool> EsVendedorValidoAsync(int usuarioId, CancellationToken ct) =>
+        await db.Usuarios.AsNoTracking().AnyAsync(u => u.Id == usuarioId && u.Activo
+            && (u.Rol == "Vendedor" || u.Rol == "Admin"), ct);
 }

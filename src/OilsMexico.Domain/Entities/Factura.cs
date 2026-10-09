@@ -25,6 +25,16 @@ public sealed class Factura
     public EstadoFactura Estado { get; set; } = EstadoFactura.Pendiente;
     /// <summary>Motivo de cancelación CFDI (requerido por el SAT al cancelar).</summary>
     public string? MotivoCancelacion { get; set; }
+    /// <summary>
+    /// Snapshot INMUTABLE de quién se lleva el crédito de esta venta (autor real, no el dueño
+    /// del cliente). Es la fuente de verdad para reportes de vendedor y comisiones: si el cliente
+    /// cambia de dueño después, las facturas emitidas no se alteran.
+    /// Nullable SÓLO por compatibilidad con el histórico: las facturas antiguas no tienen de dónde
+    /// saber el vendedor (nunca se guardó) y quedan en NULL = "sin atribución conocida".
+    /// El servicio de ventas SIEMPRE asigna valor en altas nuevas.
+    /// </summary>
+    public int? VendedorId { get; set; }
+    public Usuario? Vendedor { get; set; }
     public List<FacturaDetalle> Detalles { get; set; } = [];
 }
 

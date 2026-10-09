@@ -30,7 +30,8 @@ public sealed class ErpDbContext(DbContextOptions<ErpDbContext> options) : DbCon
     public DbSet<DetalleAsiento> DetallesAsientos => Set<DetalleAsiento>();
     public DbSet<CorteCaja> CortesCaja => Set<CorteCaja>();
     public DbSet<Configuracion> Configuracion => Set<Configuracion>();
-
+    public DbSet<CuotaVendedor> CuotasVendedor => Set<CuotaVendedor>();
+    public DbSet<ComisionHistorial> ComisionesHistorial => Set<ComisionHistorial>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {

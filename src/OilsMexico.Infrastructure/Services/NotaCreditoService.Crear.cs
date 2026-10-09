@@ -67,6 +67,12 @@ public sealed partial class NotaCreditoService
             });
         }
         nc.RepusoStock = true;
+
+        // CASH BASIS: una NC de este flujo acredita el 100% de la factura (copia los renglones
+        // completos), así que la venta queda revertida. Se marca Devolucion para que CobranzaService
+        // (comisiones) y EstadoCuentasService dejen de contarla como dinero entrado: sin esto se
+        // seguiría pagando comisión sobre mercancía devuelta. Es idempotente (no re-marca al timbrar).
+        f.Estado = Domain.Enums.EstadoFactura.Devolucion;
         await db.SaveChangesAsync(ct);
 
         // Sellado real Tipo E (CSD + XSLT SAT) + timbrado PAC (Finkok o SIMULADO).

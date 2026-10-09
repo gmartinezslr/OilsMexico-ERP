@@ -25,6 +25,9 @@ public partial class VentasPOS : ComponentBase
     protected List<CarritoItemDto> carrito = [];
     protected List<(int Id, string Nombre)> sucursales = [];
     protected List<(int Id, string Nombre)> clientes = [];
+    protected List<(int Id, string Nombre)> vendedores = [];
+    protected Dictionary<int, int> vendedorPorCliente = [];
+    protected int? vendedorId;
     protected CatalogosSatDto catalogos = new([], [], [], []);
     protected string formaPago = "01", metodoPago = "PUE", usoCfdi = "G03";
     protected int clienteId = 1;
@@ -59,7 +62,17 @@ public partial class VentasPOS : ComponentBase
         {
             sucursales = await Db.Sucursales.AsNoTracking().Select(s => new ValueTuple<int, string>(s.Id, s.Nombre)).ToListAsync();
             clientes = await Db.Clientes.AsNoTracking().Select(c => new ValueTuple<int, string>(c.Id, c.Nombre)).ToListAsync();
+            vendedores = await Db.Usuarios.AsNoTracking()
+                .Where(u => u.Activo && (u.Rol == "Vendedor" || u.Rol == "Admin"))
+                .OrderBy(u => u.Nombre)
+                .Select(u => new ValueTuple<int, string>(u.Id, u.Nombre)).ToListAsync();
+            // Dueño comercial de cada cliente: es el vendedor SUGERIDO al facturar (editable).
+            var duenos = await Db.Clientes.AsNoTracking()
+                .Select(c => new { c.Id, c.VendedorId }).ToListAsync();
+            vendedorPorCliente = duenos.Where(x => x.VendedorId != null)
+                .ToDictionary(x => x.Id, x => x.VendedorId!.Value);
             if (clientes.Count > 0) clienteId = clientes[0].Id;
+            vendedorId = vendedorPorCliente.GetValueOrDefault(clienteId);
             await Buscar();
             try { corteAbierto = await Caja.AbiertoAsync(SucursalCtx.SucursalId); } catch { }
         }
@@ -70,6 +83,12 @@ public partial class VentasPOS : ComponentBase
             return;
         }
         StateHasChanged();
+    }
+
+    /// <summary>Al cambiar el cliente se preselecciona su vendedor dueño (sugerido, editable).</summary>
+    protected void OnClienteCambiado()
+    {
+        vendedorId = vendedorPorCliente.GetValueOrDefault(clienteId);
     }
 
     protected async Task Buscar()
@@ -127,7 +146,7 @@ public partial class VentasPOS : ComponentBase
         try
         {
             var req = new VentaPosRequest(SucursalCtx.SucursalId, clienteId, Sesion.Sesion!.UsuarioId,
-                formaPago, metodoPago, usoCfdi, requiereFactura, carrito);
+                vendedorId, formaPago, metodoPago, usoCfdi, requiereFactura, carrito);
             ultimo = await Ventas.RegistrarVentaAsync(req);
             mensaje = $"Venta {ultimo.FolioInterno} registrada ({ultimo.Estado}).";
             esError = false;

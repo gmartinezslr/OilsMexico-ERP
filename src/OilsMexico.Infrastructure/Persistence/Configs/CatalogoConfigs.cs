@@ -45,6 +45,12 @@ public sealed class UnidadMedidaConfig : IEntityTypeConfiguration<UnidadMedida>
         e.Property(x => x.FactorConversion).HasColumnName("factor_conversion").HasPrecision(10, 4);
         e.Property(x => x.CodigoBarra).HasColumnName("codigo_barra").HasMaxLength(50);
         e.Property(x => x.PrecioUnitario).HasColumnName("precio_unitario").HasPrecision(12, 2);
+
+        // Tabulador de comisiones por presentación (fase 3). SchemaPatch agrega las columnas
+        // con DEFAULT 0 a BDs existentes: sin configurar = la presentación no comisiona.
+        e.Property(x => x.PorcComisionBase).HasColumnName("porc_comision_base").HasPrecision(5, 2).HasDefaultValue(0m);
+        e.Property(x => x.PorcComisionBono).HasColumnName("porc_comision_bono").HasPrecision(5, 2).HasDefaultValue(0m);
+
         e.HasOne(x => x.Producto).WithMany(p => p.Unidades)
             .HasForeignKey(x => x.ProductoId).OnDelete(DeleteBehavior.Cascade);
     }

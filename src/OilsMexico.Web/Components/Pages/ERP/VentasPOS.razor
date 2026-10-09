@@ -70,8 +70,13 @@ else
     @foreach(var kv in catalogos.UsosCfdi){<option value="@kv.Key">@kv.Value</option>}
     </select></div>
     <div class="col-12"><label class="form-label small">Cliente</label>
-    <select class="form-select" @onchange="e=>clienteId=int.Parse(e.Value!.ToString()!)">
+    <select class="form-select" @bind="clienteId" @bind:after="OnClienteCambiado">
     @foreach(var c in clientes){<option value="@c.Id">@c.Nombre</option>}
+    </select></div>
+    <div class="col-12"><label class="form-label small">Vendedor (crédito de la venta)</label>
+    <select class="form-select" @bind="vendedorId">
+    <option value="">Sin asignar (usuario de sesión)</option>
+    @foreach(var v in vendedores){<option value="@v.Id">@v.Nombre</option>}
     </select></div>
 </div>
 

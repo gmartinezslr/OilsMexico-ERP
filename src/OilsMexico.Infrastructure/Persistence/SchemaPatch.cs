@@ -220,9 +220,60 @@ public static class SchemaPatch
             CREATE INDEX IF NOT EXISTS ix_detalle_asientos_cuenta ON detalle_asientos (cuenta_id);
             """);
 
+        // Atribución de vendedores (fase 1 del módulo de comisiones). Idempotente.
+        //  - clientes.vendedor_id : dueño comercial ACTUAL (mutable). NULL = sin dueño (Público en general).
+        //  - facturas.vendedor_id : snapshot INMUTABLE de quién vendió (crédito de comisión).
+        //    Se crea nullable: el histórico NO tiene de dónde saberlo (Factura nunca guardó el usuario
+        //    que vendió y el legado PHP tampoco tiene "vendedor"), así que NULL = "sin atribución
+        //    conocida". NO se adivina: no se paga comisión sobre datos inventados. Las altas nuevas
+        //    siempre asignan valor desde VentasService.RegistrarVentaAsync.
+        await db.Database.ExecuteSqlRawAsync("""
+            ALTER TABLE clientes ADD COLUMN IF NOT EXISTS vendedor_id integer;
+            ALTER TABLE facturas ADD COLUMN IF NOT EXISTS vendedor_id integer;
+            CREATE INDEX IF NOT EXISTS ix_clientes_vendedor ON clientes (vendedor_id);
+            CREATE INDEX IF NOT EXISTS ix_facturas_vendedor ON facturas (vendedor_id, fecha_emision);
+            """);
+        await db.Database.ExecuteSqlRawAsync("""
+            DO $$
+            BEGIN
+                IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_clientes_vendedor') THEN
+                    ALTER TABLE clientes ADD CONSTRAINT fk_clientes_vendedor
+                        FOREIGN KEY (vendedor_id) REFERENCES usuarios(id) ON DELETE RESTRICT;
+                END IF;
+                IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_facturas_vendedor') THEN
+                    ALTER TABLE facturas ADD CONSTRAINT fk_facturas_vendedor
+                        FOREIGN KEY (vendedor_id) REFERENCES usuarios(id) ON DELETE RESTRICT;
+                END IF;
+                -- Refuerza el invariante del hecho SÓLO si no hay histórico sin atribución:
+                -- con 0 filas NULL (BD nueva o histórico ya atribuido) la columna pasa a NOT NULL;
+                -- si quedan facturas viejas sin vendedor conocido se conserva nullable y NO se
+                -- adivina el valor.
+                IF NOT EXISTS (SELECT 1 FROM facturas WHERE vendedor_id IS NULL) THEN
+                    ALTER TABLE facturas ALTER COLUMN vendedor_id SET NOT NULL;
+                END IF;
+            END $$;
+            """);
+
         await FiscalCajaPatch.AplicarAsync(db);
         await RepPatch.AplicarAsync(db);
         await CajaPatch.AplicarAsync(db);
+        await ComisionPatch.AplicarAsync(db);
+
+        // CASH BASIS: las ventas PUE (contado) se consideran cobradas al momento de emitirse.
+        // Se estampa el cobro faltante en el histórico PUE para que Estado de Cuentas, cortes y
+        // comisiones compartan UNA sola fuente de "dinero entrado" (venta_cobros).
+        // Idempotente: sólo facturas PUE sin NINGÚN cobro; canceladas y devoluciones quedan fuera.
+        await db.Database.ExecuteSqlRawAsync("""
+            INSERT INTO venta_cobros (sucursal_id, factura_id, cliente_id, monto, forma_pago_sat,
+                                      fecha_pago_utc, referencia, usuario_id, creado_utc)
+            SELECT f.sucursal_id, f.id, f.cliente_id, f.total, f.forma_pago_sat,
+                   f.fecha_emision, 'PUE-CONTADO (backfill)', 0, now()
+            FROM facturas f
+            WHERE f.metodo_pago_sat = 'PUE'
+              AND f.estado NOT IN ('Cancelada', 'Devolucion')
+              AND f.total > 0
+              AND NOT EXISTS (SELECT 1 FROM venta_cobros vc WHERE vc.factura_id = f.id);
+            """);
 
         // Parámetros de configuración del sistema (clave/valor).
         // sesion_timeout_min: minutos de inactividad antes de cerrar la sesión (por defecto 5).

@@ -16,6 +16,9 @@ public sealed class FacturaConfig : IEntityTypeConfiguration<Factura>
         e.HasIndex(x => x.UuidSat).IsUnique();
         e.Property(x => x.ClienteId).HasColumnName("cliente_id");
         e.Property(x => x.FechaEmision).HasColumnName("fecha_emision");
+        // Atribución de la venta (crédito de comisión). Nullable sólo por el histórico sin vendedor conocido.
+        e.Property(x => x.VendedorId).HasColumnName("vendedor_id");
+        e.HasIndex(x => x.VendedorId).HasDatabaseName("ix_facturas_vendedor");
         e.Property(x => x.Subtotal).HasColumnName("subtotal").HasPrecision(12, 2);
         e.Property(x => x.Iva).HasColumnName("iva").HasPrecision(12, 2);
         e.Property(x => x.Total).HasColumnName("total").HasPrecision(12, 2);
@@ -29,6 +32,8 @@ public sealed class FacturaConfig : IEntityTypeConfiguration<Factura>
         e.Property(x => x.MotivoCancelacion).HasColumnName("motivo_cancelacion").HasMaxLength(300);
         e.HasOne(x => x.Sucursal).WithMany().HasForeignKey(x => x.SucursalId);
         e.HasOne(x => x.Cliente).WithMany(c => c.Facturas).HasForeignKey(x => x.ClienteId);
+        e.HasOne(x => x.Vendedor).WithMany().HasForeignKey(x => x.VendedorId)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }
 
@@ -77,6 +82,11 @@ public sealed class ClienteConfig : IEntityTypeConfiguration<Cliente>
         e.Property(x => x.Ciudad).HasColumnName("ciudad").HasMaxLength(150);
         e.Property(x => x.Pais).HasColumnName("pais").HasMaxLength(60).HasDefaultValue("México");
         e.Property(x => x.Activo).HasColumnName("activo").HasDefaultValue(true);
+        // Dueño comercial actual del cliente (mutable). NULL = sin dueño (p.ej. Público en general).
+        e.Property(x => x.VendedorId).HasColumnName("vendedor_id");
+        e.HasIndex(x => x.VendedorId).HasDatabaseName("ix_clientes_vendedor");
+        e.HasOne(x => x.Vendedor).WithMany().HasForeignKey(x => x.VendedorId)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }
 

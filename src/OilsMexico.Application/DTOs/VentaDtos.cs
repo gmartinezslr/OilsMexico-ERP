@@ -16,6 +16,7 @@ public sealed record CarritoItemDto(
 
 public sealed record VentaPosRequest(
     int SucursalId, int ClienteId, int UsuarioId,
+    int? VendedorId,
     string FormaPagoSat, string MetodoPagoSat, string UsoCfdi,
     bool RequiereFactura, List<CarritoItemDto> Items);
 

@@ -23,5 +23,14 @@ public sealed class Cliente
     public string RegimenFiscal { get; set; } = "616";  // Sin obligaciones fiscales (default público general)
     public string CodigoPostal { get; set; } = "06600";
 
+    /// <summary>
+    /// Dueño comercial ACTUAL del cliente (estado vivo, mutable). Nullable: "Público en general"
+    /// y clientes sin asignar quedan en NULL. Al crear una venta se usa como vendedor sugerido;
+    /// el crédito de la venta se congela en <see cref="Factura.VendedorId"/> y NO se reescribe
+    /// si el cliente cambia de dueño.
+    /// </summary>
+    public int? VendedorId { get; set; }
+    public Usuario? Vendedor { get; set; }
+
     public List<Factura> Facturas { get; set; } = [];
 }

@@ -23,7 +23,12 @@ public sealed partial class EstadoCuentasService(ErpDbContext db, ISucursalConte
         var clienteIds = facturasPorCliente.Keys.ToList();
 
         var cobrosPorCliente = await db.VentaCobros.AsNoTracking()
-            .Where(v => v.SucursalId == sucursalId && clienteIds.Contains(v.ClienteId))
+            .Where(v => v.SucursalId == sucursalId && clienteIds.Contains(v.ClienteId)
+                // Mismo criterio cash-basis que CobranzaService: el cobro de una factura cancelada
+                // o devuelta NO es "dinero entrado" (se reembolsó), así que no compensa deuda.
+                && (v.Factura == null
+                    || (v.Factura.Estado != EstadoFactura.Cancelada
+                        && v.Factura.Estado != EstadoFactura.Devolucion)))
             .GroupBy(v => v.ClienteId)
             .Select(g => new { ClienteId = g.Key, Total = g.Sum(v => v.Monto) })
             .ToDictionaryAsync(x => x.ClienteId, x => x.Total, ct);
@@ -67,7 +72,11 @@ public sealed partial class EstadoCuentasService(ErpDbContext db, ISucursalConte
             .ToListAsync(ct);
 
         var pagos = await db.VentaCobros.AsNoTracking()
-            .Where(v => v.ClienteId == clienteId && (sucursalId == 0 || v.SucursalId == sucursalId))
+            .Where(v => v.ClienteId == clienteId && (sucursalId == 0 || v.SucursalId == sucursalId)
+                // Mismo criterio cash-basis que CobranzaService (ver ListarEstadosCuentasAsync).
+                && (v.Factura == null
+                    || (v.Factura.Estado != EstadoFactura.Cancelada
+                        && v.Factura.Estado != EstadoFactura.Devolucion)))
             .OrderByDescending(v => v.FechaPagoUtc)
             .Select(v => new PagoCuentaDto(
                 v.Id, v.FechaPagoUtc, "VentaCobro", v.Monto, v.Referencia ?? string.Empty, null))

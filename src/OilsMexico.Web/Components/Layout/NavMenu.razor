@@ -109,6 +109,18 @@
             <span class="nav-link-text">Corte de caja</span>
         </NavLink>
         }
+
+        @* Metas y comisiones: el Admin captura metas y cierra periodos; el Vendedor ve su avance
+           (la pantalla se protege por rol en Metas.razor.cs). *@
+        @if (Sesion.Sesion?.Rol is "Admin" or "Vendedor")
+        {
+        <NavLink class="nav-link" href="metas">
+            <span class="nav-ico" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="4.5" /><circle cx="12" cy="12" r="1" /></svg>
+            </span>
+            <span class="nav-link-text">Metas y comisiones</span>
+        </NavLink>
+        }
             </div>
         }
     </div>
@@ -325,7 +337,8 @@
         }
         else if (url.StartsWith("ventas-pos") || url.StartsWith("facturacion") || 
                  url.StartsWith("historial-ventas") || url.StartsWith("notas-credito") || 
-                 url.StartsWith("complementos-pago") || url.StartsWith("corte-caja"))
+                 url.StartsWith("complementos-pago") || url.StartsWith("corte-caja") ||
+                 url.StartsWith("metas"))
         {
             GrupoAbierto = "ventas";
         }

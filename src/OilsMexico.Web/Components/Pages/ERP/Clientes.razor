@@ -56,6 +56,15 @@
                         <option value="menudeo">Menudeo</option>
                         <option value="mayoreo">Mayoreo</option>
                     </select></div>
+                <div class="col-md-6"><label class="form-label small">Vendedor responsable (dueño de la cuenta)</label>
+                    <select class="form-select" @bind="vendedorSel">
+                        <option value="">Sin asignar — las ventas se acreditan al usuario de sesión</option>
+                        @foreach (var v in vendedores)
+                        {
+                            <option value="@v.Id">@v.Nombre</option>
+                        }
+                    </select>
+                    <small class="text-muted">Se usa como vendedor sugerido al facturar. Cambiarlo aquí no altera ventas ya registradas.</small></div>
             </div>
             <h6 class="fw-bold mt-3">Dirección</h6>
             <DireccionSepomex @bind-CodigoPostal="edit.CodigoPostal" @bind-Colonia="edit.Colonia"

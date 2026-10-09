@@ -8,9 +8,6 @@ public sealed record DashboardGestionDto(
 /// <summary>Ventas totales agrupadas por día.</summary>
 public sealed record VentasPorDiaDto(DateTime Fecha, decimal Total, int Cantidad);
 
-/// <summary>Ventas totales agrupadas por cliente (interpretado como vendedor/responsable).</summary>
-public sealed record VentasPorVendedorDto(int ClienteId, decimal Total, int NumFacturas);
-
 /// <summary>Ventas totales agrupadas por producto.</summary>
 public sealed record VentasPorProductoDto(int ProductoId, decimal Cantidad, decimal Importe);
 

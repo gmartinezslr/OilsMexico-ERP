@@ -214,28 +214,5 @@ public sealed partial class GestionService(ErpDbContext db, ISucursalContext ctx
         return grupos.Select(g => new VentasPorDiaDto(
             g.Fecha, g.Total, g.Cantidad)).ToList();
     }
-
-    public async Task<List<VentasPorVendedorDto>> VentasPorVendedorAsync(int sucursalId, DateTime desde, DateTime hasta, CancellationToken ct = default)
-    {
-        var desdeUtc = DateTime.SpecifyKind(desde.Date, DateTimeKind.Local).ToUniversalTime();
-        var hastaUtc = DateTime.SpecifyKind(hasta.Date.AddDays(1), DateTimeKind.Local).ToUniversalTime();
-
-        var filas = await (from f in db.Facturas.AsNoTracking()
-                           where f.SucursalId == sucursalId
-                                 && f.FechaEmision >= desdeUtc && f.FechaEmision < hastaUtc
-                                 && f.Estado != EstadoFactura.Cancelada && f.Estado != EstadoFactura.Devolucion
-                           group f by new { f.ClienteId } into g
-                           select new
-                           {
-                               ClienteId = g.Key.ClienteId,
-                               Total = g.Sum(f => f.Total),
-                               NumFacturas = g.Count()
-                           })
-            .OrderByDescending(x => x.Total)
-            .ToListAsync(ct);
-
-        return filas.Select(x => new VentasPorVendedorDto(
-                x.ClienteId, x.Total, x.NumFacturas)).ToList();
-    }
 }
 

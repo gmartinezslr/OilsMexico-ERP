@@ -8,9 +8,11 @@ namespace OilsMexico.Web.Components.Pages.ERP;
 public partial class Clientes : ComponentBase
 {
     private string filtro = "", msg = "";
+    private string vendedorSel = "";
     private bool err, guardando;
     private List<Cliente> lista = [];
     private Cliente edit = new();
+    private List<(int Id, string Nombre)> vendedores = [];
     private CatalogosSatDto catalogos = new([], [], [], []);
 
     protected override async Task OnInitializedAsync()
@@ -30,6 +32,15 @@ public partial class Clientes : ComponentBase
 
     private async Task Cargar()
     {
+        if (vendedores.Count == 0)
+        {
+            // Catálogo de vendedores (rol que puede recibir comisiones).
+            vendedores = await Db.Usuarios.AsNoTracking()
+                .Where(u => u.Activo && (u.Rol == "Vendedor" || u.Rol == "Admin"))
+                .OrderBy(u => u.Nombre)
+                .Select(u => new ValueTuple<int, string>(u.Id, u.Nombre))
+                .ToListAsync();
+        }
         var q = Db.Clientes.AsNoTracking().Where(c => c.Activo).OrderBy(c => c.Nombre).AsQueryable();
         if (!string.IsNullOrWhiteSpace(filtro))
         {
@@ -37,17 +48,23 @@ public partial class Clientes : ComponentBase
             q = q.Where(c => c.Nombre.ToLower().Contains(f) || c.Rfc.ToLower().Contains(f));
         }
         lista = await q.Take(200).ToListAsync();
-        if (edit.Id == 0 && lista.Count > 0) edit = Clonar(lista[0]);
+        if (edit.Id == 0 && lista.Count > 0) Seleccionar(lista[0]);
+    }
+
+    private void Seleccionar(Cliente c)
+    {
+        edit = Clonar(c);
+        vendedorSel = c.VendedorId?.ToString() ?? "";
     }
 
     private async Task AlEscribir(ChangeEventArgs e) { filtro = e.Value?.ToString() ?? ""; await Cargar(); }
 
-    private void Nuevo() => edit = new Cliente { CodigoPostal = "06600" };
+    private void Nuevo() { edit = new Cliente { CodigoPostal = "06600" }; vendedorSel = ""; }
 
     private async Task Editar(int id)
     {
         var c = await Db.Clientes.FindAsync(id);
-        if (c is not null) edit = Clonar(c);
+        if (c is not null) Seleccionar(c);
     }
 
     private async Task Guardar()
@@ -55,6 +72,10 @@ public partial class Clientes : ComponentBase
         msg = "";
         if (string.IsNullOrWhiteSpace(edit.Nombre) || string.IsNullOrWhiteSpace(edit.Rfc))
         { msg = "Nombre y RFC son obligatorios."; err = true; return; }
+        if (!string.IsNullOrWhiteSpace(vendedorSel)
+            && (!int.TryParse(vendedorSel, out var vid) || !vendedores.Any(v => v.Id == vid)))
+        { msg = "Selecciona un vendedor válido de la lista."; err = true; return; }
+        edit.VendedorId = string.IsNullOrWhiteSpace(vendedorSel) ? null : int.Parse(vendedorSel);
         edit.Rfc = edit.Rfc.Trim().ToUpperInvariant();
         if (edit.Rfc.Length < 12 || edit.Rfc.Length > 13)
         { msg = "RFC debe tener 12 (moral) o 13 (física) caracteres."; err = true; return; }
@@ -73,7 +94,7 @@ public partial class Clientes : ComponentBase
             msg = $"Cliente '{edit.Nombre}' guardado."; err = false;
             var id = edit.Id;
             await Cargar();
-            edit = Clonar((await Db.Clientes.FindAsync(id))!);
+            Seleccionar((await Db.Clientes.FindAsync(id))!);
         }
         catch (Exception ex) { msg = "Error: " + ex.Message; err = true; }
         guardando = false;
@@ -95,6 +116,7 @@ public partial class Clientes : ComponentBase
         Direccion = c.Direccion, TipoPrecio = c.TipoPrecio, RegimenFiscal = c.RegimenFiscal,
         CodigoPostal = c.CodigoPostal, Calle = c.Calle, NumeroExterior = c.NumeroExterior,
         NumeroInterior = c.NumeroInterior, Colonia = c.Colonia, Municipio = c.Municipio,
-        Estado = c.Estado, Ciudad = c.Ciudad, Pais = c.Pais, Activo = c.Activo
+        Estado = c.Estado, Ciudad = c.Ciudad, Pais = c.Pais, Activo = c.Activo,
+        VendedorId = c.VendedorId
     };
 }

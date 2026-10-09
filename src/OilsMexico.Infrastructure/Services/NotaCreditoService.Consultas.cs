@@ -37,7 +37,9 @@ public sealed partial class NotaCreditoService
 
     public async Task<NotaCreditoResult> CancelarAsync(int notaId, string motivo, string? folioSustitucion = null, CancellationToken ct = default)
     {
-        var n = await db.NotasCredito.FirstOrDefaultAsync(x => x.Id == notaId, ct)
+        var n = await db.NotasCredito
+            .Include(x => x.FacturaOrigen) // necesario para revertir su estado (no hay lazy loading)
+            .FirstOrDefaultAsync(x => x.Id == notaId, ct)
             ?? throw new InvalidOperationException("Nota de crédito no existe.");
         if (ctx.Rol is not ("Admin" or "Conta") && n.SucursalId != ctx.SucursalId)
             throw new UnauthorizedAccessException("No puedes cancelar NC de otra sucursal.");
@@ -55,6 +57,13 @@ public sealed partial class NotaCreditoService
         n.Estado = "Cancelada";
         n.MotivoCancelacion = motivoSat == "01" && !string.IsNullOrWhiteSpace(folioSustitucion)
             ? $"{motivoSat} (sustituye: {folioSustitucion.Trim()})" : motivoSat;
+
+        // Reversa de NotaCreditoService.Crear: si la NC anulada había marcado la factura origen como
+        // Devolucion (cash basis), al cancelarse la acreditación la venta vuelve a valer. Sin esto
+        // la factura quedaría invisible para comisiones y estado de cuenta para siempre.
+        if (n.FacturaOrigen is { Estado: Domain.Enums.EstadoFactura.Devolucion })
+            n.FacturaOrigen.Estado = Domain.Enums.EstadoFactura.Timbrada;
+
         await db.SaveChangesAsync(ct);
         return new NotaCreditoResult(n.Id, n.FolioInterno, n.UuidSat,
             n.Subtotal, n.Iva, n.Total, "CANCELADA");
