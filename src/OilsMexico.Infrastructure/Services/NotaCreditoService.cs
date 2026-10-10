@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using OilsMexico.Application.DTOs;
 using OilsMexico.Application.Interfaces;
+using OilsMexico.Domain.Enums;
 using OilsMexico.Infrastructure.Persistence;
 
 namespace OilsMexico.Infrastructure.Services;
@@ -24,7 +25,7 @@ public sealed partial class NotaCreditoService(
         if (ctx.Rol != "Admin" && f.SucursalId != ctx.SucursalId)
             throw new UnauthorizedAccessException("No puedes acreditar facturas de otra sucursal.");
         var previa = await db.NotasCredito.AsNoTracking()
-            .AnyAsync(n => n.FacturaOrigenId == facturaOrigenId && n.Estado != "Cancelada", ct);
+            .AnyAsync(n => n.FacturaOrigenId == facturaOrigenId && n.Estado != EstadoNotaCredito.Cancelada, ct);
         var lineas = f.Detalles.Select(d => new NotaCreditoLineaDto(
             d.ProductoId,
             d.Producto != null ? $"{d.Producto.Sku} - {d.Producto.Nombre}" : $"Prod #{d.ProductoId}",
@@ -33,7 +34,7 @@ public sealed partial class NotaCreditoService(
             Math.Round(d.Cantidad * d.PrecioUnitario, 2), d.LoteId)).ToList();
         return new NotaCreditoPreviewDto(
             f.Id, f.FolioInterno, f.Cliente?.Nombre ?? "(sin cliente)", f.UuidSat,
-            f.Total, f.Estado.ToString(), previa, lineas,
+            f.Total, f.Estado, previa, lineas,
             f.Subtotal, f.Iva, f.Total);
     }
 }

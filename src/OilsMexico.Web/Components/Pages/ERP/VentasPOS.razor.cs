@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using OilsMexico.Application.DTOs;
 using OilsMexico.Application.Interfaces;
+using OilsMexico.Domain.Services;
 using OilsMexico.Infrastructure.Persistence;
 using OilsMexico.Web.Hubs;
 
@@ -40,8 +41,8 @@ public partial class VentasPOS : ComponentBase
     private string _ultimoFiltroBuscado = "\u0001";
 
     protected decimal SubtotalBruto => carrito.Sum(i => i.Importe);
-    protected decimal Subtotal => Math.Round(SubtotalBruto / 1.16m, 2);
-    protected decimal Iva => Math.Round(SubtotalBruto - Subtotal, 2);
+    protected decimal Subtotal => Impuestos.BaseDeTotal(SubtotalBruto);
+    protected decimal Iva => Impuestos.IvaDeTotal(SubtotalBruto);
     protected decimal Total => Math.Round(SubtotalBruto, 2);
 
     protected override async Task OnInitializedAsync()

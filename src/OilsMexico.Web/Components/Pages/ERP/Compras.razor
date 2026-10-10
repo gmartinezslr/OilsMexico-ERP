@@ -190,7 +190,7 @@
                                             @if (pendiente <= 0) { <span class="badge bg-success">ok</span> }</td>
                                         <td><small>@(l.NumeroLote ?? "—")</small></td>
                                         <td>
-                                            @if (pendiente > 0 && detalle.Estado != "Cancelada")
+                                            @if (pendiente > 0 && detalle.Estado != EstadoCompra.Cancelada)
                                             {
                                                 <div class="d-flex gap-1 flex-wrap">
                                                     <input type="number" step="0.01" min="0" class="form-control form-control-sm" style="width:80px" placeholder="Cant" value="@CantRec(l.DetalleId)" @oninput="(e) => SetCantRec(l.DetalleId, e.Value?.ToString())" />
@@ -205,7 +205,7 @@
                         </table>
                     </div>
                     <div class="d-flex gap-2 flex-wrap mt-2">
-                        @if (detalle.Estado is "Borrador" or "Parcial")
+                        @if (detalle.Estado is EstadoCompra.Borrador or EstadoCompra.Parcial)
                         {
                             <button class="btn btn-sm btn-success" @onclick="ConfirmarRecepcion" disabled="@recibiendo">Recibir cantidades capturadas</button>
                             <button class="btn btn-sm btn-outline-danger" @onclick="EmpezarCancel">Cancelar orden</button>
@@ -240,7 +240,7 @@
                             </tbody>
                         </table>
                     </div>
-                    @if (detalle.Saldo > 0.01m && detalle.Estado != "Cancelada")
+                    @if (detalle.Saldo > 0.01m && detalle.Estado != EstadoCompra.Cancelada)
                     {
                         <div class="row g-2 align-items-end">
                             <div class="col-md-3"><label class="form-label small mb-1">Monto</label>

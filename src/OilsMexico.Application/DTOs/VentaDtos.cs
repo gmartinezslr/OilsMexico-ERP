@@ -1,3 +1,5 @@
+using OilsMexico.Domain.Enums;
+
 namespace OilsMexico.Application.DTOs;
 
 public sealed record ProductoDto(
@@ -32,7 +34,7 @@ public sealed record CatalogosSatDto(
 
 public sealed record HistorialVentaDto(
     int FacturaId, string FolioInterno, DateTime FechaEmision,
-    string Cliente, string Estado, decimal Subtotal, decimal Iva, decimal Total,
+    string Cliente, EstadoFactura Estado, decimal Subtotal, decimal Iva, decimal Total,
     Guid? UuidSat, int Renglones);
 
 public sealed record HistorialResumenDto(int Ventas, decimal Subtotal, decimal Iva, decimal Total);
@@ -45,7 +47,7 @@ public sealed record HistorialLineaDto(
     string Producto, decimal Cantidad, string Unidad, decimal PrecioUnitario, decimal Importe);
 
 public sealed record HistorialDetalleDto(
-    int FacturaId, string FolioInterno, DateTime FechaEmision, string Cliente, string Estado,
+    int FacturaId, string FolioInterno, DateTime FechaEmision, string Cliente, EstadoFactura Estado,
     string FormaPagoSat, string MetodoPagoSat, string UsoCfdi,
     decimal Subtotal, decimal Iva, decimal Total, Guid? UuidSat,
     string? SelloDigital, string? CadenaOriginal, List<HistorialLineaDto> Lineas);
@@ -53,6 +55,6 @@ public sealed record HistorialDetalleDto(
 /// <summary>Renglón del módulo Facturación CFDI (listado de folios con estado fiscal).</summary>
 public sealed record FacturaListadoDto(
     int FacturaId, string FolioInterno, DateTime FechaEmision, string Cliente,
-    string Estado, decimal Subtotal, decimal Iva, decimal Total,
+    EstadoFactura Estado, decimal Subtotal, decimal Iva, decimal Total,
     string FormaPagoSat, string MetodoPagoSat, string UsoCfdi,
     Guid? UuidSat, bool TieneXml, int Renglones, string? MotivoCancelacion);

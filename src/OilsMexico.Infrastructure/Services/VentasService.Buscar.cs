@@ -11,7 +11,6 @@ public sealed partial class VentasService(
     ErpDbContext db, ISucursalContext ctx,
     ICfdiSelladoService sellado, IPacTimbradoService pac) : IVentasService
 {
-    private const decimal TasaIva = 0.16m;
 
     public async Task<List<ProductoDto>> BuscarProductosAsync(int sucursalId, string? filtro, CancellationToken ct = default)
     {

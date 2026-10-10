@@ -14,6 +14,12 @@ public partial class Usuarios : ComponentBase
     private List<UsuarioRow> lista = [];
     private Usuario edit = new() { Rol = "Vendedor", Activo = true };
     private List<SucRow> sucursales = [];
+    // Política de contraseña configurable por el administrador (longitud, historial, vigencia).
+    private OilsMexico.Application.DTOs.PasswordConfigDto cfgPwd = new(20, 3, 90, true, true, true, true);
+    // Estado y flujos de 2FA de la cuenta seleccionada (gestionados por el Admin).
+    private OilsMexico.Application.DTOs.DosFaEstadoDto? dosFa;
+    private string codigo2FAAct = "", codigo2FADesac = "";
+    private bool mostrarDesactivar;
     [Microsoft.AspNetCore.Components.Inject]
     private OilsMexico.Application.Interfaces.IAuthService Auth { get; set; } = default!;
 
@@ -29,6 +35,7 @@ public partial class Usuarios : ComponentBase
         sucursales = await Db.Sucursales.AsNoTracking().OrderBy(s => s.CodigoSucursal)
             .Select(s => new SucRow(s.Id, s.Nombre, s.CodigoSucursal)).ToListAsync();
         if (sucursales.Count > 0) edit.SucursalId = sucursales[0].Id;
+        cfgPwd = await Auth.ObtenerPasswordConfigAsync();
         await Cargar();
     }
 
@@ -78,7 +85,10 @@ public partial class Usuarios : ComponentBase
         if (u is null) return;
         edit = u;
         pin1 = pin2 = "";
+        codigo2FAAct = codigo2FADesac = "";
+        mostrarDesactivar = false;
         msg = "";
+        dosFa = await Auth.ObtenerEstadoDosFaAsync(id);
     }
 
     private async Task Guardar()
@@ -107,9 +117,17 @@ public partial class Usuarios : ComponentBase
         {
             var p1 = (pin1 ?? "").Trim();
             var p2 = (pin2 ?? "").Trim();
-            if (p1.Length < 8 || p1.Length > 100)
-            { msg = "La contraseña debe tener de 8 a 100 caracteres."; err = true; return; }
+            // Misma política que aplica AuthService: longitud configurable + complejidad fija.
+            var fallos = new List<string>();
+            if (p1.Length < cfgPwd.LongitudMinima || p1.Length > 100) fallos.Add($"debe tener de {cfgPwd.LongitudMinima} a 100 caracteres");
+            if (cfgPwd.RequiereMayusculas && !p1.Any(char.IsUpper)) fallos.Add("falta una mayúscula");
+            if (cfgPwd.RequiereMinusculas && !p1.Any(char.IsLower)) fallos.Add("falta una minúscula");
+            if (cfgPwd.RequiereNumeros && !p1.Any(char.IsDigit)) fallos.Add("falta un número");
+            if (cfgPwd.RequiereEspecial && !p1.Any(c => !char.IsLetterOrDigit(c))) fallos.Add("falta un carácter especial");
+            if (fallos.Count > 0)
+            { msg = "La contraseña no cumple la política: " + string.Join(", ", fallos) + "."; err = true; return; }
             if (p1 != p2) { msg = "Las contraseñas no coinciden."; err = true; return; }
+            edit.UltimoCambioPasswordUtc = DateTime.UtcNow; // Reinicia la vigencia por política.
             edit.PasswordHash = OilsMexico.Infrastructure.Services.AuthService.Hash(p1);
             edit.PinHash = string.Empty;
             edit.SesionToken = null; // Revoca sesiones abiertas al cambiar la contraseña.
@@ -128,6 +146,28 @@ public partial class Usuarios : ComponentBase
             if (edit.Id == 0) Db.Usuarios.Add(edit);
             else Db.Usuarios.Update(edit);
             await Db.SaveChangesAsync();
+            if (quierePassword)
+            {
+                // Historial de contraseñas (evita repetir las últimas N) + auditoría del cambio admin.
+                Db.PasswordHistories.Add(new PasswordHistory
+                {
+                    UsuarioId = edit.Id,
+                    PasswordHash = edit.PasswordHash,
+                    FechaCambioUtc = DateTime.UtcNow
+                });
+                var excedentes = await Db.PasswordHistories.AsNoTracking().Where(h => h.UsuarioId == edit.Id)
+                    .OrderByDescending(h => h.FechaCambioUtc).Skip(cfgPwd.Historial).ToListAsync();
+                if (excedentes.Count > 0) Db.PasswordHistories.RemoveRange(excedentes);
+                Db.AuditLogs.Add(new AuditLog
+                {
+                    UsuarioId = edit.Id,
+                    UsuarioNombre = edit.Nombre,
+                    Tipo = "PasswordChangeAdmin",
+                    Detalle = $"Contraseña restablecida por el administrador {(Sesion.Sesion?.Nombre ?? "?")}.",
+                    FechaUtc = DateTime.UtcNow
+                });
+                await Db.SaveChangesAsync();
+            }
             msg = $"Usuario '{edit.Nombre}' guardado."; err = false;
             pin1 = pin2 = "";
             var id = edit.Id;
@@ -170,5 +210,36 @@ public partial class Usuarios : ComponentBase
         msg = "Usuario reactivado."; err = false;
         await Cargar();
         await Editar(edit.Id);
+    }
+
+    // ------------------------------------------------------------------
+    // 2FA: el administrador puede gestionar la activación de otros usuarios.
+    // El flujo es: consultar estado (genera QR/clave pendiente) → capturar el
+    // código de la app → activar. Desactivar exige el código vigente.
+    // ------------------------------------------------------------------
+    private async Task Activar2Fa()
+    {
+        if (!esAdmin || edit.Id == 0) return;
+        if (string.IsNullOrWhiteSpace(codigo2FAAct))
+        { msg = "Escribe el código de 6 dígitos de la aplicación autenticadora."; err = true; return; }
+        guardando = true;
+        var r = await Auth.ActivacionDosFaAsync(edit.Id, new OilsMexico.Application.DTOs.ActivarDosFaRequest(codigo2FAAct.Trim()));
+        guardando = false;
+        err = !r.Exitoso; msg = r.Mensaje ?? "";
+        codigo2FAAct = "";
+        dosFa = await Auth.ObtenerEstadoDosFaAsync(edit.Id);
+        StateHasChanged();
+    }
+
+    private async Task Desactivar2Fa()
+    {
+        if (!esAdmin || edit.Id == 0) return;
+        guardando = true;
+        var r = await Auth.DesactivacionDosFaAsync(edit.Id, new OilsMexico.Application.DTOs.DesactivarDosFaRequest(codigo2FADesac?.Trim()));
+        guardando = false;
+        err = !r.Exitoso; msg = r.Mensaje ?? "";
+        codigo2FADesac = ""; mostrarDesactivar = false;
+        dosFa = await Auth.ObtenerEstadoDosFaAsync(edit.Id);
+        StateHasChanged();
     }
 }

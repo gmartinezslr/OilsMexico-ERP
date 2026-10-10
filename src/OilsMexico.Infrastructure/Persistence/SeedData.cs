@@ -3,6 +3,7 @@ using System.Text;
 using Microsoft.EntityFrameworkCore;
 using OilsMexico.Domain.Entities;
 using OilsMexico.Infrastructure.Persistence;
+using OilsMexico.Infrastructure.Services;
 
 namespace OilsMexico.Infrastructure.Persistence;
 
@@ -21,6 +22,24 @@ public static class SeedData
             break;
         }
         if (admins.Count > 0) await db.SaveChangesAsync();
+
+        // Parámetros del sistema en tabla configuracion: solo se insertan si faltan
+        // (nunca pisan valores ya capturados por el administrador).
+        var clavesConfig = new[]
+        {
+            (ConfiguracionService.ClaveTimeoutSesion, "5"),
+            (ConfiguracionService.ClavePasswordMinLongitud, "20"),
+            (ConfiguracionService.ClavePasswordHistorial, "3"),
+            (ConfiguracionService.ClavePasswordDuracionDias, "90"),
+            (ConfiguracionService.ClaveLoginMaxIntentos, "3"),
+            (ConfiguracionService.ClaveLoginMinutosBloqueo, "30"),
+            (ConfiguracionService.ClaveLoginBloqueosDefinitivo, "2")
+        };
+        var clavesExistentes = await db.Configuracion.AsNoTracking().Select(c => c.Clave).ToListAsync();
+        foreach (var (clave, valor) in clavesConfig)
+            if (!clavesExistentes.Contains(clave))
+                db.Configuracion.Add(new Configuracion { Clave = clave, Valor = valor });
+        await db.SaveChangesAsync();
         if (db.Sucursales.Any()) return;
 
         var s1 = new Sucursal

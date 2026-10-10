@@ -1,9 +1,11 @@
+using OilsMexico.Domain.Enums;
+
 namespace OilsMexico.Application.DTOs;
 
 /// <summary>Renglón del listado de compras (orden + recepción + CxP).</summary>
 public sealed record CompraListadoDto(
     int CompraId, string FolioInterno, DateTime FechaEmision, string Proveedor,
-    string? FolioProveedor, string Estado, string EstadoPago,
+    string? FolioProveedor, EstadoCompra Estado, EstadoPagoCompra EstadoPago,
     decimal Subtotal, decimal Iva, decimal Total, decimal MontoPagado,
     int Renglones, decimal Saldo)
 {
@@ -23,6 +25,7 @@ public sealed record CrearCompraRequest(
     int SucursalId, int ProveedorId, string? FolioProveedor, string? Notas,
     List<CompraRenglonDto> Renglones);
 
+/// <summary>Resultado de una operación de compra. <c>Estado</c> es texto de UI (mensaje); el estado tipado vive en los DTOs de listado/detalle.</summary>
 public sealed record CompraResult(
     int CompraId, string FolioInterno, decimal Subtotal, decimal Iva, decimal Total, string Estado);
 
@@ -47,11 +50,11 @@ public sealed record CompraPagoDto(
 
 public sealed record CompraDetalleDto(
     int CompraId, string FolioInterno, DateTime FechaEmision, string Proveedor,
-    string? FolioProveedor, string Estado, string EstadoPago,
+    string? FolioProveedor, EstadoCompra Estado, EstadoPagoCompra EstadoPago,
     decimal Subtotal, decimal Iva, decimal Total, decimal MontoPagado, decimal Saldo,
     string? Notas, List<CompraDetalleLineaDto> Lineas, List<CompraPagoDto> Pagos);
 
 /// <summary>Cuentas por pagar: compras con saldo pendiente.</summary>
 public sealed record CuentasPorPagarDto(
     int CompraId, string FolioInterno, DateTime FechaEmision, string Proveedor,
-    string? FolioProveedor, string Estado, decimal Total, decimal MontoPagado, decimal Saldo);
+    string? FolioProveedor, EstadoCompra Estado, decimal Total, decimal MontoPagado, decimal Saldo);

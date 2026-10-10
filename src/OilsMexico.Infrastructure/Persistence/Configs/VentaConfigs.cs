@@ -82,6 +82,9 @@ public sealed class ClienteConfig : IEntityTypeConfiguration<Cliente>
         e.Property(x => x.Ciudad).HasColumnName("ciudad").HasMaxLength(150);
         e.Property(x => x.Pais).HasColumnName("pais").HasMaxLength(60).HasDefaultValue("México");
         e.Property(x => x.Activo).HasColumnName("activo").HasDefaultValue(true);
+        // Situación fiscal declarada ante el SAT (valor por defecto: Actual = 1).
+        e.Property(x => x.SituacionFiscal).HasColumnName("situacion_fiscal")
+            .HasDefaultValue(OilsMexico.Domain.Enums.SituacionFiscal.Actual);
         // Dueño comercial actual del cliente (mutable). NULL = sin dueño (p.ej. Público en general).
         e.Property(x => x.VendedorId).HasColumnName("vendedor_id");
         e.HasIndex(x => x.VendedorId).HasDatabaseName("ix_clientes_vendedor");
@@ -108,6 +111,10 @@ public sealed class UsuarioConfig : IEntityTypeConfiguration<Usuario>
         e.Property(x => x.BloqueadoHastaUtc).HasColumnName("bloqueado_hasta_utc");
         e.Property(x => x.BloqueadoDefinitivamente).HasColumnName("bloqueado_definitivamente").HasDefaultValue(false);
         e.Property(x => x.SesionToken).HasColumnName("sesion_token").HasMaxLength(64);
+        // 2FA opcional por cuenta + vigencia de la contraseña (política configurable).
+        e.Property(x => x.DosFaActivo).HasColumnName("dos_fa_activo").HasDefaultValue(false);
+        e.Property(x => x.DosFaSecret).HasColumnName("dos_fa_secret").HasMaxLength(64);
+        e.Property(x => x.UltimoCambioPasswordUtc).HasColumnName("ultimo_cambio_password_utc");
         e.HasOne(x => x.Sucursal).WithMany().HasForeignKey(x => x.SucursalId);
     }
 }

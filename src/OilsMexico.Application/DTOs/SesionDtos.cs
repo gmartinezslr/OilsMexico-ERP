@@ -28,7 +28,8 @@ public sealed record SesionDto(
 }
 
 public sealed record LoginPinRequest(string Pin);
-public sealed record LoginResultado(SesionDto? Sesion, string? MensajeError = null, DateTime? BloqueadoHastaUtc = null);
+public sealed record LoginResultado(SesionDto? Sesion, string? MensajeError = null, DateTime? BloqueadoHastaUtc = null,
+    bool RequiereDosFa = false, bool PasswordExpirada = false, int? UsuarioId = null);
 
 public sealed record AlmacenMovimientoDto(
     int ProductoId, int? LoteId, decimal Litros, string Motivo);

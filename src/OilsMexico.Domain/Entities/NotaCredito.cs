@@ -1,5 +1,7 @@
 namespace OilsMexico.Domain.Entities;
 
+using OilsMexico.Domain.Enums;
+
 /// <summary>
 /// Nota de Crédito CFDI 4.0 (TipoComprobante=E Egreso).
 /// Documento fiscal electrónico separado de la devolución interna del Historial:
@@ -33,7 +35,7 @@ public sealed class NotaCredito
     public string? SelloDigital { get; set; }
     public string? CadenaOriginal { get; set; }
     /// <summary>Pendiente | Timbrada | Cancelada.</summary>
-    public string Estado { get; set; } = "Pendiente";
+    public EstadoNotaCredito Estado { get; set; } = EstadoNotaCredito.Pendiente;
     public string? MotivoCancelacion { get; set; }
     public bool RepusoStock { get; set; }
     public string? Observaciones { get; set; }

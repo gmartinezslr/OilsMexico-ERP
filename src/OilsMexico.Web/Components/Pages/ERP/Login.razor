@@ -15,6 +15,20 @@
 <div class="card shadow">
 <div class="card-header bg-dark text-white text-center"><h4 class="mb-0">OilsMexico ERP</h4><small>Inicia sesión</small></div>
 <div class="card-body">
+@if(estadoDosFa){
+<label class="form-label" for="codigo2fa">Código de dos factores (2FA)</label>
+<input id="codigo2fa" inputmode="numeric" autocomplete="one-time-code" maxlength="6" class="form-control form-control-lg mb-2" placeholder="000000" @bind="codigo2fa" @onkeydown="AlTecla" />
+<p class="text-muted small mb-0">Abre tu aplicación de autenticación (Google Authenticator, Authy, etc.) y escribe el código de 6 dígitos.</p>
+}
+else if(estadoPasswordExpirada){
+<label class="form-label" for="pwdActual">Contraseña actual</label>
+<input id="pwdActual" type="password" autocomplete="current-password" class="form-control form-control-lg mb-2" @bind="expActual" />
+<label class="form-label" for="pwdNueva">Nueva contraseña</label>
+<input id="pwdNueva" type="password" autocomplete="new-password" class="form-control form-control-lg mb-2" @bind="expNueva" placeholder="Mínimo 20 caracteres: MAYÚSCULA, minúscula, número y especial" />
+<label class="form-label" for="pwdConfirmar">Confirmar nueva contraseña</label>
+<input id="pwdConfirmar" type="password" autocomplete="new-password" class="form-control form-control-lg mb-2" @bind="expConfirmar" @onkeydown="AlTecla" />
+}
+else{
 <label class="form-label" for="usuario">Correo o nombre de usuario</label>
 <input id="usuario" autocomplete="username" class="form-control form-control-lg mb-3" placeholder="usuario@empresa.com" @bind="identificador" />
 <label class="form-label" for="contrasena">Contraseña</label>
@@ -26,15 +40,33 @@ placeholder="Contraseña" @bind="password" @onkeydown="AlTecla" />
 <input class="form-check-input" type="checkbox" id="recordar" @bind="recordarUsuario" @bind:after="AlCambiarRecordar" />
 </div>
 </div>
+}
 @if(!string.IsNullOrEmpty(error)){<div class="alert alert-danger py-1">@error</div>}
-<button class="btn btn-primary btn-lg w-100" @onclick="Entrar" disabled="@cargando">Entrar</button>
+<button class="btn btn-primary btn-lg w-100" @onclick="AccionPrincipal" disabled="@cargando">@BotonPrincipal</button>
+@if(estadoDosFa || estadoPasswordExpirada){
+<button class="btn btn-link w-100 mt-2 text-decoration-none" @onclick="VolverAlLogin" disabled="@cargando">← Volver al inicio de sesión</button>
+}
 </div></div></div>
 @code{
 const string ClaveRecordar = "oilsmexico.recordar_usuario";
 const string ClaveUsuario = "oilsmexico.usuario";
 string identificador=""; string password=""; string error=""; bool cargando=false;
 bool recordarUsuario = true;
-async Task AlTecla(KeyboardEventArgs e){ if(e.Key=="Enter") await Entrar(); }
+// Pasos especiales: desafío 2FA y cambio obligatorio de contraseña vencida.
+bool estadoDosFa=false; string codigo2fa="";
+bool estadoPasswordExpirada=false; int usuarioExpiraId=0;
+string expActual="", expNueva="", expConfirmar="";
+string BotonPrincipal => cargando ? "Procesando…" : estadoDosFa ? "Verificar código" : estadoPasswordExpirada ? "Cambiar contraseña" : "Entrar";
+async Task AlTecla(KeyboardEventArgs e){ if(e.Key=="Enter") await AccionPrincipal(); }
+async Task AccionPrincipal(){
+if(estadoDosFa) await EjecutarLogin(codigo2fa);
+else if(estadoPasswordExpirada) await CambiarPasswordExpirada();
+else await EjecutarLogin(null);
+}
+async Task VolverAlLogin(){
+estadoDosFa=false; estadoPasswordExpirada=false; codigo2fa="";
+expActual=expNueva=expConfirmar=""; password=""; error="";
+}
 protected override async Task OnAfterRenderAsync(bool firstRender){
 if(!firstRender) return;
 try{
@@ -56,14 +88,25 @@ await AlmacenLocal.SetAsync(ClaveRecordar, recordarUsuario);
 if(!recordarUsuario) await AlmacenLocal.DeleteAsync(ClaveUsuario);
 }catch{ }
 }
-async Task Entrar(){
+async Task EjecutarLogin(string? codigo){
 if(cargando) return;
 cargando=true; error=""; StateHasChanged();
 try{
-var r=await Auth.LoginAsync(identificador, password);
+var r=await Auth.LoginAsync(identificador, password, codigo);
 var s=r.Sesion;
-if(s is null){ error=r.MensajeError??"No fue posible iniciar sesión."; password=""; }
+if(s is null){
+ error=r.MensajeError??"No fue posible iniciar sesión.";
+ if(r.RequiereDosFa){ estadoDosFa=true; estadoPasswordExpirada=false; codigo2fa=""; }
+ else{
+  estadoDosFa=false; codigo2fa="";
+  estadoPasswordExpirada=r.PasswordExpirada;
+  usuarioExpiraId=r.UsuarioId??0; expActual=expNueva=expConfirmar="";
+  // Si no es un caso especial se limpia la contraseña para evitar reintentos ciegos.
+  if(!r.PasswordExpirada) password="";
+ }
+}
 else{
+estadoDosFa=false; estadoPasswordExpirada=false;
 var id = identificador.Trim();
 try{
 await AlmacenLocal.SetAsync(ClaveRecordar, recordarUsuario);
@@ -73,6 +116,24 @@ else await AlmacenLocal.DeleteAsync(ClaveUsuario);
 await Sesion.IniciarAsync(s);
 Nav.NavigateTo("/", forceLoad: true);
 return;
+}
+}catch(Exception ex){ error="Error: "+ex.Message; }
+cargando=false; StateHasChanged();
+}
+// Cambio obligatorio de contraseña vencida (antes de entrar): valida la actual contra la BD
+// y aplica la política configurada por el administrador (complejidad, historial y vigencia).
+async Task CambiarPasswordExpirada(){
+if(cargando) return;
+if(string.IsNullOrWhiteSpace(expActual)||string.IsNullOrWhiteSpace(expNueva)){ error="Escribe tu contraseña actual y la nueva."; return; }
+if(expNueva!=expConfirmar){ error="La confirmación no coincide con la nueva contraseña."; return; }
+cargando=true; error=""; StateHasChanged();
+try{
+var r=await Auth.CambiarContraseñaAsync(usuarioExpiraId, expActual, new(expNueva, expConfirmar));
+if(!r.Exitoso){ error=r.Mensaje??"No se pudo cambiar la contraseña."; }
+else{
+ estadoPasswordExpirada=false; expActual=expNueva=expConfirmar="";
+ // Reintenta el acceso con la contraseña nueva.
+ await EjecutarLogin(null); return;
 }
 }catch(Exception ex){ error="Error: "+ex.Message; }
 cargando=false; StateHasChanged();

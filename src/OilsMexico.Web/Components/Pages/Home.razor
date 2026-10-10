@@ -321,7 +321,7 @@ else
         else if (rol == "Conta")
         {
             lista.Add(new("Ventas del mes", $"${ventasMes:N2}", "Base para declaraciones", "cart", "green"));
-            lista.Add(new("IVA del mes (estimado)", $"${ventasMes * 0.16m:N2}", "16% sobre ventas", "doc", "blue"));
+            lista.Add(new("IVA del mes (estimado)", $"${Impuestos.IvaDeBase(ventasMes):N2}", $"{Impuestos.TasaIva * 100:0}% sobre ventas", "doc", "blue"));
             lista.Add(new("CFDI por timbrar", "0", "Módulo futuro (PAC)", "doc", "orange"));
             lista.Add(new("Clientes activos", totalClientes.ToString("N0"), "Padrón vigente", "users", "slate"));
         }

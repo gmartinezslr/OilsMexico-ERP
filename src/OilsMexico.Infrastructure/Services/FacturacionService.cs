@@ -15,15 +15,14 @@ public sealed class FacturacionService(
     ICfdiSelladoService sellado, IPacTimbradoService pac) : IFacturacionService
 {
     public async Task<List<FacturaListadoDto>> ListarAsync(
-        int sucursalId, string? estado, string? texto, CancellationToken ct = default)
+        int sucursalId, EstadoFactura? estado, string? texto, CancellationToken ct = default)
     {
         // REGLA #1: solo Admin puede consultar otra sucursal.
         var suc = ctx.Rol == "Admin" ? sucursalId : ctx.SucursalId;
         var q = db.Facturas.AsNoTracking().Where(f => f.SucursalId == suc);
 
-        if (!string.IsNullOrWhiteSpace(estado)
-            && Enum.TryParse<EstadoFactura>(estado, ignoreCase: true, out var est))
-            q = q.Where(f => f.Estado == est);
+        if (estado is not null)
+            q = q.Where(f => f.Estado == estado);
 
         if (!string.IsNullOrWhiteSpace(texto))
         {
@@ -43,10 +42,10 @@ public sealed class FacturacionService(
             })
             .ToListAsync(ct);
 
-        // ToString() del enum en cliente (no traducible a SQL).
+        // El enum viaja tipado al DTO; la conversión a texto (para UI) ocurre al renderizar.
         return filas.Select(f => new FacturaListadoDto(
             f.Id, f.FolioInterno, f.FechaEmision,
-            f.ClienteNombre ?? "(sin cliente)", f.Estado.ToString(),
+            f.ClienteNombre ?? "(sin cliente)", f.Estado,
             f.Subtotal, f.Iva, f.Total,
             f.FormaPagoSat, f.MetodoPagoSat, f.UsoCfdi,
             f.UuidSat, f.TieneXml, f.Renglones, f.MotivoCancelacion)).ToList();

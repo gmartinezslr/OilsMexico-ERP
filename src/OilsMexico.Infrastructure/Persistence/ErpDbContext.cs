@@ -32,6 +32,26 @@ public sealed class ErpDbContext(DbContextOptions<ErpDbContext> options) : DbCon
     public DbSet<Configuracion> Configuracion => Set<Configuracion>();
     public DbSet<CuotaVendedor> CuotasVendedor => Set<CuotaVendedor>();
     public DbSet<ComisionHistorial> ComisionesHistorial => Set<ComisionHistorial>();
+    public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
+    public DbSet<PasswordHistory> PasswordHistories => Set<PasswordHistory>();
+
+    // ---------------------------------------------------------
+    //  PUNTO 4: Roles y permisos
+    // ---------------------------------------------------------
+    public DbSet<Role> Roles => Set<Role>();
+    public DbSet<Permiso> Permisos => Set<Permiso>();
+    public DbSet<RolPermiso> RolPermisos => Set<RolPermiso>();
+
+    // ---------------------------------------------------------
+    //  PUNTO 5: Reglas del plan contable
+    // ---------------------------------------------------------
+    public DbSet<ReglaAsiento> ReglasAsiento => Set<ReglaAsiento>();
+
+    // ---------------------------------------------------------
+    //  PUNTO 6: Reglas de importación de productos
+    // ---------------------------------------------------------
+    public DbSet<ImportacionParametro> ImportacionParametros => Set<ImportacionParametro>();
+    public DbSet<ImportacionRegla> ImportacionReglas => Set<ImportacionRegla>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {

@@ -108,15 +108,15 @@
                                         }
                                         <div class="mt-2 d-flex gap-2 flex-wrap">
                                             <a class="btn btn-sm btn-outline-dark" href="/ticket/@detalle.FacturaId" target="_blank">Ticket</a>
-                                            @if (detalle.Estado == "Pendiente")
+                                            @if (detalle.Estado == EstadoFactura.Pendiente)
                                             {
                                                 <button class="btn btn-sm btn-primary" @onclick="() => Surtir(detalle.FacturaId)">Surtir</button>
                                             }
-                                            @if (detalle.Estado is not ("Devolucion" or "Cancelada") && !devolviendo)
+                                            @if (detalle.Estado is not (EstadoFactura.Devolucion or EstadoFactura.Cancelada) && !devolviendo)
                                             {
                                                 <button class="btn btn-sm btn-outline-danger" @onclick="EmpezarDevolucion">Devolver</button>
                                             }
-                                            @if (detalle.Estado is "Timbrada" or "Surtida" or "Entregada")
+                                            @if (detalle.Estado is EstadoFactura.Timbrada or EstadoFactura.Surtida or EstadoFactura.Entregada)
                                             {
                                                 <a class="btn btn-sm btn-danger" href="/notas-credito?origen=@detalle.FacturaId">🧾 NC electrónica</a>
                                             }

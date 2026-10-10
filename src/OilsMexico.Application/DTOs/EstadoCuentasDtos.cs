@@ -1,3 +1,5 @@
+using OilsMexico.Domain.Enums;
+
 namespace OilsMexico.Application.DTOs;
 
 /// <summary>Registro de estado de cuenta de un cliente.</summary>
@@ -7,7 +9,7 @@ public sealed record EstadoCuentaClienteDto(
 
 /// <summary>Un documento (factura o NC) abiertos para cobrar.</summary>
 public sealed record FacturaEstadoCuentaDto(
-    int Id, string FolioInterno, DateTime FechaEmision, string Estado, decimal Total, Guid? UuidSat);
+    int Id, string FolioInterno, DateTime FechaEmision, EstadoFactura Estado, decimal Total, Guid? UuidSat);
 
 /// <summary>Un pago/deducción aplicado contra el cliente.</summary>
 public sealed record PagoCuentaDto(

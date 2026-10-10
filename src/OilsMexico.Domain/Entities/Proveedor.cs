@@ -1,3 +1,5 @@
+using OilsMexico.Domain.Enums;
+
 namespace OilsMexico.Domain.Entities;
 
 /// <summary>Proveedor de mercancía / compras. Tabla: proveedores.</summary>
@@ -23,4 +25,6 @@ public sealed class Proveedor
     /// <summary>Dirección legacy de texto libre (compatibilidad).</summary>
     public string? Direccion { get; set; }
     public bool Activo { get; set; } = true;
+
+    public SituacionFiscal SituacionFiscal { get; set; } = SituacionFiscal.Actual; // Estado de Situación Fiscal declarado ante el SAT.
 }

@@ -54,3 +54,37 @@ public enum EstadoComision
     Cerrado,
     Pagado
 }
+
+// ---------------------------------------------------------------------------
+// Módulo de compras (orden → recepción → CxP). Se guardan como texto en PG
+// (ver CompraConfigs: HasConversion<string>).
+// ---------------------------------------------------------------------------
+
+/// <summary>Estado de la orden de compra: Borrador → Parcial/Recibida | Cancelada.</summary>
+public enum EstadoCompra
+{
+    Borrador,
+    Parcial,
+    Recibida,
+    Cancelada
+}
+
+/// <summary>Estado de pago de la compra (cuentas por pagar).</summary>
+public enum EstadoPagoCompra
+{
+    Pendiente,
+    Parcial,
+    Pagada
+}
+
+// ---------------------------------------------------------------------------
+// Notas de crédito CFDI (Tipo E). Se guarda como texto en PG (ver FiscalConfigs).
+// ---------------------------------------------------------------------------
+
+/// <summary>Estado de la NC electrónica: Pendiente (sin timbrar) → Timbrada | Cancelada.</summary>
+public enum EstadoNotaCredito
+{
+    Pendiente,
+    Timbrada,
+    Cancelada
+}

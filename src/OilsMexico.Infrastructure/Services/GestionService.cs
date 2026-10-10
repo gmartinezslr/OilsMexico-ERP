@@ -9,8 +9,6 @@ namespace OilsMexico.Infrastructure.Services;
 
 public sealed partial class GestionService(ErpDbContext db, ISucursalContext ctx) : IGestionService
 {
-    private static readonly decimal TasaIva = 0.16m;
-
     public async Task<DashboardGestionDto> DashboardAsync(int sucursalId, DateTime desde, DateTime hasta, CancellationToken ct = default)
     {
         var desdeUtc = DateTime.SpecifyKind(desde.Date, DateTimeKind.Local).ToUniversalTime();

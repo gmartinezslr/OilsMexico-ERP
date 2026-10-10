@@ -39,5 +39,70 @@
                 </div>
             </div>
         </div>
+        <div class="col-lg-6">
+            <div class="card shadow-sm">
+                <div class="card-header bg-dark text-white">Política de contraseñas</div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-sm-4">
+                            <label class="form-label" for="pwdMin">Longitud mínima</label>
+                            <input id="pwdMin" type="number" min="4" max="100" class="form-control" style="max-width:120px"
+                                   @bind="pwdMin" disabled="@(!esAdmin || guardandoPwd)" />
+                        </div>
+                        <div class="col-sm-4">
+                            <label class="form-label" for="pwdHist">Historial (no repetir)</label>
+                            <input id="pwdHist" type="number" min="0" max="20" class="form-control" style="max-width:120px"
+                                   @bind="pwdHist" disabled="@(!esAdmin || guardandoPwd)" />
+                        </div>
+                        <div class="col-sm-4">
+                            <label class="form-label" for="pwdDias">Vigencia (días)</label>
+                            <input id="pwdDias" type="number" min="0" max="3650" class="form-control" style="max-width:120px"
+                                   @bind="pwdDias" disabled="@(!esAdmin || guardandoPwd)" />
+                        </div>
+                    </div>
+                    <div class="form-text">
+                        Toda contraseña exige mayúscula, minúscula, número y carácter especial (no configurable).
+                        «Historial» controla cuántas contraseñas anteriores no pueden repetirse; «Vigencia» en días
+                        obliga a cambiarla al vencer (0 = sin vencimiento). Por defecto: 20 caracteres, 3 de historial, 90 días.
+                    </div>
+                    <button class="btn btn-primary mt-3" @onclick="GuardarPwd" disabled="@(!esAdmin || guardandoPwd)">
+                        @(guardandoPwd ? "Guardando…" : "Guardar política")
+                    </button>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-6">
+            <div class="card shadow-sm">
+                <div class="card-header bg-dark text-white">Bloqueo por intentos de acceso</div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-sm-4">
+                            <label class="form-label" for="bloqIntentos">Intentos fallidos</label>
+                            <input id="bloqIntentos" type="number" min="1" max="10" class="form-control" style="max-width:120px"
+                                   @bind="bloqIntentos" disabled="@(!esAdmin || guardandoBloqueo)" />
+                        </div>
+                        <div class="col-sm-4">
+                            <label class="form-label" for="bloqMinutos">Minutos de bloqueo</label>
+                            <input id="bloqMinutos" type="number" min="1" max="1440" class="form-control" style="max-width:120px"
+                                   @bind="bloqMinutos" disabled="@(!esAdmin || guardandoBloqueo)" />
+                        </div>
+                        <div class="col-sm-4">
+                            <label class="form-label" for="bloqDefinitivo">Bloqueos para el definitivo</label>
+                            <input id="bloqDefinitivo" type="number" min="1" max="10" class="form-control" style="max-width:120px"
+                                   @bind="bloqDefinitivo" disabled="@(!esAdmin || guardandoBloqueo)" />
+                        </div>
+                    </div>
+                    <div class="form-text">
+                        Al agotar los intentos fallidos la cuenta se bloquea temporalmente; al llegar al número
+                        de bloques indicado el bloqueo pasa a ser definitivo (solo un Admin puede desbloquear).
+                        Por defecto: 3 intentos, 30 minutos, 2 bloques. Los valores se persisten en la tabla
+                        <code>configuracion</code> y aplican en el siguiente intento de acceso.
+                    </div>
+                    <button class="btn btn-primary mt-3" @onclick="GuardarBloqueo" disabled="@(!esAdmin || guardandoBloqueo)">
+                        @(guardandoBloqueo ? "Guardando…" : "Guardar política")
+                    </button>
+                </div>
+            </div>
+        </div>
     </div>
 </div>

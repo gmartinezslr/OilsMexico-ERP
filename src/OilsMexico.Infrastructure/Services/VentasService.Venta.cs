@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using OilsMexico.Application.DTOs;
 using OilsMexico.Domain.Entities;
 using OilsMexico.Domain.Enums;
+using OilsMexico.Domain.Services;
 
 namespace OilsMexico.Infrastructure.Services;
 
@@ -68,8 +69,8 @@ public sealed partial class VentasService
                 Importe = importe, LoteId = loteSurtido
             });
         }
-        factura.Subtotal = Math.Round(subtotal / (1 + TasaIva), 2);
-        factura.Iva = Math.Round(subtotal - factura.Subtotal, 2);
+        factura.Subtotal = Impuestos.BaseDeTotal(subtotal);
+        factura.Iva = Impuestos.IvaDeTotal(subtotal);
         factura.Total = Math.Round(subtotal, 2);
         db.Facturas.Add(factura);
         await db.SaveChangesAsync(ct);

@@ -49,9 +49,9 @@
 
     <div class="d-flex flex-wrap gap-2 mb-3">
         <span class="badge bg-dark fs-6">@lista.Count folio(s)</span>
-        <span class="badge bg-secondary fs-6">@lista.Count(f => f.Estado == "Pendiente") por timbrar</span>
-        <span class="badge bg-success fs-6">@lista.Count(f => f.Estado == "Timbrada") timbrada(s)</span>
-        <span class="badge bg-danger fs-6">@lista.Count(f => f.Estado == "Cancelada") cancelada(s)</span>
+        <span class="badge bg-secondary fs-6">@lista.Count(f => f.Estado == EstadoFactura.Pendiente) por timbrar</span>
+        <span class="badge bg-success fs-6">@lista.Count(f => f.Estado == EstadoFactura.Timbrada) timbrada(s)</span>
+        <span class="badge bg-danger fs-6">@lista.Count(f => f.Estado == EstadoFactura.Cancelada) cancelada(s)</span>
         <span class="text-muted small align-self-center">Últimos 200 folios de la sucursal</span>
     </div>
     <div class="card shadow-sm"><div class="card-body p-0">
@@ -103,7 +103,7 @@
                                         <small class="text-muted">Pago: @detalle.FormaPagoSat · @detalle.MetodoPagoSat · Uso @detalle.UsoCfdi</small>
                                     </div>
                                     <div class="col-lg-5">
-                                        @if (sel.Estado == "Cancelada" && !string.IsNullOrEmpty(sel.MotivoCancelacion))
+                                        @if (sel.Estado == EstadoFactura.Cancelada && !string.IsNullOrEmpty(sel.MotivoCancelacion))
                                         {
                                             <div class="alert alert-danger py-1 px-2 mb-2 small">
                                                 <strong>Motivo de cancelación:</strong> @sel.MotivoCancelacion
@@ -123,15 +123,15 @@
                                             {
                                                 <a class="btn btn-sm btn-success" href="/api/facturas/@sel.FacturaId/xml?t=@Sesion.Sesion?.SesionToken">⬇ Descargar XML</a>
                                             }
-                                            @if (sel.Estado == "Pendiente")
+                                            @if (sel.Estado == EstadoFactura.Pendiente)
                                             {
                                                 <button class="btn btn-sm btn-primary" disabled="@cargando" @onclick="() => Timbrar(sel.FacturaId)">⏱ Timbrar</button>
                                             }
-                                            @if (sel.Estado is "Timbrada" or "Surtida" or "Entregada")
+                                            @if (sel.Estado is EstadoFactura.Timbrada or EstadoFactura.Surtida or EstadoFactura.Entregada)
                                             {
                                                 <a class="btn btn-sm btn-outline-danger" href="/notas-credito?origen=@sel.FacturaId">🧾 NC electrónica</a>
                                             }
-                                            @if (sel.Estado is "Timbrada" or "Entregada")
+                                            @if (sel.Estado is EstadoFactura.Timbrada or EstadoFactura.Entregada)
                                             {
                                                 @if (puedeCancelar && !cancelando)
                                                 {

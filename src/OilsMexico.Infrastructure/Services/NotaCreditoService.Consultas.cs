@@ -1,16 +1,17 @@
 using Microsoft.EntityFrameworkCore;
 using OilsMexico.Application.DTOs;
+using OilsMexico.Domain.Enums;
 
 namespace OilsMexico.Infrastructure.Services;
 
 public sealed partial class NotaCreditoService
 {
     public async Task<List<NotaCreditoListadoDto>> ListarAsync(
-        int sucursalId, string? estado, string? texto, CancellationToken ct = default)
+        int sucursalId, EstadoNotaCredito? estado, string? texto, CancellationToken ct = default)
     {
         var suc = ctx.Rol == "Admin" ? sucursalId : ctx.SucursalId;
         var q = db.NotasCredito.AsNoTracking().Where(n => n.SucursalId == suc);
-        if (!string.IsNullOrWhiteSpace(estado)) q = q.Where(n => n.Estado == estado);
+        if (estado is not null) q = q.Where(n => n.Estado == estado);
         if (!string.IsNullOrWhiteSpace(texto))
         {
             var t = texto.Trim().ToLower();
@@ -45,7 +46,7 @@ public sealed partial class NotaCreditoService
             throw new UnauthorizedAccessException("No puedes cancelar NC de otra sucursal.");
         if (ctx.Rol is not ("Admin" or "Conta"))
             throw new UnauthorizedAccessException("Solo Admin/Conta cancelan NC.");
-        if (n.Estado != "Timbrada")
+        if (n.Estado != EstadoNotaCredito.Timbrada)
             throw new InvalidOperationException($"Solo se cancelan NC timbradas (actual: {n.Estado}).");
         var motivoSat = (motivo ?? string.Empty).Trim();
         if (motivoSat is not ("01" or "02" or "03" or "04"))
@@ -54,7 +55,7 @@ public sealed partial class NotaCreditoService
             throw new InvalidOperationException("La NC no tiene UUID timbrado.");
         await pac.CancelarAsync(n.UuidSat.Value, motivoSat,
             motivoSat == "01" ? folioSustitucion?.Trim() : null, ct);
-        n.Estado = "Cancelada";
+        n.Estado = EstadoNotaCredito.Cancelada;
         n.MotivoCancelacion = motivoSat == "01" && !string.IsNullOrWhiteSpace(folioSustitucion)
             ? $"{motivoSat} (sustituye: {folioSustitucion.Trim()})" : motivoSat;
 

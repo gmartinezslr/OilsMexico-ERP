@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Components;
 using OilsMexico.Application.DTOs;
+using OilsMexico.Domain.Enums;
 
 namespace OilsMexico.Web.Components.Pages.ERP;
 
@@ -7,7 +8,8 @@ namespace OilsMexico.Web.Components.Pages.ERP;
 public partial class Facturacion : ComponentBase
 {
     private List<FacturaListadoDto> lista = [];
-    private string estado = "", texto = "", msg = "", motivoCancelacion = "02", folioSustitucion = "";
+    private EstadoFactura? estado;
+    private string texto = "", msg = "", motivoCancelacion = "02", folioSustitucion = "";
     private bool err, cargando, cancelando, puedeCancelar;
     private FacturaListadoDto? sel;
     private HistorialDetalleDto? detalle;
@@ -91,14 +93,14 @@ public partial class Facturacion : ComponentBase
         cargando = false;
     }
 
-    private static string ClaseEstado(string e) => e switch
+    private static string ClaseEstado(EstadoFactura e) => e switch
     {
-        "Pendiente" => "bg-secondary",
-        "Surtida" => "bg-primary",
-        "Timbrada" => "bg-success",
-        "Entregada" => "bg-info text-dark",
-        "Cancelada" => "bg-danger",
-        "Devolucion" => "bg-dark",
+        EstadoFactura.Pendiente => "bg-secondary",
+        EstadoFactura.Surtida => "bg-primary",
+        EstadoFactura.Timbrada => "bg-success",
+        EstadoFactura.Entregada => "bg-info text-dark",
+        EstadoFactura.Cancelada => "bg-danger",
+        EstadoFactura.Devolucion => "bg-dark",
         _ => "bg-secondary"
     };
 }

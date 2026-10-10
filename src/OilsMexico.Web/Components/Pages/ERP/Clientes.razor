@@ -39,7 +39,11 @@
                 <div class="col-md-8"><label class="form-label small">Nombre / Razón social *</label>
                     <input class="form-control" @bind="edit.Nombre" /></div>
                 <div class="col-md-4"><label class="form-label small">RFC *</label>
-                    <input class="form-control" maxlength="13" @bind="edit.Rfc" /></div>
+                    <input class="form-control" maxlength="13" @bind="edit.Rfc" @onblur="ValidarRfcCampo" />
+                    @if (!string.IsNullOrEmpty(rfcInfo))
+                    {
+                        <small class="@(rfcErr ? "text-danger" : "text-success")">@rfcInfo</small>
+                    }</div>
                 <div class="col-md-6"><label class="form-label small">Email</label>
                     <input class="form-control" @bind="edit.Email" /></div>
                 <div class="col-md-6"><label class="form-label small">Teléfono</label>
@@ -50,6 +54,15 @@
                         {
                             <option value="@kv.Key">@kv.Value</option>
                         }
+                    </select></div>
+                <div class="col-md-6"><label class="form-label small">Situación fiscal (SAT)</label>
+                    <select class="form-select" @bind="edit.SituacionFiscal">
+                        <option value="Actual">Actual — operaciones normales</option>
+                        <option value="Adeudada">Adeudada — obligaciones fiscales pendientes</option>
+                        <option value="Inactiva">Inactiva — no opera en el periodo</option>
+                        <option value="Suspendida">Suspendida — incumplimientos temporales</option>
+                        <option value="Cancelada">Cancelada — anulada ante el SAT (no facturar)</option>
+                        <option value="Baja">Baja — baja definitiva (no facturar)</option>
                     </select></div>
                 <div class="col-md-6"><label class="form-label small">Tipo precio</label>
                     <select class="form-select" @bind="edit.TipoPrecio">

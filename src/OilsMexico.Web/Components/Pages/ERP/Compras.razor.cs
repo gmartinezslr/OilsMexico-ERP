@@ -1,12 +1,15 @@
 using Microsoft.AspNetCore.Components;
 using Microsoft.EntityFrameworkCore;
 using OilsMexico.Application.DTOs;
+using OilsMexico.Domain.Enums;
+using OilsMexico.Domain.Services;
 
 namespace OilsMexico.Web.Components.Pages.ERP;
 
 public partial class Compras : ComponentBase
 {
-    private string estado = "", texto = "", msg = "";
+    private EstadoCompra? estado;
+    private string texto = "", msg = "";
     private string folioProv = "", notas = "", busq = "";
     private string motivoCancel = "", pagoForma = "03", pagoRef = "";
     private bool err, cargando, guardando, recibiendo, pagando, cancelando, creando, mostrarCxP;
@@ -38,7 +41,7 @@ public partial class Compras : ComponentBase
     }
 
     private decimal SubtotalCarrito => carrito.Sum(r => r.Cantidad * r.Costo);
-    private decimal IvaCarrito => Math.Round(SubtotalCarrito * 0.16m, 2);
+    private decimal IvaCarrito => Impuestos.IvaDeBase(SubtotalCarrito);
     private decimal TotalCarrito => SubtotalCarrito + IvaCarrito;
 
     protected override async Task OnInitializedAsync()
@@ -208,20 +211,20 @@ public partial class Compras : ComponentBase
         pagando = false;
     }
 
-    private static string ClaseEstado(string e) => e switch
+    private static string ClaseEstado(EstadoCompra e) => e switch
     {
-        "Borrador" => "bg-secondary",
-        "Parcial" => "bg-warning text-dark",
-        "Recibida" => "bg-success",
-        "Cancelada" => "bg-danger",
+        EstadoCompra.Borrador => "bg-secondary",
+        EstadoCompra.Parcial => "bg-warning text-dark",
+        EstadoCompra.Recibida => "bg-success",
+        EstadoCompra.Cancelada => "bg-danger",
         _ => "bg-secondary"
     };
 
-    private static string ClasePago(string e) => e switch
+    private static string ClasePago(EstadoPagoCompra e) => e switch
     {
-        "Pagada" => "bg-success",
-        "Parcial" => "bg-warning text-dark",
-        "Pendiente" => "bg-dark",
+        EstadoPagoCompra.Pagada => "bg-success",
+        EstadoPagoCompra.Parcial => "bg-warning text-dark",
+        EstadoPagoCompra.Pendiente => "bg-dark",
         _ => "bg-secondary"
     };
 }

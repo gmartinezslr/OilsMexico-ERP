@@ -1,5 +1,7 @@
 namespace OilsMexico.Domain.Entities;
 
+using OilsMexico.Domain.Enums;
+
 /// <summary>Orden de compra a proveedor (encabezado). Tabla: compras.</summary>
 public sealed class Compra
 {
@@ -16,9 +18,9 @@ public sealed class Compra
     public decimal Iva { get; set; }
     public decimal Total { get; set; }
     /// <summary>Borrador | Recibida | Parcial | Cancelada.</summary>
-    public string Estado { get; set; } = "Borrador";
+    public EstadoCompra Estado { get; set; } = EstadoCompra.Borrador;
     /// <summary>Pagada | Parcial | Pendiente (cuentas por pagar).</summary>
-    public string EstadoPago { get; set; } = "Pendiente";
+    public EstadoPagoCompra EstadoPago { get; set; } = EstadoPagoCompra.Pendiente;
     public decimal MontoPagado { get; set; }
     public string? Notas { get; set; }
     public int UsuarioId { get; set; }

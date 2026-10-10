@@ -1,3 +1,5 @@
+using OilsMexico.Domain.Enums;
+
 namespace OilsMexico.Application.DTOs;
 
 // ---------- Notas de Crédito CFDI (Tipo E) ----------
@@ -10,7 +12,7 @@ public sealed record NotaCreditoLineaDto(
 /// <summary>Preview de NC: factura origen + renglones sugeridos + resument fiscal.</summary>
 public sealed record NotaCreditoPreviewDto(
     int FacturaId, string FolioOrigen, string Cliente, Guid? UuidOrigen,
-    decimal TotalOrigen, string EstadoOrigen, bool TieneNcPrevia,
+    decimal TotalOrigen, EstadoFactura EstadoOrigen, bool TieneNcPrevia,
     List<NotaCreditoLineaDto> Lineas,
     decimal Subtotal, decimal Iva, decimal Total);
 
@@ -24,7 +26,7 @@ public sealed record NotaCreditoResult(
 public sealed record NotaCreditoListadoDto(
     int NotaId, string FolioInterno, DateTime FechaEmision,
     string Cliente, string FolioOrigen, Guid? UuidSat,
-    string Motivo, decimal Total, string Estado, bool TieneXml);
+    string Motivo, decimal Total, EstadoNotaCredito Estado, bool TieneXml);
 
 // ---------- Complemento de pagos / REP (Tipo P) ----------
 

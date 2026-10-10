@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.EntityFrameworkCore;
 using OilsMexico.Application.DTOs;
 using OilsMexico.Domain.Entities;
+using OilsMexico.Domain.Enums;
 
 namespace OilsMexico.Web.Components.Pages.ERP;
 
@@ -14,6 +15,12 @@ public partial class Clientes : ComponentBase
     private Cliente edit = new();
     private List<(int Id, string Nombre)> vendedores = [];
     private CatalogosSatDto catalogos = new([], [], [], []);
+    // Resultado de la última validación de RFC en el campo (feedback en vivo).
+    private string rfcInfo = "";
+    private bool rfcErr;
+
+    [Microsoft.AspNetCore.Components.Inject]
+    private OilsMexico.Application.Interfaces.IAuthService Auth { get; set; } = default!;
 
     protected override async Task OnInitializedAsync()
     {
@@ -55,6 +62,18 @@ public partial class Clientes : ComponentBase
     {
         edit = Clonar(c);
         vendedorSel = c.VendedorId?.ToString() ?? "";
+        rfcInfo = ""; rfcErr = false;
+    }
+
+    /// <summary>Valida el RFC contra el validador oficial al salir del campo (feedback en vivo).</summary>
+    private async Task ValidarRfcCampo()
+    {
+        if (string.IsNullOrWhiteSpace(edit.Rfc)) { rfcInfo = ""; return; }
+        var r = await Auth.ValidarRfcAsync(edit.Rfc);
+        rfcErr = !r.Valido;
+        rfcInfo = r.Valido
+            ? $"✓ RFC válido — {r.Tipo} — fecha {r.Dia:D2}/{r.Mes:D2}/{r.Año}"
+            : $"✗ {r.Mensaje}";
     }
 
     private async Task AlEscribir(ChangeEventArgs e) { filtro = e.Value?.ToString() ?? ""; await Cargar(); }
@@ -77,8 +96,13 @@ public partial class Clientes : ComponentBase
         { msg = "Selecciona un vendedor válido de la lista."; err = true; return; }
         edit.VendedorId = string.IsNullOrWhiteSpace(vendedorSel) ? null : int.Parse(vendedorSel);
         edit.Rfc = edit.Rfc.Trim().ToUpperInvariant();
-        if (edit.Rfc.Length < 12 || edit.Rfc.Length > 13)
-        { msg = "RFC debe tener 12 (moral) o 13 (física) caracteres."; err = true; return; }
+        // Validación de RFC: estructura + semántica (fecha) + dígito verificador oficial del SAT.
+        var rfcRes = await Auth.ValidarRfcAsync(edit.Rfc);
+        if (!rfcRes.Valido)
+        { msg = rfcRes.Mensaje ?? "RFC no válido."; err = true; return; }
+        // No se opera con clientes cuya situación fiscal lo impide, aunque el RFC sea estructuralmente válido.
+        if (edit.SituacionFiscal is SituacionFiscal.Cancelada or SituacionFiscal.Baja)
+        { msg = "Situación fiscal Cancelada/Baja: no se puede facturar ni operar con este cliente."; err = true; return; }
         edit.CodigoPostal = (edit.CodigoPostal ?? "").Trim();
         if (edit.CodigoPostal.Length != 5 || !edit.CodigoPostal.All(char.IsDigit))
         { msg = "Código postal debe tener 5 dígitos (usa el buscador SEPOMEX)."; err = true; return; }
@@ -117,6 +141,6 @@ public partial class Clientes : ComponentBase
         CodigoPostal = c.CodigoPostal, Calle = c.Calle, NumeroExterior = c.NumeroExterior,
         NumeroInterior = c.NumeroInterior, Colonia = c.Colonia, Municipio = c.Municipio,
         Estado = c.Estado, Ciudad = c.Ciudad, Pais = c.Pais, Activo = c.Activo,
-        VendedorId = c.VendedorId
+        VendedorId = c.VendedorId, SituacionFiscal = c.SituacionFiscal
     };
 }

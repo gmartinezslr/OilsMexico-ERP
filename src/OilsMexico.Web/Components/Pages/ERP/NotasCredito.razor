@@ -90,14 +90,14 @@
                         <td class="small">@n.Cliente</td>
                         <td class="small">@n.FolioOrigen</td>
                         <td class="small">@n.Motivo</td>
-                        <td><span class="badge @(n.Estado == "Timbrada" ? "bg-success" : "bg-danger")">@n.Estado</span></td>
+                        <td><span class="badge @(n.Estado == EstadoNotaCredito.Timbrada ? "bg-success" : "bg-danger")">@n.Estado</span></td>
                         <td class="text-end">$@n.Total.ToString("N2")</td>
                         <td class="text-nowrap">
                             @if (n.TieneXml)
                             {
                                 <a class="btn btn-sm btn-success" href="/api/notas-credito/@n.NotaId/xml?t=@Sesion.Sesion?.SesionToken">⬇ XML</a>
                             }
-                            @if (n.Estado == "Timbrada" && puedeCancelar)
+                            @if (n.Estado == EstadoNotaCredito.Timbrada && puedeCancelar)
                             {
                                 <button class="btn btn-sm btn-outline-danger" disabled="@cargando"
                                         @onclick="() => EmpezarCancelar(n.NotaId)">✖</button>

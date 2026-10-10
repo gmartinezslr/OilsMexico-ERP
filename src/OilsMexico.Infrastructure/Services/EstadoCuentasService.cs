@@ -68,7 +68,7 @@ public sealed partial class EstadoCuentasService(ErpDbContext db, ISucursalConte
                 && f.Estado != EstadoFactura.Devolucion)
             .OrderByDescending(f => f.FechaEmision)
             .Select(f => new FacturaEstadoCuentaDto(
-                f.Id, f.FolioInterno, f.FechaEmision, f.Estado.ToString(), f.Total, f.UuidSat))
+                f.Id, f.FolioInterno, f.FechaEmision, f.Estado, f.Total, f.UuidSat))
             .ToListAsync(ct);
 
         var pagos = await db.VentaCobros.AsNoTracking()

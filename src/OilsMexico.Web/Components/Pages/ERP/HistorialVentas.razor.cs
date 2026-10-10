@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Components;
 using OilsMexico.Application.DTOs;
+using OilsMexico.Domain.Enums;
 
 namespace OilsMexico.Web.Components.Pages.ERP;
 
@@ -8,7 +9,8 @@ public partial class HistorialVentas : ComponentBase
 {
     private DateTime desde = DateTime.Today.AddDays(-30);
     private DateTime hasta = DateTime.Today;
-    private string texto = "", estado = "", msg = "";
+    private string texto = "", msg = "";
+    private EstadoFactura? estado;
     private bool err, cargando, devolviendo;
     private string motivoDevolucion = "";
     private int pagina = 1;
@@ -86,14 +88,14 @@ public partial class HistorialVentas : ComponentBase
     private async Task Anterior() { if (pagina > 1) { pagina--; await Cargar(); } }
     private async Task Siguiente() { if (pagina < resultado.Paginas) { pagina++; await Cargar(); } }
 
-    private static string ClaseEstado(string estado) => estado switch
+    private static string ClaseEstado(EstadoFactura estado) => estado switch
     {
-        "Pendiente" => "bg-secondary",
-        "Surtida" => "bg-primary",
-        "Timbrada" => "bg-success",
-        "Entregada" => "bg-info text-dark",
-        "Cancelada" => "bg-dark",
-        "Devolucion" => "bg-danger",
+        EstadoFactura.Pendiente => "bg-secondary",
+        EstadoFactura.Surtida => "bg-primary",
+        EstadoFactura.Timbrada => "bg-success",
+        EstadoFactura.Entregada => "bg-info text-dark",
+        EstadoFactura.Cancelada => "bg-dark",
+        EstadoFactura.Devolucion => "bg-danger",
         _ => "bg-secondary"
     };
 }

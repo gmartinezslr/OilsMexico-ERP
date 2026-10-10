@@ -1,4 +1,5 @@
 using OilsMexico.Application.DTOs;
+using OilsMexico.Domain.Enums;
 
 namespace OilsMexico.Application.Interfaces;
 
@@ -29,7 +30,7 @@ public interface IVentasService
 
     /// <summary>Historial paginado de ventas por sucursal con filtros de fecha/estado/texto y resumen.</summary>
     Task<HistorialResultadoDto> HistorialAsync(int sucursalId, DateTime desde, DateTime hasta,
-        string? texto, string? estado, int pagina, CancellationToken ct = default);
+        string? texto, EstadoFactura? estado, int pagina, CancellationToken ct = default);
 
     /// <summary>Detalle de una venta (renglones + datos CFDI). null si no existe o es de otra sucursal.</summary>
     Task<HistorialDetalleDto?> HistorialDetalleAsync(int facturaId, CancellationToken ct = default);
@@ -55,7 +56,7 @@ public interface ICfdiSelladoService
 /// <summary>Módulo Facturación CFDI: listado de folios, timbrado diferido, cancelación y descarga de XML.</summary>
 public interface IFacturacionService
 {
-    Task<List<FacturaListadoDto>> ListarAsync(int sucursalId, string? estado, string? texto, CancellationToken ct = default);
+    Task<List<FacturaListadoDto>> ListarAsync(int sucursalId, EstadoFactura? estado, string? texto, CancellationToken ct = default);
     /// <summary>Sella y timbra una factura en estado Pendiente (timbrado diferido fuera del POS).</summary>
     Task<VentaPosResult> TimbrarAsync(int facturaId, CancellationToken ct = default);
     /// <summary>Cancela una factura ya timbrada ante el PAC (cancel_signature). Motivo SAT 01|02|03|04 obligatorio; motivo 01 exige el UUID sustituto.</summary>
@@ -92,7 +93,7 @@ public interface IComprasService
     Task<CompraResult> RecibirAsync(RecepcionRequest request, CancellationToken ct = default);
     Task<CompraResult> CancelarAsync(int compraId, string motivo, CancellationToken ct = default);
     Task<CompraResult> RegistrarPagoAsync(PagoCompraRequest request, CancellationToken ct = default);
-    Task<List<CompraListadoDto>> ListarAsync(int sucursalId, string? estado, string? texto, CancellationToken ct = default);
+    Task<List<CompraListadoDto>> ListarAsync(int sucursalId, EstadoCompra? estado, string? texto, CancellationToken ct = default);
     Task<CompraDetalleDto?> DetalleAsync(int compraId, CancellationToken ct = default);
     Task<List<CuentasPorPagarDto>> CuentasPorPagarAsync(int sucursalId, string? texto, CancellationToken ct = default);
 }
@@ -186,9 +187,9 @@ public interface IGestionService
 /// <summary>Reglas de negocio para generar asientos contables a partir de transacciones.</summary>
 public interface IAsientoGeneradorService
 {
-    Task<IReadOnlyList<(int tipo, decimal importe)>> GenerarAsientosDeVentaAsync(int sucursalId, int usuarioId, decimal total, decimal subtotal, decimal iva, string metodoPagoSat, string formaPagoSat);
-    Task<IReadOnlyList<(int tipo, decimal importe)>> GenerarAsientosDeCompraAsync(int sucursalId, int usuarioId, decimal total);
-    Task<IReadOnlyList<(int tipo, decimal importe)>> GenerarAsientosDeDevolucionAsync(int sucursalId, int usuarioId, decimal total);
+    Task<IReadOnlyList<AsientoLinea>> GenerarAsientosDeVentaAsync(int sucursalId, int usuarioId, decimal total, decimal subtotal, decimal iva, string metodoPagoSat, string formaPagoSat);
+    Task<IReadOnlyList<AsientoLinea>> GenerarAsientosDeCompraAsync(int sucursalId, int usuarioId, decimal total);
+    Task<IReadOnlyList<AsientoLinea>> GenerarAsientosDeDevolucionAsync(int sucursalId, int usuarioId, decimal total);
 }
 
 /// <summary>Catálogo y gestión de la contabilidad básica (pólizas, libro mayor, saldos).</summary>

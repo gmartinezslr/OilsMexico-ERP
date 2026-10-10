@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Components;
 using OilsMexico.Application.DTOs;
+using OilsMexico.Domain.Enums;
 
 namespace OilsMexico.Web.Components.Pages.ERP;
 
@@ -8,7 +9,8 @@ public partial class NotasCredito : ComponentBase
 {
     private List<NotaCreditoListadoDto> lista = [];
     private NotaCreditoPreviewDto? preview;
-    private string estado = "", texto = "", msg = "", motivo = "Devolucion";
+    private EstadoNotaCredito? estado;
+    private string texto = "", msg = "", motivo = "Devolucion";
     private string observaciones = "", motivoCancelacion = "02", folioSustitucionNc = "";
     private bool err, cargando, puedeCancelar;
     private int? cancelandoId, origenQuery;

@@ -107,14 +107,55 @@
                     </div>
                     <hr class="my-4" />
                     <h6 class="fw-bold mb-1">@(edit.Id == 0 ? "Contraseña inicial *" : "Cambiar contraseña (opcional)")</h6>
-                    <p class="text-muted small mt-0 mb-3">Deja la contraseña vacía para conservar la actual.</p>
+                    <p class="text-muted small mt-0 mb-3">Deja la contraseña vacía para conservar la actual. Debe cumplir la política: mínimo @cfgPwd.LongitudMinima caracteres, mayúscula, minúscula, número y carácter especial; no puede repetir las últimas @cfgPwd.Historial contraseñas.</p>
                     <div class="row g-4">
                         <div class="col-md-6"><label class="form-label fw-semibold">@(edit.Id == 0 ? "Contraseña *" : "Nueva contraseña")</label>
-                            <input type="password" minlength="8" maxlength="100" class="form-control form-control-lg" style="font-size:1rem;" @bind="pin1" placeholder="Mínimo 8 caracteres" /></div>
+                            <input type="password" minlength="@cfgPwd.LongitudMinima" maxlength="100" class="form-control form-control-lg" style="font-size:1rem;" @bind="pin1" placeholder="Mínimo @cfgPwd.LongitudMinima caracteres" /></div>
                         <div class="col-md-6"><label class="form-label fw-semibold">@(edit.Id == 0 ? "Confirmar contraseña *" : "Confirmar nueva contraseña")</label>
-                            <input type="password" minlength="8" maxlength="100" class="form-control form-control-lg" style="font-size:1rem;" @bind="pin2" placeholder="Repite la contraseña" /></div>
+                            <input type="password" minlength="@cfgPwd.LongitudMinima" maxlength="100" class="form-control form-control-lg" style="font-size:1rem;" @bind="pin2" placeholder="Repite la contraseña" /></div>
                     </div>
                 </fieldset>
+                @if (edit.Id != 0 && esAdmin && dosFa is not null)
+                {
+                    <hr class="my-4" />
+                    <h6 class="fw-bold mb-1">Autenticación en dos pasos (2FA) — opcional</h6>
+                    <p class="text-muted small mt-0 mb-3">Protege la cuenta con un código de 6 dígitos de una aplicación autenticadora (Google Authenticator, Authy, etc.).</p>
+                    @if (dosFa.Habilitado)
+                    {
+                        <div class="alert alert-success py-2 d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
+                            <span class="fw-semibold">2FA activo en esta cuenta.</span>
+                            <button class="btn btn-outline-danger btn-sm" @onclick="() => mostrarDesactivar = !mostrarDesactivar" disabled="@guardando">@(mostrarDesactivar ? "Cancelar" : "Desactivar 2FA")</button>
+                        </div>
+                        @if (mostrarDesactivar)
+                        {
+                            <div class="row g-2 align-items-end">
+                                <div class="col-md-5"><label class="form-label small fw-semibold">Código actual de la app</label>
+                                    <input class="form-control" maxlength="6" inputmode="numeric" @bind="codigo2FADesac" placeholder="000000" /></div>
+                                <div class="col-md-7"><button class="btn btn-danger" @onclick="Desactivar2Fa" disabled="@guardando">Confirmar desactivación</button></div>
+                            </div>
+                        }
+                    }
+                    else
+                    {
+                        <div class="row g-3 align-items-start">
+                            <div class="col-md-4 text-center">
+                                @if (!string.IsNullOrEmpty(dosFa.QrBase64))
+                                {
+                                    <img src="data:image/png;base64,@dosFa.QrBase64" alt="Código QR para 2FA" class="img-fluid border rounded bg-white" style="max-width:180px;" />
+                                }
+                            </div>
+                            <div class="col-md-8">
+                                <p class="small mb-1">1. Escanea el QR con tu aplicación autenticadora.</p>
+                                <p class="small mb-2">Clave manual: <code>@dosFa.ClaveSecreta</code></p>
+                                <label class="form-label small fw-semibold">2. Escribe el código de 6 dígitos para confirmar</label>
+                                <div class="d-flex gap-2">
+                                    <input class="form-control" style="max-width:160px;" maxlength="6" inputmode="numeric" @bind="codigo2FAAct" placeholder="000000" />
+                                    <button class="btn btn-primary" @onclick="Activar2Fa" disabled="@guardando">Activar 2FA</button>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                }
                 <div class="d-flex flex-wrap gap-2 mt-4 pt-3 border-top">
                     <button class="btn btn-success btn-lg px-5" @onclick="Guardar" disabled="@(!esAdmin || guardando)">@(guardando ? "Guardando…" : "Guardar")</button>
                     @if (edit.Id != 0 && esAdmin)

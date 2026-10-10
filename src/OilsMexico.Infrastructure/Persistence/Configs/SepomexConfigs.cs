@@ -60,5 +60,8 @@ public sealed class ProveedorConfig : IEntityTypeConfiguration<Proveedor>
         e.Property(x => x.Pais).HasColumnName("pais").HasMaxLength(60).HasDefaultValue("México");
         e.Property(x => x.Direccion).HasColumnName("direccion");
         e.Property(x => x.Activo).HasColumnName("activo").HasDefaultValue(true);
+        // Situación fiscal declarada ante el SAT (valor por defecto: Actual = 1).
+        e.Property(x => x.SituacionFiscal).HasColumnName("situacion_fiscal")
+            .HasDefaultValue(OilsMexico.Domain.Enums.SituacionFiscal.Actual);
     }
 }

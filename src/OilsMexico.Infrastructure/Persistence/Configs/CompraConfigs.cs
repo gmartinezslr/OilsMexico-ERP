@@ -18,8 +18,8 @@ public sealed class CompraConfig : IEntityTypeConfiguration<Compra>
         e.Property(x => x.Subtotal).HasColumnName("subtotal").HasPrecision(12, 2);
         e.Property(x => x.Iva).HasColumnName("iva").HasPrecision(12, 2);
         e.Property(x => x.Total).HasColumnName("total").HasPrecision(12, 2);
-        e.Property(x => x.Estado).HasColumnName("estado").HasMaxLength(20);
-        e.Property(x => x.EstadoPago).HasColumnName("estado_pago").HasMaxLength(20);
+        e.Property(x => x.Estado).HasColumnName("estado").HasConversion<string>().HasMaxLength(20);
+        e.Property(x => x.EstadoPago).HasColumnName("estado_pago").HasConversion<string>().HasMaxLength(20);
         e.Property(x => x.MontoPagado).HasColumnName("monto_pagado").HasPrecision(12, 2);
         e.Property(x => x.Notas).HasColumnName("notas");
         e.Property(x => x.UsuarioId).HasColumnName("usuario_id");

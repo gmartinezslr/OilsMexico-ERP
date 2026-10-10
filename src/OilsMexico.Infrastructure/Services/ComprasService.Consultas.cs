@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using OilsMexico.Application.DTOs;
+using OilsMexico.Domain.Enums;
 using OilsMexico.Infrastructure.Persistence;
 
 namespace OilsMexico.Infrastructure.Services;
@@ -7,11 +8,11 @@ namespace OilsMexico.Infrastructure.Services;
 public sealed partial class ComprasService
 {
     public async Task<List<CompraListadoDto>> ListarAsync(
-        int sucursalId, string? estado, string? texto, CancellationToken ct = default)
+        int sucursalId, EstadoCompra? estado, string? texto, CancellationToken ct = default)
     {
         var suc = ctx.Rol == "Admin" ? sucursalId : ctx.SucursalId;
         var q = db.Compras.AsNoTracking().Where(c => c.SucursalId == suc);
-        if (!string.IsNullOrWhiteSpace(estado)) q = q.Where(c => c.Estado == estado);
+        if (estado is not null) q = q.Where(c => c.Estado == estado);
         if (!string.IsNullOrWhiteSpace(texto))
         {
             var t = texto.Trim().ToLower();
@@ -68,7 +69,7 @@ public sealed partial class ComprasService
     {
         var suc = ctx.Rol == "Admin" ? sucursalId : ctx.SucursalId;
         var q = db.Compras.AsNoTracking()
-            .Where(c => c.SucursalId == suc && c.Estado != "Cancelada" && c.Total - c.MontoPagado > 0.01m);
+            .Where(c => c.SucursalId == suc && c.Estado != EstadoCompra.Cancelada && c.Total - c.MontoPagado > 0.01m);
         if (!string.IsNullOrWhiteSpace(texto))
         {
             var t = texto.Trim().ToLower();

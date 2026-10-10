@@ -1,3 +1,5 @@
+using OilsMexico.Domain.Enums;
+
 namespace OilsMexico.Domain.Entities;
 
 public sealed class Cliente
@@ -33,4 +35,6 @@ public sealed class Cliente
     public Usuario? Vendedor { get; set; }
 
     public List<Factura> Facturas { get; set; } = [];
+
+    public SituacionFiscal SituacionFiscal { get; set; } = SituacionFiscal.Actual; // Estado de Situación Fiscal declarado ante el SAT (ver EsSituacionFiscal).
 }

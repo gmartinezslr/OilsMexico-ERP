@@ -29,7 +29,7 @@ public sealed class NotaCreditoConfig : IEntityTypeConfiguration<NotaCredito>
         e.Property(x => x.XmlSellado).HasColumnName("xml_sellado");
         e.Property(x => x.SelloDigital).HasColumnName("sello_digital");
         e.Property(x => x.CadenaOriginal).HasColumnName("cadena_original");
-        e.Property(x => x.Estado).HasColumnName("estado").HasMaxLength(20);
+        e.Property(x => x.Estado).HasColumnName("estado").HasConversion<string>().HasMaxLength(20);
         e.Property(x => x.MotivoCancelacion).HasColumnName("motivo_cancelacion").HasMaxLength(300);
         e.Property(x => x.RepusoStock).HasColumnName("repuso_stock");
         e.Property(x => x.Observaciones).HasColumnName("observaciones");

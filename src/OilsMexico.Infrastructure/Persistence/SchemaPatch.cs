@@ -275,15 +275,154 @@ public static class SchemaPatch
               AND NOT EXISTS (SELECT 1 FROM venta_cobros vc WHERE vc.factura_id = f.id);
             """);
 
-        // Parámetros de configuración del sistema (clave/valor).
-        // sesion_timeout_min: minutos de inactividad antes de cerrar la sesión (por defecto 5).
+        // -----------------------------------------------------------------------
+        // 2FA (habilitación opcional por cuenta) + vigencia de la contraseña.
+        // -----------------------------------------------------------------------
         await db.Database.ExecuteSqlRawAsync("""
-            CREATE TABLE IF NOT EXISTS configuracion (
-                clave varchar(80) PRIMARY KEY,
-                valor varchar(200) NOT NULL
+            ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS dos_fa_secret varchar(64);
+            ALTER TABLE usuarios ALTER COLUMN dos_fa_secret DROP NOT NULL;
+            ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS dos_fa_activo boolean NOT NULL DEFAULT false;
+            ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS ultimo_cambio_password_utc timestamptz;
+            """);
+
+        // -----------------------------------------------------------------------
+        // Situación fiscal (SAT) en clientes y proveedores: 1=Actual .. 6=Baja.
+        // -----------------------------------------------------------------------
+        await db.Database.ExecuteSqlRawAsync("""
+            ALTER TABLE clientes ADD COLUMN IF NOT EXISTS situacion_fiscal integer NOT NULL DEFAULT 1;
+            ALTER TABLE proveedores ADD COLUMN IF NOT EXISTS situacion_fiscal integer NOT NULL DEFAULT 1;
+            """);
+
+        // -----------------------------------------------------------------------
+        // Tabla de auditoría: cambios de contraseña, habilitación/deshabilitación
+        // de 2FA, cambio de RFC/situación fiscal, etc.
+        // -----------------------------------------------------------------------
+        await db.Database.ExecuteSqlRawAsync("""
+            CREATE TABLE IF NOT EXISTS audit_logs (
+                id serial PRIMARY KEY,
+                usuario_id integer NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+                usuario_nombre varchar(150),
+                tipo varchar(60) NOT NULL,
+                detalle text,
+                anterior text,
+                nuevo text,
+                fecha_utc timestamptz NOT NULL DEFAULT now()
             );
-            INSERT INTO configuracion (clave, valor) VALUES ('sesion_timeout_min', '5')
+            CREATE INDEX IF NOT EXISTS ix_audit_logs_usuario ON audit_logs (usuario_id);
+            CREATE INDEX IF NOT EXISTS ix_audit_logs_tipo ON audit_logs (tipo);
+            CREATE INDEX IF NOT EXISTS ix_audit_logs_fecha ON audit_logs (fecha_utc);
+            """);
+
+        // -----------------------------------------------------------------------
+        // Historial de contraseñas anteriores (almacenando hashes).
+        // -----------------------------------------------------------------------
+        await db.Database.ExecuteSqlRawAsync("""
+            CREATE TABLE IF NOT EXISTS password_histories (
+                id serial PRIMARY KEY,
+                usuario_id integer NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+                password_hash varchar(128) NOT NULL,
+                fecha_cambio_utc timestamptz NOT NULL DEFAULT now()
+            );
+            CREATE INDEX IF NOT EXISTS ix_password_histories_usuario ON password_histories (usuario_id);
+            """);
+
+        // -----------------------------------------------------------------------
+        // Política de contraseña configurada por el administrador.
+        // -----------------------------------------------------------------------
+        await db.Database.ExecuteSqlRawAsync("""
+            INSERT INTO configuracion (clave, valor) VALUES
+            ('password_policy_min_longitud', '20'),
+            ('password_policy_historial', '3'),
+            ('password_policy_duracion_dias', '90')
             ON CONFLICT (clave) DO NOTHING;
+            """);
+        // -----------------------------------------------------------------------
+        // RBAC (PUNTO 4) + catálogos posteriores.
+        // En una BD creada desde cero, EnsureCreatedAsync ya construye estas
+        // tablas; pero en una BD preexistente (anterior al RBAC) NO existen, y
+        // al arrancar la app fallaba con "no existe la columna u.RoleId" (42703)
+        // y las consultas a ReglasAsiento/Importación no encontraban la tabla.
+        // Todo el parche es idempotente (IF NOT EXISTS / ADD COLUMN IF NOT EXISTS),
+        // de modo que en una BD nueva las tablas ya existen y no se altera nada.
+        // Los nombres de columna/tabla replican EXACTOS los que genera EF Core
+        // (Roles, Permisos, RolPermisos, ReglasAsiento, ImportacionParametros,
+        // ImportacionReglas; columna "RoleId" en usuarios).
+        // -----------------------------------------------------------------------
+        await db.Database.ExecuteSqlRawAsync("""
+            ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS "RoleId" integer NULL;
+            """);
+
+        await db.Database.ExecuteSqlRawAsync("""
+            CREATE TABLE IF NOT EXISTS "Roles" (
+                "Id" integer GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+                "Nombre" text NOT NULL,
+                "Descripcion" text NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS "Permisos" (
+                "Id" integer GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+                "Nombre" text NOT NULL,
+                "Descripcion" text NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS "RolPermisos" (
+                "RolId" integer NOT NULL,
+                "PermisoId" integer NOT NULL,
+                CONSTRAINT "PK_RolPermisos" PRIMARY KEY ("RolId", "PermisoId"),
+                CONSTRAINT "FK_RolPermisos_Permisos_PermisoId" FOREIGN KEY ("PermisoId") REFERENCES "Permisos" ("Id") ON DELETE CASCADE,
+                CONSTRAINT "FK_RolPermisos_Roles_RolId" FOREIGN KEY ("RolId") REFERENCES "Roles" ("Id") ON DELETE CASCADE
+            );
+
+            CREATE INDEX IF NOT EXISTS "IX_RolPermisos_PermisoId" ON "RolPermisos" ("PermisoId");
+
+            CREATE TABLE IF NOT EXISTS "ReglasAsiento" (
+                "Id" integer GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+                "Evento" text NOT NULL,
+                "CuentaId" integer NOT NULL,
+                "Debe" boolean NOT NULL,
+                "MontoOrigen" text NOT NULL,
+                "Orden" integer NOT NULL,
+                "Activo" boolean NOT NULL,
+                CONSTRAINT "FK_ReglasAsiento_cuentas_contables_CuentaId" FOREIGN KEY ("CuentaId") REFERENCES cuentas_contables (id) ON DELETE CASCADE
+            );
+
+            CREATE INDEX IF NOT EXISTS "IX_ReglasAsiento_CuentaId" ON "ReglasAsiento" ("CuentaId");
+
+            CREATE TABLE IF NOT EXISTS "ImportacionParametros" (
+                "Id" integer GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+                "Clave" text NOT NULL,
+                "Valor" text NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS "ImportacionReglas" (
+                "Id" integer GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+                "Tipo" text NOT NULL,
+                "Patron" text NOT NULL,
+                "Valor" text NOT NULL,
+                "Prioridad" integer NOT NULL,
+                "Activo" boolean NOT NULL
+            );
+            """);
+
+        // La FK de usuarios.RoleId -> Roles(Id) se añade aparte: sólo puede crearse
+        // si "Roles" existe y si no hay una RoleId que apunte a un rol inexistente.
+        await db.Database.ExecuteSqlRawAsync("""
+            DO $$
+            BEGIN
+                IF EXISTS (
+                    SELECT 1 FROM information_schema.columns
+                    WHERE table_schema = 'public' AND table_name = 'usuarios' AND column_name = 'RoleId'
+                ) AND NOT EXISTS (
+                    SELECT 1 FROM pg_constraint WHERE conname = 'FK_usuarios_Roles_RoleId'
+                ) AND NOT EXISTS (
+                    SELECT 1 FROM usuarios u WHERE u."RoleId" IS NOT NULL
+                      AND NOT EXISTS (SELECT 1 FROM "Roles" r WHERE r."Id" = u."RoleId")
+                ) THEN
+                    ALTER TABLE usuarios
+                        ADD CONSTRAINT "FK_usuarios_Roles_RoleId" FOREIGN KEY ("RoleId") REFERENCES "Roles" ("Id");
+                END IF;
+            END $$;
             """);
     }
 }
+

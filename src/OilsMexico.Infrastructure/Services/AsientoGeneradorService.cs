@@ -1,46 +1,92 @@
+using Microsoft.EntityFrameworkCore;
+using OilsMexico.Application.DTOs;
 using OilsMexico.Application.Interfaces;
 using OilsMexico.Domain.Entities;
+using OilsMexico.Infrastructure.Persistence;
 
 namespace OilsMexico.Infrastructure.Services;
 
-public sealed partial class AsientoGeneradorService : IAsientoGeneradorService
+public sealed partial class AsientoGeneradorService(ErpDbContext db) : IAsientoGeneradorService
 {
-    public Task<IReadOnlyList<(int tipo, decimal importe)>> GenerarAsientosDeVentaAsync(
+    public async Task<IReadOnlyList<AsientoLinea>> GenerarAsientosDeVentaAsync(
         int sucursalId, int usuarioId, decimal total, decimal subtotal, decimal iva, string metodoPagoSat, string formaPagoSat)
     {
-        var list = new List<(int tipo, decimal importe)>();
+        var reglas = await db.ReglasAsiento
+            .Where(r => r.Evento == "Venta" && r.Activo)
+            .OrderBy(r => r.Orden)
+            .ToListAsync();
 
-        if (metodoPagoSat == "PPD")
+        var lineas = new List<AsientoLinea>();
+        foreach (var r in reglas)
         {
-            list.Add((1, total));   // 1100 Cuentas por cobrar
-            list.Add((2, subtotal)); // 3000 Ventas
-            if (iva > 0)
-                list.Add((2, iva));  // 4000 IVA a cobrar
-        }
-        else
-        {
-            list.Add((1, total));    // 1000 Efectivo
-            list.Add((2, subtotal)); // 3000 Ventas
-            if (iva > 0)
-                list.Add((2, iva));  // 4000 IVA a cobrar
+            decimal importe = r.MontoOrigen switch
+            {
+                "total" => total,
+                "subtotal" => subtotal,
+                "neto" => subtotal,
+                "iva" => iva,
+                _ => 0m
+            };
+
+            // No emitir IVA si es cero (regla de corregir el vigente).
+            if (r.MontoOrigen == "iva" && importe <= 0) continue;
+
+            var cuenta = await db.CuentasContables.FindAsync([r.CuentaId]);
+            if (cuenta is null) continue;
+
+            lineas.Add(new AsientoLinea
+            {
+                CuentaCodigo = cuenta.Codigo,
+                Debe = r.Debe,
+                Importe = importe
+            });
         }
 
-        return Task.FromResult<IReadOnlyList<(int tipo, decimal importe)>>(list.AsReadOnly());
+        return lineas.AsReadOnly();
     }
 
-    public Task<IReadOnlyList<(int tipo, decimal importe)>> GenerarAsientosDeCompraAsync(int sucursalId, int usuarioId, decimal total)
+    public Task<IReadOnlyList<AsientoLinea>> GenerarAsientosDeCompraAsync(int sucursalId, int usuarioId, decimal total)
     {
-        return Task.FromResult<IReadOnlyList<(int tipo, decimal importe)>>(new[]
-        {
-            (1, total) // 1200 Mercancía / Compras
-        }.AsReadOnly());
+        return GenerarConEventoAsync("Compra", total, 0m, 0m);
     }
 
-    public Task<IReadOnlyList<(int tipo, decimal importe)>> GenerarAsientosDeDevolucionAsync(int sucursalId, int usuarioId, decimal total)
+    public Task<IReadOnlyList<AsientoLinea>> GenerarAsientosDeDevolucionAsync(int sucursalId, int usuarioId, decimal total)
     {
-        return Task.FromResult<IReadOnlyList<(int tipo, decimal importe)>>(new[]
+        return GenerarConEventoAsync("Devolucion", total, 0m, 0m);
+    }
+
+    private async Task<IReadOnlyList<AsientoLinea>> GenerarConEventoAsync(string evento, decimal montoTotal, decimal montoSubtotal, decimal montoIva)
+    {
+        var reglas = await db.ReglasAsiento
+            .Where(r => r.Evento == evento && r.Activo)
+            .OrderBy(r => r.Orden)
+            .ToListAsync();
+
+        var lineas = new List<AsientoLinea>();
+        foreach (var r in reglas)
         {
-            (2, total) // 3100 Devoluciones y descuentos
-        }.AsReadOnly());
+            decimal importe = r.MontoOrigen switch
+            {
+                "total" => montoTotal,
+                "subtotal" => montoSubtotal,
+                "iva" => montoIva,
+                "neto" => montoSubtotal,
+                _ => 0m
+            };
+
+            if (r.MontoOrigen == "iva" && importe <= 0) continue;
+
+            var cuenta = await db.CuentasContables.FindAsync([r.CuentaId]);
+            if (cuenta is null) continue;
+
+            lineas.Add(new AsientoLinea
+            {
+                CuentaCodigo = cuenta.Codigo,
+                Debe = r.Debe,
+                Importe = importe
+            });
+        }
+
+        return lineas.AsReadOnly();
     }
 }

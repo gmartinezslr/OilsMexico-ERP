@@ -9,6 +9,7 @@ using System.Xml.Xsl;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using OilsMexico.Application.Interfaces;
+using OilsMexico.Domain.Services;
 using OilsMexico.Infrastructure.Persistence;
 
 namespace OilsMexico.Infrastructure.Services;
@@ -22,7 +23,6 @@ namespace OilsMexico.Infrastructure.Services;
 /// </summary>
 public sealed class CfdiSelladoService(ErpDbContext db, IConfiguration cfg) : ICfdiSelladoService
 {
-    private const decimal TasaIva = 0.16m;
     private static readonly XNamespace NsCfdi = "http://www.sat.gob.mx/cfd/4";
     private static readonly XNamespace NsPagos = "http://www.sat.gob.mx/Pagos20";
     private static readonly Lazy<XslCompiledTransform> CadenaXslt = new(CargarXslt);
@@ -389,7 +389,7 @@ public sealed class CfdiSelladoService(ErpDbContext db, IConfiguration cfg) : IC
             mayor.ConIva += difTotal;
         }
         foreach (var l in lineas)
-            l.Neto = Math.Round(l.ConIva / (1m + TasaIva), 2);
+            l.Neto = Impuestos.BaseDeTotal(l.ConIva);
         var difSub = Math.Round(subtotal - lineas.Sum(l => l.Neto), 2);
         if (difSub != 0)
         {
@@ -429,7 +429,7 @@ public sealed class CfdiSelladoService(ErpDbContext db, IConfiguration cfg) : IC
                             new XAttribute("Base", Formato(l.Neto)),
                             new XAttribute("Impuesto", "002"),  // c_Impuesto: 002 = IVA
                             new XAttribute("TipoFactor", "Tasa"),
-                            new XAttribute("TasaOCuota", "0.160000"),
+                            new XAttribute("TasaOCuota", Impuestos.TasaIvaSat),
                             new XAttribute("Importe", Formato(ivaLinea))))));
             conceptos.Add(concepto);
         }
@@ -446,7 +446,7 @@ public sealed class CfdiSelladoService(ErpDbContext db, IConfiguration cfg) : IC
                     new XAttribute("Base", Formato(subtotal)),
                     new XAttribute("Impuesto", "002"),  // c_Impuesto: 002 = IVA
                     new XAttribute("TipoFactor", "Tasa"),
-                    new XAttribute("TasaOCuota", "0.160000"),
+                    new XAttribute("TasaOCuota", Impuestos.TasaIvaSat),
                     new XAttribute("Importe", Formato(totalImpuestos))))));
     }
 

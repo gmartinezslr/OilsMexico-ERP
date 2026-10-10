@@ -2,6 +2,8 @@ using Microsoft.EntityFrameworkCore;
 using OilsMexico.Application.DTOs;
 using OilsMexico.Application.Interfaces;
 using OilsMexico.Domain.Entities;
+using OilsMexico.Domain.Enums;
+using OilsMexico.Domain.Services;
 using OilsMexico.Infrastructure.Persistence;
 
 namespace OilsMexico.Infrastructure.Services;
@@ -9,8 +11,6 @@ namespace OilsMexico.Infrastructure.Services;
 /// <summary>Compras ciclo completo: orden → recepción (stock + kardex) → CxP (pagos).</summary>
 public sealed partial class ComprasService(ErpDbContext db, ISucursalContext ctx) : IComprasService
 {
-    private const decimal TasaIva = 0.16m;
-
     public async Task<CompraResult> CrearOrdenAsync(CrearCompraRequest req, CancellationToken ct = default)
     {
         var sucursalId = ctx.Rol == "Admin" ? req.SucursalId : ctx.SucursalId;
@@ -25,7 +25,7 @@ public sealed partial class ComprasService(ErpDbContext db, ISucursalContext ctx
             FolioInterno = $"C-{sucursalId}-{DateTime.UtcNow:yyyyMMddHHmmss}",
             ProveedorId = prov.Id,
             FolioProveedor = string.IsNullOrWhiteSpace(req.FolioProveedor) ? null : req.FolioProveedor.Trim(),
-            Notas = req.Notas, Estado = "Borrador", EstadoPago = "Pendiente",
+            Notas = req.Notas, Estado = EstadoCompra.Borrador, EstadoPago = EstadoPagoCompra.Pendiente,
             UsuarioId = ctx.UsuarioId
         };
         decimal subtotal = 0m;
@@ -46,11 +46,11 @@ public sealed partial class ComprasService(ErpDbContext db, ISucursalContext ctx
             subtotal += r.Cantidad * r.CostoUnitario;
         }
         compra.Subtotal = Math.Round(subtotal, 2);
-        compra.Iva = Math.Round(subtotal * TasaIva, 2);
+        compra.Iva = Impuestos.IvaDeBase(subtotal);
         compra.Total = Math.Round(compra.Subtotal + compra.Iva, 2);
         db.Compras.Add(compra);
         await db.SaveChangesAsync(ct);
-        return new CompraResult(compra.Id, compra.FolioInterno, compra.Subtotal, compra.Iva, compra.Total, compra.Estado);
+        return new CompraResult(compra.Id, compra.FolioInterno, compra.Subtotal, compra.Iva, compra.Total, compra.Estado.ToString());
     }
 
     public async Task<CompraResult> RecibirAsync(RecepcionRequest req, CancellationToken ct = default)
@@ -60,8 +60,8 @@ public sealed partial class ComprasService(ErpDbContext db, ISucursalContext ctx
             ?? throw new InvalidOperationException("Compra no existe.");
         if (ctx.Rol != "Admin" && compra.SucursalId != ctx.SucursalId)
             throw new UnauthorizedAccessException("No puedes recibir compras de otra sucursal.");
-        if (compra.Estado == "Cancelada") throw new InvalidOperationException("La compra está cancelada.");
-        if (compra.Estado == "Recibida") throw new InvalidOperationException("La compra ya fue recibida.");
+        if (compra.Estado == EstadoCompra.Cancelada) throw new InvalidOperationException("La compra está cancelada.");
+        if (compra.Estado == EstadoCompra.Recibida) throw new InvalidOperationException("La compra ya fue recibida.");
         if (req.Renglones.Count == 0) throw new InvalidOperationException("Nada que recibir.");
 
         await using var tx = await db.Database.BeginTransactionAsync(ct);
@@ -120,9 +120,9 @@ public sealed partial class ComprasService(ErpDbContext db, ISucursalContext ctx
         }
         await db.SaveChangesAsync(ct);
         compra.Estado = compra.Detalles.All(d => d.CantidadRecibida + 0.0001m >= d.Cantidad)
-            ? "Recibida" : "Parcial";
+            ? EstadoCompra.Recibida : EstadoCompra.Parcial;
         await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
-        return new CompraResult(compra.Id, compra.FolioInterno, compra.Subtotal, compra.Iva, compra.Total, compra.Estado);
+        return new CompraResult(compra.Id, compra.FolioInterno, compra.Subtotal, compra.Iva, compra.Total, compra.Estado.ToString());
     }
 }

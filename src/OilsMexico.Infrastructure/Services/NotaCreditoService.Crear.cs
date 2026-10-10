@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using OilsMexico.Application.DTOs;
 using OilsMexico.Domain.Entities;
+using OilsMexico.Domain.Enums;
 
 namespace OilsMexico.Infrastructure.Services;
 
@@ -21,7 +22,7 @@ public sealed partial class NotaCreditoService
             throw new InvalidOperationException($"Solo se acredita factura timbrada/surtida/entregada (origen: {f.Estado}).");
         if (f.UuidSat is null) throw new InvalidOperationException("La factura origen no tiene UUID timbrado.");
         var previa = await db.NotasCredito
-            .AnyAsync(n => n.FacturaOrigenId == f.Id && n.Estado != "Cancelada", ct);
+            .AnyAsync(n => n.FacturaOrigenId == f.Id && n.Estado != EstadoNotaCredito.Cancelada, ct);
         if (previa) throw new InvalidOperationException("La factura ya tiene una NC activa.");
 
         var nc = new NotaCredito
@@ -33,7 +34,7 @@ public sealed partial class NotaCreditoService
             FechaEmision = DateTime.UtcNow,
             Subtotal = f.Subtotal, Iva = f.Iva, Total = f.Total,
             Motivo = req.Motivo, UsoCfdi = "G02", TipoRelacion = "01",
-            Estado = "Pendiente", Observaciones = req.Observaciones?.Trim(),
+            Estado = EstadoNotaCredito.Pendiente, Observaciones = req.Observaciones?.Trim(),
             UsuarioId = ctx.UsuarioId
         };
         foreach (var d in f.Detalles)
@@ -80,7 +81,7 @@ public sealed partial class NotaCreditoService
         var (uuidNc, xmlNcTimbrado) = await pac.TimbrarAsync(nc.XmlSellado!, ct);
         nc.UuidSat = uuidNc;
         nc.XmlSellado = xmlNcTimbrado;
-        nc.Estado = "Timbrada";
+        nc.Estado = EstadoNotaCredito.Timbrada;
         await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
         return new NotaCreditoResult(nc.Id, nc.FolioInterno, nc.UuidSat,

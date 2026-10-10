@@ -10,7 +10,7 @@ public sealed partial class VentasService
 
     public async Task<HistorialResultadoDto> HistorialAsync(
         int sucursalId, DateTime desde, DateTime hasta,
-        string? texto, string? estado, int pagina, CancellationToken ct = default)
+        string? texto, EstadoFactura? estado, int pagina, CancellationToken ct = default)
     {
         // REGLA #1: solo Admin puede consultar otra sucursal; el resto ve la suya.
         var suc = ctx.Rol == "Admin" ? sucursalId : ctx.SucursalId;
@@ -24,9 +24,8 @@ public sealed partial class VentasService
             .Where(f => f.SucursalId == suc
                 && f.FechaEmision >= desdeUtc && f.FechaEmision < hastaUtc);
 
-        if (!string.IsNullOrWhiteSpace(estado)
-            && Enum.TryParse<EstadoFactura>(estado, ignoreCase: true, out var est))
-            q = q.Where(f => f.Estado == est);
+        if (estado is not null)
+            q = q.Where(f => f.Estado == estado);
 
         if (!string.IsNullOrWhiteSpace(texto))
         {
@@ -58,11 +57,11 @@ public sealed partial class VentasService
             })
             .ToListAsync(ct);
 
-        // ToString() del enum se hace en cliente (no es traducible a SQL).
+        // El enum viaja tipado al DTO; la conversión a texto (para UI) ocurre al renderizar.
         var ventas = filas.Select(f => new HistorialVentaDto(
             f.Id, f.FolioInterno, f.FechaEmision,
             f.ClienteNombre ?? "(sin cliente)",
-            f.Estado.ToString(),
+            f.Estado,
             f.Subtotal, f.Iva, f.Total, f.UuidSat, f.Renglones)).ToList();
 
         return new HistorialResultadoDto(ventas, resumen, resumen.Ventas, pagina, paginas);
@@ -79,7 +78,7 @@ public sealed partial class VentasService
 
         return new HistorialDetalleDto(
             f.Id, f.FolioInterno, f.FechaEmision,
-            f.Cliente?.Nombre ?? "(sin cliente)", f.Estado.ToString(),
+            f.Cliente?.Nombre ?? "(sin cliente)", f.Estado,
             f.FormaPagoSat, f.MetodoPagoSat, f.UsoCfdi,
             f.Subtotal, f.Iva, f.Total, f.UuidSat,
             f.SelloDigital, f.CadenaOriginal,
