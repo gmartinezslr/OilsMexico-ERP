@@ -41,7 +41,7 @@ else{
 OilsMexico.Application.DTOs.TicketVentaDto? t;
 protected override async Task OnInitializedAsync(){
     if (!Sesion.Autenticado && !await Sesion.RestaurarAsync()) { Nav.NavigateTo("/login"); return; }
-    if (Sesion.Sesion?.Rol is not ("Admin" or "Vendedor" or "Conta")) { Nav.NavigateTo("/"); return; }
+    if (Sesion.Sesion?.Rol is not (Roles.Admin or Roles.Vendedor or Roles.Conta)) { Nav.NavigateTo("/"); return; }
     t=await Tickets.ObtenerTicketAsync(FacturaId);
 }
 }

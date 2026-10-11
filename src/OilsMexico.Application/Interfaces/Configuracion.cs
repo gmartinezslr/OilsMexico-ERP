@@ -18,6 +18,15 @@ public interface IConfiguracionService
     /// <summary>Lee una clave numérica. Devuelve <paramref name="defecto"/> si la clave falta o el valor está fuera de [<paramref name="minimo"/>, <paramref name="maximo"/>].</summary>
     Task<int> ObtenerIntAsync(string clave, int defecto, int minimo, int maximo, CancellationToken ct = default);
 
+    /// <summary>Lee una clave decimal. Devuelve <paramref name="defecto"/> si la clave falta o el valor está fuera de [<paramref name="minimo"/>, <paramref name="maximo"/>].</summary>
+    Task<decimal> ObtenerDecimalAsync(string clave, decimal defecto, decimal minimo, decimal maximo, CancellationToken ct = default);
+
+    /// <summary>
+    /// Umbrales del análisis de rotación ABC (claves <c>abc_umbral_a</c> / <c>abc_umbral_b</c>).
+    /// Los valores son fracciones (0.30 = 30%, 0.70 = 70%) del ingreso acumulado.
+    /// </summary>
+    Task<(decimal UmbralA, decimal UmbralB)> ObtenerUmbralesAbcAsync(CancellationToken ct = default);
+
     /// <summary>Guarda una clave textual (inserta si falta; actualiza si existe).</summary>
     Task GuardarAsync(string clave, string valor, CancellationToken ct = default);
 

@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Components;
 using OilsMexico.Application.DTOs;
 using OilsMexico.Application.Interfaces;
+using OilsMexico.Domain.Services;
 
 namespace OilsMexico.Web.Components.Pages.ERP;
 
@@ -25,7 +26,7 @@ public partial class Configuracion : ComponentBase
     protected override async Task OnInitializedAsync()
     {
         if (!Sesion.Autenticado) return;
-        esAdmin = Sesion.Sesion?.Rol == "Admin";
+        esAdmin = Sesion.Sesion?.Rol == Roles.Admin;
         if (esAdmin)
         {
             minutos = await Config.ObtenerMinutosTimeoutAsync();
@@ -38,7 +39,7 @@ public partial class Configuracion : ComponentBase
     {
         if (!first) return;
         if (!Sesion.Autenticado && !await Sesion.RestaurarAsync()) { Nav.NavigateTo("/login"); return; }
-        if (Sesion.Sesion?.Rol is not ("Admin")) { Nav.NavigateTo("/"); return; }
+        if (Sesion.Sesion?.Rol is not (Roles.Admin)) { Nav.NavigateTo("/"); return; }
         esAdmin = true;
         minutos = await Config.ObtenerMinutosTimeoutAsync();
         await CargarPwd();

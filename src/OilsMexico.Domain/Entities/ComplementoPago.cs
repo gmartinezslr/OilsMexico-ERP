@@ -13,7 +13,7 @@ public sealed class VentaCobro
     public Factura? Factura { get; set; }
     public int ClienteId { get; set; }
     public decimal Monto { get; set; }
-    public string FormaPagoSat { get; set; } = "01";
+    public string FormaPagoSat { get; set; } = CfdiDefaults.FormaPagoCompra;
     public DateTime FechaPagoUtc { get; set; } = DateTime.UtcNow;
     public string? Referencia { get; set; }
     public int UsuarioId { get; set; }

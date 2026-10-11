@@ -336,6 +336,20 @@ public static class SchemaPatch
             ('password_policy_duracion_dias', '90')
             ON CONFLICT (clave) DO NOTHING;
             """);
+
+        // -----------------------------------------------------------------------
+        // Umbrales del análisis de rotación ABC (PUNTO 7 / A7 del handoff).
+        // Fracciones del ingreso acumulado: hasta `abc_umbral_a` = clase A,
+        // hasta `abc_umbral_b` = clase B, el resto = C. `ConfiguracionService`
+        // cae a 0.30/0.70 si las claves faltaran; se siembran aquí para que el
+        // administrador las vea y pueda ajustarlas. ON CONFLICT no pisa valores ya editados.
+        // -----------------------------------------------------------------------
+        await db.Database.ExecuteSqlRawAsync("""
+            INSERT INTO configuracion (clave, valor) VALUES
+            ('abc_umbral_a', '0.30'),
+            ('abc_umbral_b', '0.70')
+            ON CONFLICT (clave) DO NOTHING;
+            """);
         // -----------------------------------------------------------------------
         // RBAC (PUNTO 4) + catálogos posteriores.
         // En una BD creada desde cero, EnsureCreatedAsync ya construye estas

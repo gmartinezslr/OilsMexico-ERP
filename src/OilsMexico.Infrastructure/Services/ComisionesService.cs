@@ -3,6 +3,7 @@ using OilsMexico.Application.DTOs;
 using OilsMexico.Application.Interfaces;
 using OilsMexico.Domain.Entities;
 using OilsMexico.Domain.Enums;
+using OilsMexico.Domain.Services;
 using OilsMexico.Infrastructure.Persistence;
 
 namespace OilsMexico.Infrastructure.Services;
@@ -138,7 +139,7 @@ public sealed partial class ComisionesService(
     // =================================================================================
 
     /// <summary>Roles que cobran comisión. Conta/Almacen operan el sistema, no venden.</summary>
-    private static bool EsRolComisionable(string? rol) => rol is "Vendedor" or "Admin";
+    private static bool EsRolComisionable(string? rol) => rol is Roles.Vendedor or Roles.Admin;
 
     /// <summary>Rango [inicio, fin) del periodo en fechas locales, igual que GestionService.</summary>
     private static (DateTime Desde, DateTime Hasta) RangoPeriodo(int anio, int mes)

@@ -18,7 +18,7 @@ public sealed class FacturacionService(
         int sucursalId, EstadoFactura? estado, string? texto, CancellationToken ct = default)
     {
         // REGLA #1: solo Admin puede consultar otra sucursal.
-        var suc = ctx.Rol == "Admin" ? sucursalId : ctx.SucursalId;
+        var suc = ctx.ResolverSucursalAutorizada(sucursalId);
         var q = db.Facturas.AsNoTracking().Where(f => f.SucursalId == suc);
 
         if (estado is not null)
@@ -55,7 +55,7 @@ public sealed class FacturacionService(
     {
         var f = await db.Facturas.FirstOrDefaultAsync(x => x.Id == facturaId, ct)
             ?? throw new InvalidOperationException("Factura no existe.");
-        if (ctx.Rol != "Admin" && f.SucursalId != ctx.SucursalId)
+        if (!ctx.EsAdmin && f.SucursalId != ctx.SucursalId)
             throw new UnauthorizedAccessException("No puedes timbrar facturas de otra sucursal.");
         if (f.Estado != EstadoFactura.Pendiente)
             throw new InvalidOperationException(
@@ -80,7 +80,7 @@ public sealed class FacturacionService(
     {
         var f = await db.Facturas.FirstOrDefaultAsync(x => x.Id == facturaId, ct)
             ?? throw new InvalidOperationException("Factura no existe.");
-        if (ctx.Rol != "Admin" && f.SucursalId != ctx.SucursalId)
+        if (!ctx.EsAdmin && f.SucursalId != ctx.SucursalId)
             throw new UnauthorizedAccessException("No puedes cancelar facturas de otra sucursal.");
         if (f.Estado is not (EstadoFactura.Timbrada or EstadoFactura.Entregada))
             throw new InvalidOperationException(
@@ -110,7 +110,7 @@ public sealed class FacturacionService(
         var f = await db.Facturas.AsNoTracking()
             .FirstOrDefaultAsync(x => x.Id == facturaId, ct);
         if (f is null) return null;
-        if (ctx.Rol != "Admin" && f.SucursalId != ctx.SucursalId) return null; // aislamiento
+        if (!ctx.EsAdmin && f.SucursalId != ctx.SucursalId) return null; // aislamiento
         return f.XmlSellado;
     }
 }

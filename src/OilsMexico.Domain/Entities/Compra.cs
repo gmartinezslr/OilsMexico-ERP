@@ -55,7 +55,7 @@ public sealed class CompraPago
     public int CompraId { get; set; }
     public Compra? Compra { get; set; }
     public decimal Monto { get; set; }
-    public string FormaPago { get; set; } = "03"; // catálogo SAT c_FormaPago
+    public string FormaPago { get; set; } = CfdiDefaults.FormaPagoCompra; // catálogo SAT c_FormaPago
     public string? Referencia { get; set; }
     public DateTime FechaUtc { get; set; } = DateTime.UtcNow;
     public int UsuarioId { get; set; }

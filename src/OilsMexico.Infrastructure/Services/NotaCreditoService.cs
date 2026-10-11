@@ -22,7 +22,7 @@ public sealed partial class NotaCreditoService(
             .Include(x => x.Cliente)
             .FirstOrDefaultAsync(x => x.Id == facturaOrigenId, ct)
             ?? throw new InvalidOperationException("Factura origen no existe.");
-        if (ctx.Rol != "Admin" && f.SucursalId != ctx.SucursalId)
+        if (!ctx.EsAdmin && f.SucursalId != ctx.SucursalId)
             throw new UnauthorizedAccessException("No puedes acreditar facturas de otra sucursal.");
         var previa = await db.NotasCredito.AsNoTracking()
             .AnyAsync(n => n.FacturaOrigenId == facturaOrigenId && n.Estado != EstadoNotaCredito.Cancelada, ct);

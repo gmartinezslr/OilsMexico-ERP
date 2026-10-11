@@ -778,7 +778,8 @@ public sealed class PacTimbradoService(
 
     private static void ValidarModo(string modo)
     {
-        if (!string.Equals(modo, "TEST", StringComparison.OrdinalIgnoreCase)
+        if (!string.Equals(modo, "SIMULADO", StringComparison.OrdinalIgnoreCase)
+            && !string.Equals(modo, "TEST", StringComparison.OrdinalIgnoreCase)
             && !string.Equals(modo, "PRODUCCION", StringComparison.OrdinalIgnoreCase))
             throw new InvalidOperationException(
                 $"Cfdi:PacModo inválido: '{modo}'. Valores permitidos: SIMULADO, TEST, PRODUCCION.");

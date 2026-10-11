@@ -1,0 +1,38 @@
+
+Datos de clientes / Proveedores e incluso empleados / entrega de mercancía
+
+053340
+
+Datos de clientes / Proveedores e incluso empleados / entrega de mercancía, solo el punto 1 es de Cliente, pero los puntos 2 al 7 deben ser tanto para clientes como para Proveedores
+
+1. quita (SEPOMEX) (solo en Clientes)
+2. en el primer renglón deja solo el Código Postal y la Colonia /Asentamiento
+3. bajo el primer renglón la leyenda: “3 colonia(s) . Ecatepec de Morelos, México debe aparecer abajo de Colonia / Asentamiento”
+4. en el segundo renglón deja solo la Calle 
+5. en el tercer renglón deja los Número exterior y Número Interior
+6. en el cuarto renglón deja el Municipio /Alcaldía y la Ciudad
+7. en el quinto renglón deja el Estado, solo para el administrador debe mostrarse: “Fuente: catalogo nacional SEPOMEX. Actualizar catálogo” 
+
+adicionalmente si entró a Dashboard de gestión vuelve a aparecer el error: "Ocurrió un error inesperado. Los menús siguen funcionando; si algo no responde, recargue la página." y al entrar a Facturación o Notas de crédito aparece en un recuadro con fondo rojo
+
+
+
+Resumen de lo aplicado:
+1. Nueva distribución de la dirección (5 renglones) — DireccionSepomex.razor
+Aplicado a Clientes, Proveedores y Datos de la sucursal (componente compartido):
+		Renglón 1: solo Código Postal y Colonia / Asentamiento.
+		Leyenda justo debajo del combo de Colonia: “N colonia(s) · Municipio, Estado” (p. ej. 3 colonia(s) · Ecatepec de Morelos, México).
+		Renglón 2: solo Calle (ancho completo).
+		Renglón 3: Número exterior y Número interior.
+		Renglón 4: Municipio / Alcaldía y Ciudad.
+		Renglón 5: Estado; la leyenda “Fuente: catálogo nacional SEPOMEX. Actualizar catálogo” solo se muestra si el rol es Admin.
+Además (solo Clientes): encabezado de la sección cambiado de Dirección (SEPOMEX) a Dirección, y se quitaron las referencias “SEPOMEX” de los textos de estado bajo el CP.
+2. Error de DbContext (Dashboard, Facturación, Notas de crédito)
+Causa raíz identificada en la consola: "A second operation was started on this context instance":
+		GestionService.DashboardAsync: había un db.Productos.FindAsync(...).Result dentro de una expresión LINQ (bloqueo síncrono sobre un contexto ya en uso). Reemplazado por una una sola consulta con proyección Detalles → Producto.PrecioCosto (sin N+1, sin .Result).
+		GestionService: RotacionAbcAsync, InventarioPorViscosidadAsync, VentasPorProductoAsync, VentasPorMarcaAsync, VentasPorDiaAsync y VentasPorVendedorAsync devolvían Task.FromResult(...ToList()) — ejecutaban EF síncronamente dentro de un método async. Convertidos a await ...ToListAsync(ct) real.
+		Doble carga en las 3 páginas: OnInitializedAsync/OnParametersSetAsync y OnAfterRenderAsync llamaban a Cargar(), solapando dos cargas sobre el mismo DbContext. Ahora la carga inicial ocurre solo en OnAfterRenderAsync (tras restaurar sesión) con guardia _primeraCarga / if (_cargando) return; anti-reentrada.
+		El Dashboard ahora muestra el error en un alert-danger propio en vez de dejar el banner global de blazor-error-ui.
+Nota: detuve el proceso OilsMexico.Web (PID 15040) que estaba corriendo para poder compilar. Reinicia la app (dotnet run o F5 en VS Code) para probar — recuerda recargar la página en el navegador para descartar el circuito Blazor viejo con el banner de error.
+
+

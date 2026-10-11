@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Components;
+using OilsMexico.Domain.Services;
 using OilsMexico.Infrastructure.Services;
 
 namespace OilsMexico.Web.Components.Pages.ERP;
@@ -19,7 +20,7 @@ public partial class Viscosidad : ComponentBase
     {
         if (!first) return;
         if (!Sesion.Autenticado && !await Sesion.RestaurarAsync()) { Nav.NavigateTo("/login"); return; }
-        if (Sesion.Sesion?.Rol is not ("Admin" or "Almacen")) { Nav.NavigateTo("/"); return; }
+        if (Sesion.Sesion?.Rol is not (Roles.Admin or Roles.Almacen)) { Nav.NavigateTo("/"); return; }
         await Cargar();
         StateHasChanged();
     }

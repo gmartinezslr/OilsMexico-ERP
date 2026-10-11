@@ -17,7 +17,7 @@ public sealed partial class ComplementoPagoService(
 {
     public async Task<List<VentaPpdPendienteDto>> PendientesAsync(int sucursalId, CancellationToken ct = default)
     {
-        var suc = ctx.Rol == "Admin" ? sucursalId : ctx.SucursalId;
+        var suc = ctx.ResolverSucursalAutorizada(sucursalId);
         var facturas = await db.Facturas.AsNoTracking()
             .Include(f => f.Cliente)
             .Where(f => f.SucursalId == suc && f.MetodoPagoSat == "PPD"

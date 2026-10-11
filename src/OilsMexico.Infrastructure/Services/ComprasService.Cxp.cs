@@ -14,7 +14,7 @@ public sealed partial class ComprasService
         var compra = await db.Compras.Include(c => c.Detalles)
             .FirstOrDefaultAsync(c => c.Id == compraId, ct)
             ?? throw new InvalidOperationException("Compra no existe.");
-        if (ctx.Rol != "Admin" && compra.SucursalId != ctx.SucursalId)
+        if (!ctx.EsAdmin && compra.SucursalId != ctx.SucursalId)
             throw new UnauthorizedAccessException("No puedes cancelar compras de otra sucursal.");
         if (compra.Estado == EstadoCompra.Recibida)
             throw new InvalidOperationException("Ya fue recibida; registra una devolución en Almacén.");
@@ -31,7 +31,7 @@ public sealed partial class ComprasService
     {
         var compra = await db.Compras.FirstOrDefaultAsync(c => c.Id == req.CompraId, ct)
             ?? throw new InvalidOperationException("Compra no existe.");
-        if (ctx.Rol != "Admin" && compra.SucursalId != ctx.SucursalId)
+        if (!ctx.EsAdmin && compra.SucursalId != ctx.SucursalId)
             throw new UnauthorizedAccessException("No puedes pagar compras de otra sucursal.");
         if (compra.Estado == EstadoCompra.Cancelada) throw new InvalidOperationException("La compra está cancelada.");
         if (req.Monto <= 0) throw new InvalidOperationException("El monto debe ser mayor a cero.");

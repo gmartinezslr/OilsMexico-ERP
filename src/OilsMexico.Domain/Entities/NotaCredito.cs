@@ -29,8 +29,8 @@ public sealed class NotaCredito
     public decimal Total { get; set; }
     /// <summary>Devolucion | Descuento | Bonificacion.</summary>
     public string Motivo { get; set; } = "Devolucion";
-    public string UsoCfdi { get; set; } = "G02";
-    public string TipoRelacion { get; set; } = "01";
+    public string UsoCfdi { get; set; } = CfdiDefaults.UsoCfdiNotaCredito;
+    public string TipoRelacion { get; set; } = CfdiDefaults.TipoRelacionNotaCredito;
     public string? XmlSellado { get; set; }
     public string? SelloDigital { get; set; }
     public string? CadenaOriginal { get; set; }

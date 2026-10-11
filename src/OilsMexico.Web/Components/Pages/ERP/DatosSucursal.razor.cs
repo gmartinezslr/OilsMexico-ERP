@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.EntityFrameworkCore;
 using OilsMexico.Application.DTOs;
 using OilsMexico.Domain.Entities;
+using OilsMexico.Domain.Services;
 
 namespace OilsMexico.Web.Components.Pages.ERP;
 
@@ -17,7 +18,7 @@ public partial class DatosSucursal : ComponentBase
     {
         if (!Sesion.Autenticado) return;
         catalogos = Sat.Obtener();
-        esAdmin = Sesion.Sesion?.Rol == "Admin";
+        esAdmin = Sesion.Sesion?.Rol == Roles.Admin;
         await Cargar();
     }
 
@@ -25,8 +26,8 @@ public partial class DatosSucursal : ComponentBase
     {
         if (!first) return;
         if (!Sesion.Autenticado && !await Sesion.RestaurarAsync()) { Nav.NavigateTo("/login"); return; }
-        if (Sesion.Sesion?.Rol is not ("Admin")) { Nav.NavigateTo("/"); return; }
-        esAdmin = Sesion.Sesion?.Rol == "Admin";
+        if (Sesion.Sesion?.Rol is not (Roles.Admin)) { Nav.NavigateTo("/"); return; }
+        esAdmin = Sesion.Sesion?.Rol == Roles.Admin;
         StateHasChanged();
     }
 

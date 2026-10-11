@@ -10,7 +10,7 @@ public sealed partial class ComprasService
     public async Task<List<CompraListadoDto>> ListarAsync(
         int sucursalId, EstadoCompra? estado, string? texto, CancellationToken ct = default)
     {
-        var suc = ctx.Rol == "Admin" ? sucursalId : ctx.SucursalId;
+        var suc = ctx.ResolverSucursalAutorizada(sucursalId);
         var q = db.Compras.AsNoTracking().Where(c => c.SucursalId == suc);
         if (estado is not null) q = q.Where(c => c.Estado == estado);
         if (!string.IsNullOrWhiteSpace(texto))
@@ -43,7 +43,7 @@ public sealed partial class ComprasService
             .Include(x => x.Detalles).ThenInclude(d => d.Producto)
             .FirstOrDefaultAsync(x => x.Id == compraId, ct);
         if (c is null) return null;
-        if (ctx.Rol != "Admin" && c.SucursalId != ctx.SucursalId) return null;
+        if (!ctx.EsAdmin && c.SucursalId != ctx.SucursalId) return null;
         var pagos = await (from p in db.CompraPagos.AsNoTracking()
                            join u in db.Usuarios.AsNoTracking() on p.UsuarioId equals u.Id into uj
                            from u in uj.DefaultIfEmpty()
@@ -67,7 +67,7 @@ public sealed partial class ComprasService
     public async Task<List<CuentasPorPagarDto>> CuentasPorPagarAsync(
         int sucursalId, string? texto, CancellationToken ct = default)
     {
-        var suc = ctx.Rol == "Admin" ? sucursalId : ctx.SucursalId;
+        var suc = ctx.ResolverSucursalAutorizada(sucursalId);
         var q = db.Compras.AsNoTracking()
             .Where(c => c.SucursalId == suc && c.Estado != EstadoCompra.Cancelada && c.Total - c.MontoPagado > 0.01m);
         if (!string.IsNullOrWhiteSpace(texto))

@@ -1,3 +1,5 @@
+using OilsMexico.Domain.Services;
+
 namespace OilsMexico.Domain.Entities;
 
 /// <summary>Operador del ERP con PIN (heredado del sistema PHP) + sucursal asignada.</summary>
@@ -9,7 +11,7 @@ public sealed class Usuario
     public string PinHash { get; set; } = string.Empty; // PIN legacy; la contraseña es la credencial principal
     public string PasswordHash { get; set; } = string.Empty;
     /// <summary>REGLA INMUTABLE: cadena heredada (Admin | Vendedor | Almacen | Conta). Se mantiene por compatibilidad; el modelo real es <see cref="RoleId"/>.</summary>
-    public string Rol { get; set; } = "Vendedor";
+    public string Rol { get; set; } = Roles.Vendedor;
     public int? RoleId { get; set; }
     public Role? Role { get; set; }
     public int SucursalId { get; set; }

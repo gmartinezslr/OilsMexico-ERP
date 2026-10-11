@@ -44,7 +44,7 @@ public sealed class InventarioService(ErpDbContext db, ISucursalContext ctx) : I
     public async Task TraspasoAsync(int origenId, int destinoId, int productoId,
         decimal litros, int usuarioId, CancellationToken ct = default)
     {
-        if (ctx.Rol != "Admin" && ctx.SucursalId != origenId)
+        if (!ctx.EsAdmin && ctx.SucursalId != origenId)
             throw new UnauthorizedAccessException("Traspaso no autorizado.");
         var origen = await BuscarOCrear(origenId, productoId, null, ct);
         if (origen.StockActual < litros)
@@ -67,7 +67,7 @@ public sealed class InventarioService(ErpDbContext db, ISucursalContext ctx) : I
 
     private void ValidarSucursal(int sucursalId)
     {
-        if (ctx.Rol != "Admin" && ctx.SucursalId != sucursalId)
+        if (!ctx.EsAdmin && ctx.SucursalId != sucursalId)
             throw new UnauthorizedAccessException("Operación fuera de tu sucursal.");
     }
 

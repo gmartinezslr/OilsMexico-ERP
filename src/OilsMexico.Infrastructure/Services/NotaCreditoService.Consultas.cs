@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using OilsMexico.Application.DTOs;
 using OilsMexico.Domain.Enums;
+using OilsMexico.Domain.Services;
 
 namespace OilsMexico.Infrastructure.Services;
 
@@ -9,7 +10,7 @@ public sealed partial class NotaCreditoService
     public async Task<List<NotaCreditoListadoDto>> ListarAsync(
         int sucursalId, EstadoNotaCredito? estado, string? texto, CancellationToken ct = default)
     {
-        var suc = ctx.Rol == "Admin" ? sucursalId : ctx.SucursalId;
+        var suc = ctx.ResolverSucursalAutorizada(sucursalId);
         var q = db.NotasCredito.AsNoTracking().Where(n => n.SucursalId == suc);
         if (estado is not null) q = q.Where(n => n.Estado == estado);
         if (!string.IsNullOrWhiteSpace(texto))
@@ -32,7 +33,7 @@ public sealed partial class NotaCreditoService
         var n = await db.NotasCredito.AsNoTracking()
             .FirstOrDefaultAsync(x => x.Id == notaId, ct);
         if (n is null) return null;
-        if (ctx.Rol != "Admin" && n.SucursalId != ctx.SucursalId) return null;
+        if (!ctx.EsAdmin && n.SucursalId != ctx.SucursalId) return null;
         return n.XmlSellado;
     }
 
@@ -42,9 +43,9 @@ public sealed partial class NotaCreditoService
             .Include(x => x.FacturaOrigen) // necesario para revertir su estado (no hay lazy loading)
             .FirstOrDefaultAsync(x => x.Id == notaId, ct)
             ?? throw new InvalidOperationException("Nota de crédito no existe.");
-        if (ctx.Rol is not ("Admin" or "Conta") && n.SucursalId != ctx.SucursalId)
+        if (ctx.Rol is not (Roles.Admin or Roles.Conta) && n.SucursalId != ctx.SucursalId)
             throw new UnauthorizedAccessException("No puedes cancelar NC de otra sucursal.");
-        if (ctx.Rol is not ("Admin" or "Conta"))
+        if (ctx.Rol is not (Roles.Admin or Roles.Conta))
             throw new UnauthorizedAccessException("Solo Admin/Conta cancelan NC.");
         if (n.Estado != EstadoNotaCredito.Timbrada)
             throw new InvalidOperationException($"Solo se cancelan NC timbradas (actual: {n.Estado}).");

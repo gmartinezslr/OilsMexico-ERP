@@ -98,5 +98,5 @@
 </div>
 
 @code {
-    private bool EsAdmin => string.Equals(Sesion.Sesion?.Rol, "Admin", StringComparison.OrdinalIgnoreCase);
+    private bool EsAdmin => string.Equals(Sesion.Sesion?.Rol, Roles.Admin, StringComparison.OrdinalIgnoreCase);
 }

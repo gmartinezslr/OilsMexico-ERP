@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using System.Text;
 using Microsoft.EntityFrameworkCore;
 using OilsMexico.Domain.Entities;
+using OilsMexico.Domain.Services;
 using OilsMexico.Infrastructure.Persistence;
 using OilsMexico.Infrastructure.Services;
 
@@ -14,7 +15,7 @@ public static class SeedData
         await db.Database.EnsureCreatedAsync();
         // EnsureCreated no altera BDs existentes: parcheamos tablas/columnas nuevas (SEPOMEX).
         await SchemaPatch.AplicarAsync(db);
-        var admins = await db.Usuarios.Where(u => u.Rol == "Admin" && u.Activo && u.Correo == null)
+        var admins = await db.Usuarios.Where(u => u.Rol == Roles.Admin && u.Activo && u.Correo == null)
             .OrderBy(u => u.Id).ToListAsync();
         foreach (var admin in admins)
         {
@@ -33,7 +34,10 @@ public static class SeedData
             (ConfiguracionService.ClavePasswordDuracionDias, "90"),
             (ConfiguracionService.ClaveLoginMaxIntentos, "3"),
             (ConfiguracionService.ClaveLoginMinutosBloqueo, "30"),
-            (ConfiguracionService.ClaveLoginBloqueosDefinitivo, "2")
+            (ConfiguracionService.ClaveLoginBloqueosDefinitivo, "2"),
+            // Umbrales de rotación ABC (fracciones del ingreso acumulado; editar desde Configuración).
+            (ConfiguracionService.ClaveAbcUmbralA, "0.30"),
+            (ConfiguracionService.ClaveAbcUmbralB, "0.70")
         };
         var clavesExistentes = await db.Configuracion.AsNoTracking().Select(c => c.Clave).ToListAsync();
         foreach (var (clave, valor) in clavesConfig)
@@ -94,10 +98,10 @@ public static class SeedData
 
         string Pin(string pin) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(pin)));
         db.Usuarios.AddRange(
-            new Usuario { Nombre = "Admin", Correo = "admin@oilsmexico.local", PinHash = Pin("1234"), PasswordHash = Pin("1234"), Rol = "Admin", SucursalId = s1.Id },
-            new Usuario { Nombre = "Vendedor1", Correo = "vendedor@oilsmexico.local", PinHash = Pin("1111"), PasswordHash = Pin("1111"), Rol = "Vendedor", SucursalId = s1.Id },
-            new Usuario { Nombre = "Almacen", Correo = "almacen@oilsmexico.local", PinHash = Pin("2222"), PasswordHash = Pin("2222"), Rol = "Almacen", SucursalId = s1.Id },
-            new Usuario { Nombre = "Conta", Correo = "conta@oilsmexico.local", PinHash = Pin("3333"), PasswordHash = Pin("3333"), Rol = "Conta", SucursalId = s1.Id });
+            new Usuario { Nombre = "Admin", Correo = "admin@oilsmexico.local", PinHash = Pin("1234"), PasswordHash = Pin("1234"), Rol = Roles.Admin, SucursalId = s1.Id },
+            new Usuario { Nombre = "Vendedor1", Correo = "vendedor@oilsmexico.local", PinHash = Pin("1111"), PasswordHash = Pin("1111"), Rol = Roles.Vendedor, SucursalId = s1.Id },
+            new Usuario { Nombre = "Almacen", Correo = "almacen@oilsmexico.local", PinHash = Pin("2222"), PasswordHash = Pin("2222"), Rol = Roles.Almacen, SucursalId = s1.Id },
+            new Usuario { Nombre = "Conta", Correo = "conta@oilsmexico.local", PinHash = Pin("3333"), PasswordHash = Pin("3333"), Rol = Roles.Conta, SucursalId = s1.Id });
         await db.SaveChangesAsync();
 
         var lote = new InventarioLote { ProductoId = productos[0].Id, NumeroLote = "L-2026-001", FechaFabricacion = new DateOnly(2026, 1, 10), FechaCaducidad = new DateOnly(2029, 1, 10), CantidadDisponible = 500 };

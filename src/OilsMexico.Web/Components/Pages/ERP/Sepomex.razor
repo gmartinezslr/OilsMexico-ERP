@@ -84,7 +84,7 @@
     protected override async Task OnInitializedAsync()
     {
         if (!Sesion.Autenticado && !await Sesion.RestaurarAsync()) return;
-        if (Sesion.Sesion?.Rol == "Admin")
+        if (Sesion.Sesion?.Rol == Roles.Admin)
             stats = await SepomexSvc.EstadisticasAsync();
     }
 
@@ -92,7 +92,7 @@
     {
         if (!first) return;
         if (!Sesion.Autenticado && !await Sesion.RestaurarAsync()) { Nav.NavigateTo("/login"); return; }
-        if (Sesion.Sesion?.Rol is not ("Admin")) { Nav.NavigateTo("/"); return; }
+        if (Sesion.Sesion?.Rol is not (Roles.Admin)) { Nav.NavigateTo("/"); return; }
         StateHasChanged();
     }
 

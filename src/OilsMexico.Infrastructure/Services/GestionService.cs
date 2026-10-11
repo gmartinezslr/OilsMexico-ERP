@@ -7,7 +7,7 @@ using OilsMexico.Infrastructure.Persistence;
 
 namespace OilsMexico.Infrastructure.Services;
 
-public sealed partial class GestionService(ErpDbContext db, ISucursalContext ctx) : IGestionService
+public sealed partial class GestionService(ErpDbContext db, ISucursalContext ctx, IConfiguracionService config) : IGestionService
 {
     public async Task<DashboardGestionDto> DashboardAsync(int sucursalId, DateTime desde, DateTime hasta, CancellationToken ct = default)
     {
@@ -61,6 +61,9 @@ public sealed partial class GestionService(ErpDbContext db, ISucursalContext ctx
         var desdeUtc = DateTime.SpecifyKind(desde.Date, DateTimeKind.Local).ToUniversalTime();
         var hastaUtc = DateTime.SpecifyKind(hasta.Date.AddDays(1), DateTimeKind.Local).ToUniversalTime();
 
+        // Umbrales ABC configurables (tabla configuracion); caen a 0.30/0.70 si no están definidos.
+        var (umbralA, umbralB) = await config.ObtenerUmbralesAbcAsync(ct);
+
         var ventas = await db.FacturaDetalles.AsNoTracking()
             .Join(db.Facturas.AsNoTracking(), d => d.FacturaId, f => f.Id, (d, f) => new { d, f })
             .Where(x => x.f.SucursalId == sucursalId
@@ -87,11 +90,11 @@ public sealed partial class GestionService(ErpDbContext db, ISucursalContext ctx
         foreach (var v in ventas)
         {
             acumulado += v.Importe;
-            var clase = acumulado / Math.Max(1m, total) <= 0.30m ? "A"
-                        : acumulado / Math.Max(1m, total) <= 0.70m ? "B" : "C";
+            var pct = acumulado / Math.Max(1m, total);
+            var clase = pct <= umbralA ? "A" : pct <= umbralB ? "B" : "C";
             resultado.Add(new RotacionABCDto(
                 v.ProductoId, productos.GetValueOrDefault(v.ProductoId) ?? $"Prod #{v.ProductoId}",
-                v.Cantidad, Math.Round(v.Importe, 2), Math.Round(acumulado / Math.Max(1m, total) * 100, 1), clase));
+                v.Cantidad, Math.Round(v.Importe, 2), Math.Round(pct * 100, 1), clase));
         }
 
         return resultado;
@@ -99,7 +102,7 @@ public sealed partial class GestionService(ErpDbContext db, ISucursalContext ctx
 
     public async Task<List<CorteSucursalDto>> CortesPorSucursalAsync(int sucursalId, CancellationToken ct = default)
     {
-        var idsSucursal = ctx.Rol == "Admin"
+        var idsSucursal = ctx.EsAdmin
             ? await db.Sucursales.AsNoTracking().Select(s => s.Id).ToListAsync(ct)
             : new List<int> { sucursalId };
 

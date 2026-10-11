@@ -1,15 +1,20 @@
+using OilsMexico.Domain.Services;
+
 namespace OilsMexico.Application.DTOs;
 
 public sealed record SesionDto(
     int UsuarioId, string Nombre, string Rol, int SucursalId, string SucursalNombre, string? SesionToken = null)
 {
+    /// <summary>¿La sesión es de administrador? Centraliza el literal Roles.Admin en la capa Web.</summary>
+    public bool EsAdmin => Rol == Roles.Admin;
+
     /// <summary>Área funcional legible del rol (para mostrar en UI).</summary>
     public string Area => Rol switch
     {
-        "Vendedor" => "Ventas",
-        "Almacen" => "Almacén",
-        "Conta" => "Contabilidad",
-        "Admin" => "Administración",
+        Roles.Vendedor => "Ventas",
+        Roles.Almacen => "Almacén",
+        Roles.Conta => "Contabilidad",
+        Roles.Admin => "Administración",
         _ => Rol
     };
 

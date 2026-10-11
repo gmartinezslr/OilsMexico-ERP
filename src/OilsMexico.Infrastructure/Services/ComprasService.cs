@@ -13,7 +13,7 @@ public sealed partial class ComprasService(ErpDbContext db, ISucursalContext ctx
 {
     public async Task<CompraResult> CrearOrdenAsync(CrearCompraRequest req, CancellationToken ct = default)
     {
-        var sucursalId = ctx.Rol == "Admin" ? req.SucursalId : ctx.SucursalId;
+        var sucursalId = ctx.ResolverSucursalAutorizada(req.SucursalId);
         if (req.Renglones.Count == 0) throw new InvalidOperationException("La orden no tiene renglones.");
         var prov = await db.Proveedores.FindAsync([req.ProveedorId], ct)
             ?? throw new InvalidOperationException("Proveedor no existe.");
@@ -58,7 +58,7 @@ public sealed partial class ComprasService(ErpDbContext db, ISucursalContext ctx
         var compra = await db.Compras.Include(c => c.Detalles)
             .FirstOrDefaultAsync(c => c.Id == req.CompraId, ct)
             ?? throw new InvalidOperationException("Compra no existe.");
-        if (ctx.Rol != "Admin" && compra.SucursalId != ctx.SucursalId)
+        if (!ctx.EsAdmin && compra.SucursalId != ctx.SucursalId)
             throw new UnauthorizedAccessException("No puedes recibir compras de otra sucursal.");
         if (compra.Estado == EstadoCompra.Cancelada) throw new InvalidOperationException("La compra está cancelada.");
         if (compra.Estado == EstadoCompra.Recibida) throw new InvalidOperationException("La compra ya fue recibida.");

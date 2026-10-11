@@ -1,0 +1,97 @@
+D:\GMS\Jerry\OilsMexico\src\OilsMexico.Application\Interfaces\Servicios.cs:24: /// <see cref="Roles.Admin"/> (antes repetida como el literal "Admin" en decenas de sitios).
+D:\GMS\Jerry\OilsMexico\src\OilsMexico.Application\Interfaces\Servicios.cs:32: /// patrón <c>Rol == "Admin" ? solicitada : SucursalId</c> que estaba duplicado en ~12 servicios
+D:\GMS\Jerry\OilsMexico\src\OilsMexico.Application\Services\ContextoCatalogos.cs:10: /// cualquier ruta que consulte <c>Rol == "Admin"</c> sin haber pasado por
+D:\GMS\Jerry\OilsMexico\src\OilsMexico.Domain\Entities\Usuario.cs:12: public string Rol { get; set; } = "Vendedor";
+D:\GMS\Jerry\OilsMexico\src\OilsMexico.Infrastructure\Persistence\SchemaPatch.cs:227: //    que vendió y el legado PHP tampoco tiene "vendedor"), así que NULL = "sin atribución
+D:\GMS\Jerry\OilsMexico\src\OilsMexico.Infrastructure\Persistence\SeedData.cs:17: var admins = await db.Usuarios.Where(u => u.Rol == "Admin" && u.Activo && u.Correo == null)
+D:\GMS\Jerry\OilsMexico\src\OilsMexico.Infrastructure\Persistence\SeedData.cs:100: new Usuario { Nombre = "Admin", Correo = "admin@oilsmexico.local", PinHash = Pin("1234"), PasswordHash = Pin("1234"), Rol = "Admin", SucursalId = s1.Id },
+D:\GMS\Jerry\OilsMexico\src\OilsMexico.Infrastructure\Persistence\SeedData.cs:101: new Usuario { Nombre = "Vendedor1", Correo = "vendedor@oilsmexico.local", PinHash = Pin("1111"), PasswordHash = Pin("1111"), Rol = "Vendedor", SucursalId = s1.Id },
+D:\GMS\Jerry\OilsMexico\src\OilsMexico.Infrastructure\Persistence\SeedData.cs:102: new Usuario { Nombre = "Almacen", Correo = "almacen@oilsmexico.local", PinHash = Pin("2222"), PasswordHash = Pin("2222"), Rol = "Almacen", SucursalId = s1.Id },
+D:\GMS\Jerry\OilsMexico\src\OilsMexico.Infrastructure\Persistence\SeedData.cs:103: new Usuario { Nombre = "Conta", Correo = "conta@oilsmexico.local", PinHash = Pin("3333"), PasswordHash = Pin("3333"), Rol = "Conta", SucursalId = s1.Id });
+D:\GMS\Jerry\OilsMexico\src\OilsMexico.Infrastructure\Services\ComisionesService.Auth.cs:28: protected bool EsAdmin => RolSesion == "Admin";
+D:\GMS\Jerry\OilsMexico\src\OilsMexico.Infrastructure\Services\ComisionesService.cs:141: private static bool EsRolComisionable(string? rol) => rol is "Vendedor" or "Admin";
+D:\GMS\Jerry\OilsMexico\src\OilsMexico.Infrastructure\Services\NotaCreditoService.Consultas.cs:45: if (ctx.Rol is not ("Admin" or "Conta") && n.SucursalId != ctx.SucursalId)
+D:\GMS\Jerry\OilsMexico\src\OilsMexico.Infrastructure\Services\NotaCreditoService.Consultas.cs:47: if (ctx.Rol is not ("Admin" or "Conta"))
+D:\GMS\Jerry\OilsMexico\src\OilsMexico.Infrastructure\Services\VentasService.Venta.cs:147: && (u.Rol == "Vendedor" || u.Rol == "Admin"), ct);
+D:\GMS\Jerry\OilsMexico\src\OilsMexico.Web\Components\Layout\NavMenu.razor:10: @if (Sesion.Sesion?.Rol is "Admin" or "Vendedor" or "Almacen" or "Conta")
+D:\GMS\Jerry\OilsMexico\src\OilsMexico.Web\Components\Layout\NavMenu.razor:38: @if (Sesion.Sesion?.Rol is "Admin" or "Vendedor" or "Conta")
+D:\GMS\Jerry\OilsMexico\src\OilsMexico.Web\Components\Layout\NavMenu.razor:53: @if (Sesion.Sesion?.Rol is "Admin" or "Vendedor")
+D:\GMS\Jerry\OilsMexico\src\OilsMexico.Web\Components\Layout\NavMenu.razor:63: @if (Sesion.Sesion?.Rol is "Admin" or "Vendedor" or "Conta")
+D:\GMS\Jerry\OilsMexico\src\OilsMexico.Web\Components\Layout\NavMenu.razor:73: @if (Sesion.Sesion?.Rol is "Admin" or "Vendedor" or "Conta")
+D:\GMS\Jerry\OilsMexico\src\OilsMexico.Web\Components\Layout\NavMenu.razor:83: @if (Sesion.Sesion?.Rol is "Admin" or "Vendedor" or "Conta")
+D:\GMS\Jerry\OilsMexico\src\OilsMexico.Web\Components\Layout\NavMenu.razor:93: @if (Sesion.Sesion?.Rol is "Admin" or "Conta")
+D:\GMS\Jerry\OilsMexico\src\OilsMexico.Web\Components\Layout\NavMenu.razor:103: @if (Sesion.Sesion?.Rol is "Admin" or "Vendedor")
+D:\GMS\Jerry\OilsMexico\src\OilsMexico.Web\Components\Layout\NavMenu.razor:115: @if (Sesion.Sesion?.Rol is "Admin" or "Vendedor")
+D:\GMS\Jerry\OilsMexico\src\OilsMexico.Web\Components\Layout\NavMenu.razor:130: @if (Sesion.Sesion?.Rol is "Admin" or "Conta")
+D:\GMS\Jerry\OilsMexico\src\OilsMexico.Web\Components\Layout\NavMenu.razor:164: @if (Sesion.Sesion?.Rol is "Admin" or "Almacen")
+D:\GMS\Jerry\OilsMexico\src\OilsMexico.Web\Components\Layout\NavMenu.razor:166: <div class="nav-group @(GrupoAbierto == "almacen" ? "is-open" : "")">
+D:\GMS\Jerry\OilsMexico\src\OilsMexico.Web\Components\Layout\NavMenu.razor:167: <button type="button" class="nav-group-header" @onclick='() => Alternar("almacen")'
+D:\GMS\Jerry\OilsMexico\src\OilsMexico.Web\Components\Layout\NavMenu.razor:168: aria-expanded="@(GrupoAbierto == "almacen")" aria-controls="sub-almacen">
+D:\GMS\Jerry\OilsMexico\src\OilsMexico.Web\Components\Layout\NavMenu.razor:175: @if (GrupoAbierto == "almacen")
+D:\GMS\Jerry\OilsMexico\src\OilsMexico.Web\Components\Layout\NavMenu.razor:186: <NavLink class="nav-link" href="almacen">
+D:\GMS\Jerry\OilsMexico\src\OilsMexico.Web\Components\Layout\NavMenu.razor:211: @if (Sesion.Sesion?.Rol is "Admin" or "Vendedor")
+D:\GMS\Jerry\OilsMexico\src\OilsMexico.Web\Components\Layout\NavMenu.razor:244: @if (Sesion.Sesion?.Rol is "Admin")
+D:\GMS\Jerry\OilsMexico\src\OilsMexico.Web\Components\Layout\NavMenu.razor:349: else if (url.StartsWith("productos") || url.StartsWith("almacen") ||
+D:\GMS\Jerry\OilsMexico\src\OilsMexico.Web\Components\Layout\NavMenu.razor:352: GrupoAbierto = "almacen";
+D:\GMS\Jerry\OilsMexico\src\OilsMexico.Web\Components\Pages\ERP\Almacen.razor:87: if(Sesion.Sesion?.Rol is not ("Admin" or "Almacen")){ Nav.NavigateTo("/"); return; }
+D:\GMS\Jerry\OilsMexico\src\OilsMexico.Web\Components\Pages\ERP\Clientes.razor.cs:36: if (Sesion.Sesion?.Rol is not ("Admin" or "Vendedor")) { Nav.NavigateTo("/"); return; }
+D:\GMS\Jerry\OilsMexico\src\OilsMexico.Web\Components\Pages\ERP\Clientes.razor.cs:46: .Where(u => u.Activo && (u.Rol == "Vendedor" || u.Rol == "Admin"))
+D:\GMS\Jerry\OilsMexico\src\OilsMexico.Web\Components\Pages\ERP\ComplementosPago.razor.cs:28: if (Sesion.Sesion?.Rol is not ("Admin" or "Conta")) { Nav.NavigateTo("/"); return; }
+D:\GMS\Jerry\OilsMexico\src\OilsMexico.Web\Components\Pages\ERP\Compras.razor.cs:61: if (Sesion.Sesion?.Rol is not ("Admin" or "Almacen")) { Nav.NavigateTo("/"); return; }
+D:\GMS\Jerry\OilsMexico\src\OilsMexico.Web\Components\Pages\ERP\Configuracion.razor.cs:28: esAdmin = Sesion.Sesion?.Rol == "Admin";
+D:\GMS\Jerry\OilsMexico\src\OilsMexico.Web\Components\Pages\ERP\Configuracion.razor.cs:41: if (Sesion.Sesion?.Rol is not ("Admin")) { Nav.NavigateTo("/"); return; }
+D:\GMS\Jerry\OilsMexico\src\OilsMexico.Web\Components\Pages\ERP\CorteCaja.razor.cs:22: if (Sesion.Sesion?.Rol is not ("Admin" or "Vendedor")) { Nav.NavigateTo("/"); return; }
+D:\GMS\Jerry\OilsMexico\src\OilsMexico.Web\Components\Pages\ERP\DatosSucursal.razor.cs:20: esAdmin = Sesion.Sesion?.Rol == "Admin";
+D:\GMS\Jerry\OilsMexico\src\OilsMexico.Web\Components\Pages\ERP\DatosSucursal.razor.cs:28: if (Sesion.Sesion?.Rol is not ("Admin")) { Nav.NavigateTo("/"); return; }
+D:\GMS\Jerry\OilsMexico\src\OilsMexico.Web\Components\Pages\ERP\DatosSucursal.razor.cs:29: esAdmin = Sesion.Sesion?.Rol == "Admin";
+D:\GMS\Jerry\OilsMexico\src\OilsMexico.Web\Components\Pages\ERP\EstadoCuentas.razor.cs:19: if (Sesion.Autenticado && Sesion.Sesion?.Rol is ("Admin" or "Conta"))
+D:\GMS\Jerry\OilsMexico\src\OilsMexico.Web\Components\Pages\ERP\EstadoCuentas.razor.cs:28: if (Sesion.Sesion?.Rol is not ("Admin" or "Conta")) { Nav.NavigateTo("/"); return; }
+D:\GMS\Jerry\OilsMexico\src\OilsMexico.Web\Components\Pages\ERP\Facturacion.razor.cs:20: puedeCancelar = Sesion.Sesion?.Rol is "Admin" or "Conta";
+D:\GMS\Jerry\OilsMexico\src\OilsMexico.Web\Components\Pages\ERP\Facturacion.razor.cs:30: if (Sesion.Sesion?.Rol is not ("Admin" or "Vendedor" or "Conta")) { Nav.NavigateTo("/"); return; }
+D:\GMS\Jerry\OilsMexico\src\OilsMexico.Web\Components\Pages\ERP\Facturacion.razor.cs:31: puedeCancelar = Sesion.Sesion?.Rol is "Admin" or "Conta";
+D:\GMS\Jerry\OilsMexico\src\OilsMexico.Web\Components\Pages\ERP\HistorialVentas.razor.cs:27: if (Sesion.Sesion?.Rol is not ("Admin" or "Vendedor" or "Conta")) { Nav.NavigateTo("/"); return; }
+D:\GMS\Jerry\OilsMexico\src\OilsMexico.Web\Components\Pages\ERP\Metas.razor.cs:52: private bool EsAdmin => Sesion.Sesion?.Rol == "Admin";
+D:\GMS\Jerry\OilsMexico\src\OilsMexico.Web\Components\Pages\ERP\Metas.razor.cs:68: if (Sesion.Sesion?.Rol is not ("Admin" or "Vendedor")) { Nav.NavigateTo("/"); return; }
+D:\GMS\Jerry\OilsMexico\src\OilsMexico.Web\Components\Pages\ERP\Metas.razor.cs:82: .Where(u => u.Activo && (u.Rol == "Vendedor" || u.Rol == "Admin"))
+D:\GMS\Jerry\OilsMexico\src\OilsMexico.Web\Components\Pages\ERP\NotasCredito.razor.cs:24: puedeCancelar = Sesion.Sesion?.Rol is "Admin" or "Conta";
+D:\GMS\Jerry\OilsMexico\src\OilsMexico.Web\Components\Pages\ERP\NotasCredito.razor.cs:34: if (Sesion.Sesion?.Rol is not ("Admin" or "Vendedor" or "Conta")) { Nav.NavigateTo("/"); return; }
+D:\GMS\Jerry\OilsMexico\src\OilsMexico.Web\Components\Pages\ERP\NotasCredito.razor.cs:35: puedeCancelar = Sesion.Sesion?.Rol is "Admin" or "Conta";
+D:\GMS\Jerry\OilsMexico\src\OilsMexico.Web\Components\Pages\ERP\Productos.razor.cs:42: if (Sesion.Sesion?.Rol is not ("Admin" or "Almacen")) { Nav.NavigateTo("/"); return; }
+D:\GMS\Jerry\OilsMexico\src\OilsMexico.Web\Components\Pages\ERP\Proveedores.razor.cs:27: if (Sesion.Sesion?.Rol is not ("Admin" or "Vendedor")) { Nav.NavigateTo("/"); return; }
+D:\GMS\Jerry\OilsMexico\src\OilsMexico.Web\Components\Pages\ERP\Sepomex.razor:87: if (Sesion.Sesion?.Rol == "Admin")
+D:\GMS\Jerry\OilsMexico\src\OilsMexico.Web\Components\Pages\ERP\Sepomex.razor:95: if (Sesion.Sesion?.Rol is not ("Admin")) { Nav.NavigateTo("/"); return; }
+D:\GMS\Jerry\OilsMexico\src\OilsMexico.Web\Components\Pages\ERP\Ticket.razor:44: if (Sesion.Sesion?.Rol is not ("Admin" or "Vendedor" or "Conta")) { Nav.NavigateTo("/"); return; }
+D:\GMS\Jerry\OilsMexico\src\OilsMexico.Web\Components\Pages\ERP\Usuarios.razor:89: <option value="Admin">Admin — Administración</option>
+D:\GMS\Jerry\OilsMexico\src\OilsMexico.Web\Components\Pages\ERP\Usuarios.razor:90: <option value="Vendedor">Vendedor — Ventas</option>
+D:\GMS\Jerry\OilsMexico\src\OilsMexico.Web\Components\Pages\ERP\Usuarios.razor:91: <option value="Almacen">Almacen — Almacén</option>
+D:\GMS\Jerry\OilsMexico\src\OilsMexico.Web\Components\Pages\ERP\Usuarios.razor:92: <option value="Conta">Conta — Contabilidad</option>
+D:\GMS\Jerry\OilsMexico\src\OilsMexico.Web\Components\Pages\ERP\Usuarios.razor.cs:9: private static readonly string[] RolesValidos = ["Admin", "Vendedor", "Almacen", "Conta"];
+D:\GMS\Jerry\OilsMexico\src\OilsMexico.Web\Components\Pages\ERP\Usuarios.razor.cs:15: private Usuario edit = new() { Rol = "Vendedor", Activo = true };
+D:\GMS\Jerry\OilsMexico\src\OilsMexico.Web\Components\Pages\ERP\Usuarios.razor.cs:32: esAdmin = Sesion.Sesion?.Rol == "Admin";
+D:\GMS\Jerry\OilsMexico\src\OilsMexico.Web\Components\Pages\ERP\Usuarios.razor.cs:46: if (Sesion.Sesion?.Rol != "Admin") { Nav.NavigateTo("/"); return; }
+D:\GMS\Jerry\OilsMexico\src\OilsMexico.Web\Components\Pages\ERP\Usuarios.razor.cs:47: esAdmin = Sesion.Sesion?.Rol == "Admin";
+D:\GMS\Jerry\OilsMexico\src\OilsMexico.Web\Components\Pages\ERP\Usuarios.razor.cs:77: edit = new Usuario { Rol = "Vendedor", Activo = true, SucursalId = sucursales.Count > 0 ? sucursales[0].Id : 0 };
+D:\GMS\Jerry\OilsMexico\src\OilsMexico.Web\Components\Pages\ERP\Usuarios.razor.cs:140: if (edit.Id == miId && edit.Rol != "Admin")
+D:\GMS\Jerry\OilsMexico\src\OilsMexico.Web\Components\Pages\ERP\VentasGestion.razor.cs:38: if (Sesion.Sesion?.Rol is not ("Admin" or "Conta")) { Nav.NavigateTo("/"); return; }
+D:\GMS\Jerry\OilsMexico\src\OilsMexico.Web\Components\Pages\ERP\VentasPOS.razor.cs:63: if (Sesion.Sesion?.Rol is not ("Admin" or "Vendedor")) { Nav.NavigateTo("/"); return; }
+D:\GMS\Jerry\OilsMexico\src\OilsMexico.Web\Components\Pages\ERP\VentasPOS.razor.cs:71: .Where(u => u.Activo && (u.Rol == "Vendedor" || u.Rol == "Admin"))
+D:\GMS\Jerry\OilsMexico\src\OilsMexico.Web\Components\Pages\ERP\VentasPOS.razor.cs:133: if (Sesion.Sesion?.Rol == "Admin")
+D:\GMS\Jerry\OilsMexico\src\OilsMexico.Web\Components\Pages\ERP\VentasPOS.razor.cs:134: SucursalCtx.Establecer(int.Parse(e.Value!.ToString()!), Sesion.Sesion.UsuarioId, "Admin");
+D:\GMS\Jerry\OilsMexico\src\OilsMexico.Web\Components\Pages\ERP\Viscosidad.razor.cs:22: if (Sesion.Sesion?.Rol is not ("Admin" or "Almacen")) { Nav.NavigateTo("/"); return; }
+D:\GMS\Jerry\OilsMexico\src\OilsMexico.Web\Components\Pages\Home.razor:35: @if (sesion.Rol is "Vendedor" or "Admin")
+D:\GMS\Jerry\OilsMexico\src\OilsMexico.Web\Components\Pages\Home.razor:40: @if (sesion.Rol is "Almacen" or "Admin")
+D:\GMS\Jerry\OilsMexico\src\OilsMexico.Web\Components\Pages\Home.razor:44: @if (sesion.Rol == "Conta")
+D:\GMS\Jerry\OilsMexico\src\OilsMexico.Web\Components\Pages\Home.razor:138: @if (sesion.Rol is "Vendedor" or "Admin")
+D:\GMS\Jerry\OilsMexico\src\OilsMexico.Web\Components\Pages\Home.razor:149: @if (sesion.Rol is "Almacen" or "Admin")
+D:\GMS\Jerry\OilsMexico\src\OilsMexico.Web\Components\Pages\Home.razor:156: @if (sesion.Rol == "Conta")
+D:\GMS\Jerry\OilsMexico\src\OilsMexico.Web\Components\Pages\Home.razor:298: mostrarStockCard = rol is "Almacen" or "Admin";
+D:\GMS\Jerry\OilsMexico\src\OilsMexico.Web\Components\Pages\Home.razor:299: mostrarGrafica = rol is "Vendedor" or "Admin" or "Conta";
+D:\GMS\Jerry\OilsMexico\src\OilsMexico.Web\Components\Pages\Home.razor:300: mostrarEstimacion = rol is "Vendedor" or "Admin";
+D:\GMS\Jerry\OilsMexico\src\OilsMexico.Web\Components\Pages\Home.razor:304: if (rol is "Vendedor" or "Admin")
+D:\GMS\Jerry\OilsMexico\src\OilsMexico.Web\Components\Pages\Home.razor:309: if (rol == "Admin")
+D:\GMS\Jerry\OilsMexico\src\OilsMexico.Web\Components\Pages\Home.razor:314: else if (rol == "Almacen")
+D:\GMS\Jerry\OilsMexico\src\OilsMexico.Web\Components\Pages\Home.razor:321: else if (rol == "Conta")
+D:\GMS\Jerry\OilsMexico\src\OilsMexico.Web\Components\Pages\Home.razor:339: if (rol is "Vendedor" or "Admin")
+D:\GMS\Jerry\OilsMexico\src\OilsMexico.Web\Components\Pages\Home.razor:350: else if (rol == "Almacen")
+D:\GMS\Jerry\OilsMexico\src\OilsMexico.Web\Components\Pages\Home.razor:367: else if (rol == "Conta")
+D:\GMS\Jerry\OilsMexico\src\OilsMexico.Web\Components\Shared\DireccionSepomex.razor:101: private bool EsAdmin => string.Equals(Sesion.Sesion?.Rol, "Admin", StringComparison.OrdinalIgnoreCase);

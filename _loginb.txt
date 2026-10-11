@@ -1,0 +1,119 @@
+
+Login B
+Prioridad B completada y verificada en vivo contra la base de datos.
+✅ Lo implementado
+1. Intentos atómicos (AuthService.RegistrarIntentoFallidoAsync)
+		Un único ExecuteUpdateAsync con las condiciones dentro de la sentencia (x.IntentosFallidos + 1 >= 3), dentro de una transacción que retiene la fila para releer el resultado: ya no hay read-modify-write en memoria, así que intentos simultáneos no pueden evadir el límite de 3 ni provocar un bloqueo doble.
+		Verificado: 8 intentos en paralelo (contextos independientes) → estado consistente (bloqueos=1, intentos=0, definitivo=False).
+2. Mensajes unificados + reinicio de bloqueos
+		Toda falla de contraseña (cuenta inexistente, incorrecta, o bloqueada con contraseña equivocada) responde "Usuario o contraseña incorrectos."; el estado real (inactiva, bloqueada con fecha, definitiva) solo se revela con la contraseña correcta. La cuenta inexistente se verifica contra un hash ficticio para igualar el tiempo de respuesta (anti-enumeración).
+		Decisión implementada: el login exitoso limpia intentos y BloqueosTemporales — el atacante que nunca acierta no limpia nada (su segundo episodio sigue siendo definitivo), pero el usuario legítimo no queda condenado por bloqueos lejanos. Verificado con el ciclo bloqueo→login OK→nuevo bloqueo de 30 min.
+3. Redirecciones y desajuste del menú
+		EstadoCuentas.razor.cs y VentasGestion.razor.cs: ahora en OnAfterRenderAsync hacen NavigateTo("/login") sin sesión y NavigateTo("/") sin permiso — ninguna pantalla queda en blanco.
+		NavMenu.razor: el rol Conta ya ve Facturación, Historial y Notas de crédito en el grupo Ventas (coincide con los permisos de las páginas).
+Pruebas ejecutadas (contra oilsmexico_erp real)
+		Acceso por usuario y correo de MemotronMX/Jerry ✓
+		Mensajes unificados sin enumeración ✓
+		3 fallos → 30 min, solo mensaje genérico ✓
+		Vencimiento + 3 fallos → definitivo + notificación al admin (log sin SMTP) ✓
+		Desbloqueo del admin limpio ✓
+		Login OK reinicia contador de bloqueos ✓
+		Atomicidad: 8 fallos en paralelo ✓
+		Regresión: migración SHA-256 y PIN legado a Identity ✓
+		BD final: solo MemotronMX (#5, Admin) y Jerry (#6, Vendedor), con hash Identity y sin tokens residuales.
+Estado
+		Build: 0 errores, 0 advertencias.
+		login.md actualizado (recomendaciones 5 ✅, 6 y 9 documentadas).
+		El guion de pruebas quedó en %TEMP%\oilsmx-provision (fuera del repo) por si quieres reejecutarlo.
+Siguiente opcional (Prioridad C): quitar los PINs demo de SeedData.cs para instalaciones nuevas y crear el proyecto de pruebas unitarias (recomendación 8).
+
+Lista de precios
+Ran command: dir /s /b *lista_precios_aceites.xlsx* Ran command: Get-ChildItem -Filter "*lista_precios_aceites*" -Recurse -File Ran command: python -c "import openpyxl; print('openpyxl available')" Ran command: python -c " import openpyxl wb = openpyxl.load_workbook('lista_precios_aceites.xlsx') print('Sheets:', wb.sheetnames) for name in wb.sheetnames: sheet = wb[name] print(f'=== Sheet: {name} (rows: {sheet.max_row}, cols: {sheet.max_column}) ===') for r in range(1, min(sheet.max_row + 1, 15)): row_vals = [sheet.cell(r, c).value for c in range(1, sheet.max_column + 1)] if any(v is not None for v in row_vals): print(f'Row {r}: {row_vals}') " Ran command: python -c " import openpyxl wb = openpyxl.load_workbook('lista_precios_aceites.xlsx') for name in wb.sheetnames: sheet = wb[name] print(f'*** Sheet: {name} ({sheet.max_row} rows) ***') for r in range(1, sheet.max_row + 1): row_vals = [sheet.cell(r, c).value for c in range(1, sheet.max_column + 1)] if any(v is not None for v in row_vals): print(f'[{r}]', row_vals) " Searched for "class Producto" Viewed Producto.cs:1-19 Viewed CatalogoConfigs.cs:1-74 Searched for "class UnidadMedida" Viewed UnidadMedida.cs:1-14 Viewed Productos.razor:1-181 Viewed Productos.razor.cs:1-213 Searched for "SchemaPatch" Viewed SchemaPatch.cs:1-60 Viewed SchemaPatch.cs:61-160 Viewed SchemaPatch.cs:161-218 Ran command: dotnet run --project src/OilsMexico.Web --no-build Used tool: manage_task Viewed appsettings.json:1-24 Ran command: Get-ChildItem src/OilsMexico.Web/appsettings*.json Viewed appsettings.Development.json:1-9 Viewed launchSettings.json:1-24 Viewed Program.cs:1-60 Ran command: Get-ChildItem -Filter "*.csproj" -Recurse | ForEach-Object { $_.FullName } Viewed OilsMexico.Application.csproj:1-14 Viewed OilsMexico.Infrastructure.csproj:1-28 Viewed OilsMexico.Web.csproj:1-22 Searched for "ExcelDataReader" Viewed SepomexParser.cs:1-60 Ran command: `python -c " import openpyxl
+wb = openpyxl.load_workbook('lista_precios_aceites.xlsx') for sheetname in wb.sheetnames: ws = wb[sheetname] print('========================================') print('SHEET:', sheetname) headers = [ws.cell(1, c).value for c in range(1, ws.max_column + 1)] print('HEADERS:', headers) for r in range(2, ws.max_row + 1): vals = [ws.cell(r, c).value for c in range(1, ws.max_column + 1)] if any(v is not None for v in vals): row_dict = dict(zip(headers, vals)) print(f'Row {r}: {row_dict}') "Ran command:python -c " import openpyxl from collections import Counter
+wb = openpyxl.load_workbook('lista_precios_aceites.xlsx') skus = [] for name in wb.sheetnames: ws = wb[name] for r in range(2, ws.max_row + 1): sku = ws.cell(r, 3).value desc = ws.cell(r, 4).value if sku: skus.append((sku.strip(), name, r, desc))
+counts = Counter([s[0] for s in skus]) for sku, count in counts.items(): if count > 1: print(f'Duplicate SKU: {sku} ({count} occurrences):') for item in skus: if item[0] == sku: print('  ', item) print(f'Total rows with SKU: {len(skus)}, Unique SKUs: {len(counts)}') "Ran command:python -c " import openpyxl
+wb = openpyxl.load_workbook('lista_precios_aceites.xlsx') for name in wb.sheetnames: ws = wb[name] print(name, 'dims:', ws.dimensions, 'max_row:', ws.max_row, 'max_col:', ws.max_column) "Viewed SeedData.cs:1-80 Searched for "productos" Viewed NavMenu.razor:135-170 Ran command:Get-Service postgresRan command:python -c " import urllib.parse
+Check if psycopg2 or similar is installed
+for mod in ['psycopg2', 'psycopg', 'asyncpg', 'sqlite3']: try: import(mod) print(f'{mod} is installed') except ImportError: pass "Ran command:dotnet user-secrets list --project src/OilsMexico.WebSearched for "TipoBase" Viewed Viscosidad.razor:1-100 Searched for "Productos" Viewed VentasService.Buscar.cs:1-50 Ran command:python -c " import openpyxl
+wb = openpyxl.load_workbook('lista_precios_aceites.xlsx') max_len = 0 longest_desc = '' for name in wb.sheetnames: ws = wb[name] for r in range(2, ws.max_row + 1): d = ws.cell(r, 4).value if d and len(str(d)) > max_len: max_len = len(str(d)) longest_desc = str(d) print('Max len:', max_len) print('Longest description:', longest_desc) "Ran command:dotnet build` Used tool: manage_task
+I have inspected the Excel file lista_precios_aceites.xlsx and the database structure. I am verifying the solution build and will proceed with implementing the model changes, schema update, and the reusable import process for the responsible user.
+Used tool: manage_task Used tool: schedule
+Esperando finalización de compilación previa...
+Used tool: manage_task Used tool: schedule Used tool: manage_task Viewed Producto.cs:1-19 Edited Producto.cs Viewed CatalogoConfigs.cs:7-26 Edited CatalogoConfigs.cs Viewed SchemaPatch.cs:74-85 Edited SchemaPatch.cs Viewed SchemaPatch.cs:70-86 Edited SchemaPatch.cs Ran command: python -c " with open(r'src/OilsMexico.Infrastructure/Persistence/SchemaPatch.cs', 'rb') as f: data = f.read() print('CRLF count:', data.count(b'\r\n'), 'LF count:', data.count(b'\n')) " Ran command: `python -c " with open(r'src/OilsMexico.Infrastructure/Persistence/SchemaPatch.cs', 'r', encoding='utf-8') as f: text = f.read()
+target = '''        // Productos: costo unitario (usado para margen/utilidad y contabilidad). await db.Database.ExecuteSqlRawAsync(@" DO $$ BEGIN IF EXISTS (SELECT 1 FROM pg_tables WHERE tablename = 'productos') THEN ALTER TABLE productos ADD COLUMN IF NOT EXISTS precio_costo numeric(12,2) NOT NULL DEFAULT 0; END IF; END $$; ");'''
+replacement = '''        // Productos: costo unitario y características completas de lista de precios (Excel). await db.Database.ExecuteSqlRawAsync(@" DO $$ BEGIN IF EXISTS (SELECT 1 FROM pg_tables WHERE tablename = 'productos') THEN ALTER TABLE productos ADD COLUMN IF NOT EXISTS precio_costo numeric(12,2) NOT NULL DEFAULT 0; ALTER TABLE productos ADD COLUMN IF NOT EXISTS categoria varchar(50); ALTER TABLE productos ADD COLUMN IF NOT EXISTS sku_anterior varchar(50); ALTER TABLE productos ADD COLUMN IF NOT EXISTS sae varchar(20); ALTER TABLE productos ADD COLUMN IF NOT EXISTS especificacion varchar(100); ALTER TABLE productos ADD COLUMN IF NOT EXISTS piezas_por_caja integer NOT NULL DEFAULT 1; ALTER TABLE productos ADD COLUMN IF NOT EXISTS precio_lista numeric(12,2) NOT NULL DEFAULT 0; ALTER TABLE productos ADD COLUMN IF NOT EXISTS precio_lp_oro_con_iva numeric(12,2) NOT NULL DEFAULT 0; ALTER TABLE productos ADD COLUMN IF NOT EXISTS precio_unitario numeric(12,2) NOT NULL DEFAULT 0; CREATE INDEX IF NOT EXISTS ix_productos_sku_anterior ON productos (sku_anterior); CREATE INDEX IF NOT EXISTS ix_productos_categoria ON productos (categoria); END IF; END $$; ");'''
+norm_text = text.replace('\r\n', '\n') norm_target = target.replace('\r\n', '\n') norm_replacement = replacement.replace('\r\n', '\n')
+assert norm_target in norm_text, 'Target not found in text!' new_text = norm_text.replace(norm_target, norm_replacement) with open(r'src/OilsMexico.Infrastructure/Persistence/SchemaPatch.cs', 'w', encoding='utf-8', newline='\r\n') as f: f.write(new_text) print('Successfully patched SchemaPatch.cs') "Created patch_schema.py Ran command:python "C:\Users\usuario.gemini\antigravity-ide\brain\2e3cd69b-d883-4061-b250-4e2099012ac5\scratch\patch_schema.py"Used tool: manage_task Ran command:Get-ChildItem src/OilsMexico.Application/DTOsViewed Servicios.cs:1-60 Created ImportacionProductoDtos.cs Created IImportacionProductosService.cs Created ImportacionProductosService.cs Viewed Program.cs:38-48 Edited Program.cs Viewed VentasService.Buscar.cs:30-45 Edited VentasService.Buscar.cs Viewed Productos.razor.cs:30-65 Viewed Productos.razor.cs:195-213 Viewed Productos.razor:1-75 Viewed Productos.razor.cs:115-213 Created Productos.razor.cs Created Productos.razor Ran command:dotnet build`
+Compilando solución para validar cambios...
+Viewed Program.cs:45-65 Edited Program.cs Ran command: dotnet run --project src/OilsMexico.Web -- --importar-aceites
+Ejecutando importación inicial de los productos de lista_precios_aceites.xlsx en la base de datos...
+Viewed ImportacionProductosService.cs:55-75 Edited ImportacionProductosService.cs Viewed Productos.razor.cs:265-285 Viewed Productos.razor.cs:285-300 Edited Productos.razor.cs Ran command: dotnet run --project src/OilsMexico.Web -- --importar-aceites
+Ejecutando importación con acceso compartido al archivo Excel...
+Ran command: code --install-extension ms-python.python --force Ran command: dotnet run --project src/OilsMexico.Web --no-build -- --importar-aceites
+Verificando estado y recuento en base de datos...
+Ran command: git status -s Ran command: Remove-Item -Force "C:\Users\usuario\.gemini\antigravity-ide\brain\2e3cd69b-d883-4061-b250-4e2099012ac5\scratch\patch_schema.py" -ErrorAction SilentlyContinue Ran command: dotnet build
+Se ha completado la lectura del archivo lista_precios_aceites.xlsx, la ampliación de la tabla/entidad de productos para soportar todas las características técnicas y comerciales, y la creación del proceso reutilizable para el usuario responsable.
+
+1. Análisis del archivo Excel (lista_precios_aceites.xlsx)
+El archivo contiene 2 hojas (Hoja 1 y Hoja 2) con un total de 49 filas (48 SKUs únicos) con las siguientes 10 columnas:
+		Categoría: SINTETICOS, SEMI SINTETICOS, MINERALES, MOTO, TRANSMISIONES, HD
+		SKU Anterior: SKU histórico/previo (ej. 15ED76, 15E891, 15D906, etc.)
+		SKU Actual: Código único del producto (ej. 15DB47, 1618F2, 14C712, etc.)
+		DESCRIPCIÓN RMB: Descripción técnica completa (ej. ACEITE SINTETICO MULTIGRADO EDGE 0W-20 0.946 ML)
+		SAE: Grado de viscosidad SAE (ej. 0W-20, 5W-30, 20W-50, 40, 80W-90, etc.)
+		ESPECIFICACION: Normas de fabricante/SAT (ej. API SP, JASO MA, JASO MA-2, Mercon V, GL-5, etc.)
+		Piezas por caja: Empaque maestro (1, 3, 6, 12)
+		Precio LP: Precio de lista del empaque / caja
+		LP Oro Precio con IVA: Precio preferencial de distribuidor con IVA incluido
+		Precio unitario: Precio por pieza/botella individual con IVA incluido
+
+2. Modificaciones a la Entidad y Base de Datos
+		Entidad de Dominio (Producto.cs): Se agregaron los campos necesarios para almacenar todas las columnas del Excel:
+		Categoria (string?): Categoría comercial del aceite.
+		SkuAnterior (string?): SKU anterior para rastreo y búsqueda histórica.
+		Sae (string?): Grado SAE original.
+		Especificacion (string?): Especificaciones de norma (API, JASO, Mercon, etc.).
+		PiezasPorCaja (int): Unidades por empaque.
+		PrecioLista (decimal): Precio LP (Lista de Precios).
+		PrecioLpOroConIva (decimal): Precio Oro con IVA.
+		PrecioUnitario (decimal): Precio unitario por pieza con IVA.
+		Configuración EF Core (CatalogoConfigs.cs): Mapeo de columnas con nombres en snake_case e índices en sku_anterior y categoria.
+		Parche de Esquema Idempotente (SchemaPatch.cs): Se agregaron sentencias ALTER TABLE productos ADD COLUMN IF NOT EXISTS ... para que cualquier entorno o base de datos existente se actualice automáticamente al arrancar.
+		Búsqueda Avanzada (VentasService.Buscar.cs): Ahora permite buscar productos tanto por SKU actual, SKU anterior, nombre, marca, viscosidad, como por categoría y especificación.
+
+3. Proceso Reutilizable para el Usuario Responsable
+Se implementó el servicio completo en Application e Infrastructure:
+		DTOs: ImportacionProductoDtos.cs
+		Interfaz: IImportacionProductosService.cs
+		Servicio: ImportacionProductosService.cs
+Características del proceso:
+		Lectura Multi-hoja: Procesa todas las hojas del libro de trabajo automáticamente con ExcelDataReader.
+		Detección inteligente de columnas: Tolera encabezados con o sin acentos y variaciones de nombre.
+		Manejo de duplicados y Upsert:
+		Si el SKU ya existe, actualiza precios, especificaciones y presentaciones (opción configurable).
+		Si es nuevo, lo inserta en el catálogo.
+		Generación automática de presentaciones:
+		Crea la presentación individual (Pieza, Botella, Garrafa, Tambor) con el factor de conversión en litros y el precio unitario.
+		Si PiezasPorCaja > 1, crea la presentación Caja con el factor correspondiente y el precio de empaque con IVA.
+		Inicialización de inventario: Sincroniza cada producto con todas las sucursales del ERP con stock inicial y stock mínimo.
+		Soporte de archivos abiertos: Usa FileShare.ReadWrite para que el archivo pueda leerse incluso si el usuario lo tiene abierto en Microsoft Excel.
+
+4. Interfaz Gráfica para el Usuario Responsable
+En la vista de catálogo (Productos.razor):
+		Botón "Importar Lista de Precios Excel" en la barra superior.
+		Ventana modal con:
+		Opción 1: Botón de un solo clic "Cargar lista_precios_aceites.xlsx actual" desde el servidor.
+		Opción 2: Selector de archivos para que el usuario pueda examinar y subir cualquier nuevo archivo .xlsx o .xls.
+		Tabla de Previsualización: Muestra todas las filas leídas con badges de estado (Nuevo, Existente, Inválido), validación de campos y conteo en tiempo real.
+		Interruptor: "Actualizar productos si ya existen en el catálogo (por SKU)".
+		Botón de ejecución: "⚡ Procesar e Importar al Catálogo" con indicador de progreso y desglose final de resultados (insertados, actualizados, errores).
+		El formulario de producto y la lista ahora muestran la Categoría, SKU Anterior, Piezas por caja, Precio LP, LP Oro c/IVA y Precio unitario.
+
+5. Ejecución Inicial
+Se ejecutó la importación sobre la base de datos PostgreSQL:
+		Total procesados: 49 filas
+		Productos únicos insertados/actualizados: 48 SKUs nuevos + 1 actualización de SKU duplicado
+		Errores: 0
+		Total de productos en base de datos: 52 productos activos listos para venta y cotización
+
+

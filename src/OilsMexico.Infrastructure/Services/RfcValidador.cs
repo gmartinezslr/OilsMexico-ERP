@@ -8,6 +8,12 @@ namespace OilsMexico.Infrastructure.Services;
 /// </summary>
 public static class RfcValidador
 {
+    /// <summary>
+    /// RFC genérico "Público en general" del SAT. Se usa como origen único para resolver el cliente
+    /// por defecto del POS en vez de asumir un id fijo (ver A8 del handoff de defaults frágiles).
+    /// </summary>
+    public const string RfcPublicoGeneral = "XAXX010101000";
+
     // RFCs especiales reconocidos por el SAT sin estructura estándar.
     private static readonly Dictionary<string, string> RfcEspeciales = new()
     {

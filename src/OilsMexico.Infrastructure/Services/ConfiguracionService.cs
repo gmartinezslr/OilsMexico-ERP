@@ -20,6 +20,9 @@ public sealed class ConfiguracionService(ErpDbContext db) : IConfiguracionServic
     public const string ClaveLoginMaxIntentos = "login_max_intentos";
     public const string ClaveLoginMinutosBloqueo = "login_minutos_bloqueo";
     public const string ClaveLoginBloqueosDefinitivo = "login_bloqueos_para_definitivo";
+    // Umbrales del análisis de rotación ABC (fracciones del ingreso acumulado; antes fijos en GestionService).
+    public const string ClaveAbcUmbralA = "abc_umbral_a";
+    public const string ClaveAbcUmbralB = "abc_umbral_b";
     private const int TimeoutPorDefecto = 5;
     private const int TimeoutMin = 1;
     private const int TimeoutMax = 480; // 8 horas
@@ -29,6 +32,10 @@ public sealed class ConfiguracionService(ErpDbContext db) : IConfiguracionServic
     private const int BloqueoIntentosPorDefecto = 3;
     private const int BloqueoMinutosPorDefecto = 30;
     private const int BloqueoDefinitivoPorDefecto = 2;
+
+    // Defaults del análisis ABC (corte histórico 30%/70%).
+    private const decimal AbcUmbralAPorDefecto = 0.30m;
+    private const decimal AbcUmbralBPorDefecto = 0.70m;
 
     public async Task<int> ObtenerMinutosTimeoutAsync(CancellationToken ct = default)
         => await ObtenerIntAsync(ClaveTimeoutSesion, TimeoutPorDefecto, TimeoutMin, TimeoutMax, ct);
@@ -47,6 +54,26 @@ public sealed class ConfiguracionService(ErpDbContext db) : IConfiguracionServic
             .Select(c => c.Valor)
             .FirstOrDefaultAsync(ct);
         return int.TryParse(valor, out var v) && v >= minimo && v <= maximo ? v : defecto;
+    }
+
+    public async Task<decimal> ObtenerDecimalAsync(string clave, decimal defecto, decimal minimo, decimal maximo, CancellationToken ct = default)
+    {
+        var valor = await db.Configuracion.AsNoTracking()
+            .Where(c => c.Clave == clave)
+            .Select(c => c.Valor)
+            .FirstOrDefaultAsync(ct);
+        var separadores = System.Globalization.CultureInfo.InvariantCulture;
+        return decimal.TryParse(valor, System.Globalization.NumberStyles.Number, separadores, out var v)
+            && v >= minimo && v <= maximo ? v : defecto;
+    }
+
+    public async Task<(decimal UmbralA, decimal UmbralB)> ObtenerUmbralesAbcAsync(CancellationToken ct = default)
+    {
+        var a = await ObtenerDecimalAsync(ClaveAbcUmbralA, AbcUmbralAPorDefecto, 0.01m, 0.99m, ct);
+        // B debe ser siempre mayor que A; si el administrador dejó B<=A, se normaliza A+0.01.
+        var b = await ObtenerDecimalAsync(ClaveAbcUmbralB, AbcUmbralBPorDefecto, 0.01m, 0.99m, ct);
+        if (b <= a) b = Math.Min(0.99m, a + 0.01m);
+        return (a, b);
     }
 
     public async Task GuardarAsync(string clave, string valor, CancellationToken ct = default)

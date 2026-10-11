@@ -3,8 +3,10 @@ using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using OilsMexico.Application.DTOs;
 using OilsMexico.Application.Interfaces;
+using OilsMexico.Domain.Entities;
 using OilsMexico.Domain.Services;
 using OilsMexico.Infrastructure.Persistence;
+using OilsMexico.Infrastructure.Services;
 using OilsMexico.Web.Hubs;
 
 namespace OilsMexico.Web.Components.Pages.ERP;
@@ -30,7 +32,7 @@ public partial class VentasPOS : ComponentBase
     protected Dictionary<int, int> vendedorPorCliente = [];
     protected int? vendedorId;
     protected CatalogosSatDto catalogos = new([], [], [], []);
-    protected string formaPago = "01", metodoPago = "PUE", usoCfdi = "G03";
+    protected string formaPago = CfdiDefaults.FormaPagoVenta, metodoPago = CfdiDefaults.MetodoPago, usoCfdi = CfdiDefaults.UsoCfdiVenta;
     protected int clienteId = 1;
     protected bool requiereFactura = false, procesando = false, esError = false;
     protected string mensaje = "";
@@ -58,21 +60,25 @@ public partial class VentasPOS : ComponentBase
     {
         if (!firstRender) return;
         if (!Sesion.Autenticado && !await Sesion.RestaurarAsync()) { Nav.NavigateTo("/login", forceLoad: true); return; }
-        if (Sesion.Sesion?.Rol is not ("Admin" or "Vendedor")) { Nav.NavigateTo("/"); return; }
+        if (Sesion.Sesion?.Rol is not (Roles.Admin or Roles.Vendedor)) { Nav.NavigateTo("/"); return; }
         try
         {
             sucursales = await Db.Sucursales.AsNoTracking().Select(s => new ValueTuple<int, string>(s.Id, s.Nombre)).ToListAsync();
-            clientes = await Db.Clientes.AsNoTracking().Select(c => new ValueTuple<int, string>(c.Id, c.Nombre)).ToListAsync();
+            var clientesDb = await Db.Clientes.AsNoTracking()
+                .Select(c => new { c.Id, c.Nombre, c.Rfc, c.VendedorId }).ToListAsync();
+            clientes = clientesDb.Select(c => new ValueTuple<int, string>(c.Id, c.Nombre)).ToList();
             vendedores = await Db.Usuarios.AsNoTracking()
-                .Where(u => u.Activo && (u.Rol == "Vendedor" || u.Rol == "Admin"))
+                .Where(u => u.Activo && (u.Rol == Roles.Vendedor || u.Rol == Roles.Admin))
                 .OrderBy(u => u.Nombre)
                 .Select(u => new ValueTuple<int, string>(u.Id, u.Nombre)).ToListAsync();
             // Dueño comercial de cada cliente: es el vendedor SUGERIDO al facturar (editable).
-            var duenos = await Db.Clientes.AsNoTracking()
-                .Select(c => new { c.Id, c.VendedorId }).ToListAsync();
-            vendedorPorCliente = duenos.Where(x => x.VendedorId != null)
+            vendedorPorCliente = clientesDb
+                .Where(x => x.VendedorId != null)
                 .ToDictionary(x => x.Id, x => x.VendedorId!.Value);
-            if (clientes.Count > 0) clienteId = clientes[0].Id;
+            // Cliente por defecto: "Público en general" (RFC XAXX010101000), no el id 1 a ciegas (ver A8).
+            var publico = clientesDb.FirstOrDefault(c => c.Rfc == RfcValidador.RfcPublicoGeneral);
+            if (publico is not null) clienteId = publico.Id;
+            else if (clientes.Count > 0) clienteId = clientes[0].Id;
             vendedorId = vendedorPorCliente.GetValueOrDefault(clienteId);
             await Buscar();
             try { corteAbierto = await Caja.AbiertoAsync(SucursalCtx.SucursalId); } catch { }
@@ -124,8 +130,8 @@ public partial class VentasPOS : ComponentBase
     protected async Task CambiarSucursal(ChangeEventArgs e)
     {
         // Solo Admin puede cambiar de sucursal; el resto opera en la suya (Regla #1).
-        if (Sesion.Sesion?.Rol == "Admin")
-            SucursalCtx.Establecer(int.Parse(e.Value!.ToString()!), Sesion.Sesion.UsuarioId, "Admin");
+        if (Sesion.Sesion?.Rol == Roles.Admin)
+            SucursalCtx.Establecer(int.Parse(e.Value!.ToString()!), Sesion.Sesion.UsuarioId, Roles.Admin);
         carrito.Clear();
         await Buscar();
     }

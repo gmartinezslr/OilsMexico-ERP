@@ -11,7 +11,7 @@ public sealed partial class CorteCajaService
         var corte = await db.CortesCaja.AsNoTracking()
             .FirstOrDefaultAsync(c => c.Id == corteId, ct)
             ?? throw new InvalidOperationException("Corte no existe.");
-        if (ctx.Rol != "Admin" && corte.SucursalId != ctx.SucursalId)
+        if (!ctx.EsAdmin && corte.SucursalId != ctx.SucursalId)
             throw new UnauthorizedAccessException("No puedes ver cortes de otra sucursal.");
         var ventas = await VentasTurnoAsync(corte.SucursalId, corte.FechaAperturaUtc, ct);
         return Clasificar(corte.Id, corte.FondoInicial, ventas);
@@ -22,7 +22,7 @@ public sealed partial class CorteCajaService
         if (req.EfectivoContado < 0) throw new InvalidOperationException("El conteo no puede ser negativo.");
         var corte = await db.CortesCaja.FirstOrDefaultAsync(c => c.Id == req.CorteId, ct)
             ?? throw new InvalidOperationException("Corte no existe.");
-        if (ctx.Rol != "Admin" && corte.SucursalId != ctx.SucursalId)
+        if (!ctx.EsAdmin && corte.SucursalId != ctx.SucursalId)
             throw new UnauthorizedAccessException("No puedes cerrar cortes de otra sucursal.");
         if (corte.Estado != "Abierto") throw new InvalidOperationException("El corte ya está cerrado.");
         var ventas = await VentasTurnoAsync(corte.SucursalId, corte.FechaAperturaUtc, ct);
@@ -46,7 +46,7 @@ public sealed partial class CorteCajaService
 
     public async Task<List<CorteListadoDto>> HistorialAsync(int sucursalId, int dias, CancellationToken ct = default)
     {
-        var suc = ctx.Rol == "Admin" ? sucursalId : ctx.SucursalId;
+        var suc = ctx.ResolverSucursalAutorizada(sucursalId);
         var desde = DateTime.UtcNow.AddDays(-Math.Clamp(dias, 1, 90));
         return await db.CortesCaja.AsNoTracking()
             .Where(c => c.SucursalId == suc && c.FechaAperturaUtc >= desde)

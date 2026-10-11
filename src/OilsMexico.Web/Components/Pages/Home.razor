@@ -32,16 +32,16 @@ else
                 <p class="dash-sub">Área <strong>@sesion.Area</strong> · @sesion.SucursalNombre · @hoy</p>
             </div>
             <div class="dash-actions">
-                @if (sesion.Rol is "Vendedor" or "Admin")
+                @if (sesion.Rol is Roles.Vendedor or Roles.Admin)
                 {
                     <a class="btn btn-accent" href="/clientes">+ Nuevo cliente</a>
                     <a class="btn btn-primary" href="/ventas-pos">Abrir POS</a>
                 }
-                @if (sesion.Rol is "Almacen" or "Admin")
+                @if (sesion.Rol is Roles.Almacen or Roles.Admin)
                 {
                     <a class="btn btn-outline-primary" href="/almacen">Almacén</a>
                 }
-                @if (sesion.Rol == "Conta")
+                @if (sesion.Rol == Roles.Conta)
                 {
                     <a class="btn btn-outline-primary" href="/sepomex">SEPOMEX</a>
                 }
@@ -135,7 +135,7 @@ else
                     <div class="card-header">Accesos rápidos</div>
                     <div class="card-body">
                         <div class="quick-grid">
-                            @if (sesion.Rol is "Vendedor" or "Admin")
+                            @if (sesion.Rol is Roles.Vendedor or Roles.Admin)
                             {
                                 <a class="quick-link" href="/ventas-pos">
                                     <span class="quick-ico" style="--q-bg:#EFF6FF;--q-fg:#2563EB">🛒</span>
@@ -146,14 +146,14 @@ else
                                     <span><strong>Clientes</strong><small>Altas y ediciones</small></span>
                                 </a>
                             }
-                            @if (sesion.Rol is "Almacen" or "Admin")
+                            @if (sesion.Rol is Roles.Almacen or Roles.Admin)
                             {
                                 <a class="quick-link" href="/almacen">
                                     <span class="quick-ico" style="--q-bg:#ECFDF5;--q-fg:#059669">📦</span>
                                     <span><strong>Almacén</strong><small>Movimientos y kardex</small></span>
                                 </a>
                             }
-                            @if (sesion.Rol == "Conta")
+                            @if (sesion.Rol == Roles.Conta)
                             {
                                 <a class="quick-link" href="/sepomex">
                                     <span class="quick-ico" style="--q-bg:#EFF6FF;--q-fg:#2563EB">📮</span>
@@ -295,30 +295,30 @@ else
 
     private void ConstruirKpis(string rol, int totalClientes, int atendidos, int porAtender)
     {
-        mostrarStockCard = rol is "Almacen" or "Admin";
-        mostrarGrafica = rol is "Vendedor" or "Admin" or "Conta";
-        mostrarEstimacion = rol is "Vendedor" or "Admin";
+        mostrarStockCard = rol is Roles.Almacen or Roles.Admin;
+        mostrarGrafica = rol is Roles.Vendedor or Roles.Admin or Roles.Conta;
+        mostrarEstimacion = rol is Roles.Vendedor or Roles.Admin;
 
         var lista = new List<Kpi>();
 
-        if (rol is "Vendedor" or "Admin")
+        if (rol is Roles.Vendedor or Roles.Admin)
         {
             lista.Add(new("Clientes atendidos (mes)", atendidos.ToString("N0"), $"de {totalClientes:N0} activos", "users", "blue"));
             lista.Add(new("Clientes por atender", porAtender.ToString("N0"), "Aún no compran este mes", "clock", "orange"));
             lista.Add(new("Ventas del mes", $"${ventasMes:N2}", "IVA 16% incluido", "cart", "green"));
-            if (rol == "Admin")
+            if (rol == Roles.Admin)
                 lista.Add(new("Stock bajo mínimo", stockBajo.ToString("N0"), "Productos por reponer", "alert", "red"));
             else
                 lista.Add(new("Ventas · 14 días", $"${serie14.Sum(s => s.Total):N2}", "Acumulado quincenal", "trend", "blue"));
         }
-        else if (rol == "Almacen")
+        else if (rol == Roles.Almacen)
         {
             lista.Add(new("Stock bajo mínimo", stockBajo.ToString("N0"), "Productos por reponer", "alert", "red"));
             lista.Add(new("Movimientos del mes", "—", "Ver kardex en Almacén", "truck", "blue"));
             lista.Add(new("Litros en stock", "—", "Consulta por producto", "drop", "green"));
             lista.Add(new("Entradas pendientes", "—", "Por recibir", "box", "orange"));
         }
-        else if (rol == "Conta")
+        else if (rol == Roles.Conta)
         {
             lista.Add(new("Ventas del mes", $"${ventasMes:N2}", "Base para declaraciones", "cart", "green"));
             lista.Add(new("IVA del mes (estimado)", $"${Impuestos.IvaDeBase(ventasMes):N2}", $"{Impuestos.TasaIva * 100:0}% sobre ventas", "doc", "blue"));
@@ -336,7 +336,7 @@ else
 
     private async Task CargarActividad(string rol, int sid)
     {
-        if (rol is "Vendedor" or "Admin")
+        if (rol is Roles.Vendedor or Roles.Admin)
         {
             tituloActividad = "Últimos clientes";
             var tops = await Db.Clientes
@@ -347,7 +347,7 @@ else
                 .ToListAsync();
             actividad = tops.Select(c => new ActItem(c.Nombre, c.Rfc, "Alta", "#2563EB")).ToList();
         }
-        else if (rol == "Almacen")
+        else if (rol == Roles.Almacen)
         {
             tituloActividad = "Últimos movimientos";
             var movs = await Db.Movimientos
@@ -364,7 +364,7 @@ else
                     m.CantidadLitros >= 0 ? "#059669" : "#DC2626"))
                 .ToList();
         }
-        else if (rol == "Conta")
+        else if (rol == Roles.Conta)
         {
             tituloActividad = "Últimas facturas";
             var facs = await Db.Facturas.AsNoTracking()

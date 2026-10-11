@@ -1,5 +1,6 @@
 using OilsMexico.Application.DTOs;
 using OilsMexico.Domain.Enums;
+using OilsMexico.Domain.Services;
 
 namespace OilsMexico.Application.Interfaces;
 
@@ -17,6 +18,21 @@ public interface ISucursalContext
     /// administrador. Toda comprobación de permisos debe empezar por aquí.
     /// </summary>
     bool Establecida { get; }
+
+    /// <summary>
+    /// ¿La sesión vigente es de administrador? Centraliza la comparación con
+    /// <see cref="Roles.Admin"/> (antes repetida como el literal "Admin" en decenas de sitios).
+    /// Exige sesión real, por lo que es fail-closed.
+    /// </summary>
+    bool EsAdmin => Establecida && Rol == Roles.Admin;
+
+    /// <summary>
+    /// Resuelve la sucursal autorizada para una consulta: un Admin puede apuntar a la sucursal
+    /// solicitada; cualquier otro rol queda fijado a su propia sucursal de sesión. Sustituye el
+    /// patrón <c>Rol == "Admin" ? solicitada : SucursalId</c> que estaba duplicado en ~12 servicios
+    /// (B8), evitando que el aislamiento multi-sucursal dependa de copiar bien la condición.
+    /// </summary>
+    int ResolverSucursalAutorizada(int sucursalSolicitada) => EsAdmin ? sucursalSolicitada : SucursalId;
 
     void Establecer(int sucursalId, int usuarioId, string rol);
 }

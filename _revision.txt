@@ -1,0 +1,189 @@
+﻿
+He completado la revisión del proyecto. Aquí está el análisis detallado:
+
+Estado de Funcionalidades — OilsMexico ERP
+✅ Funcionalidades Completas (Implementadas)
+Módulo
+Ruta
+Estado
+Login PIN
+/login
+✅ Implementado (sesión persistente, 4 PIN demo)
+Punto de Venta (POS)
+/ventas-pos
+✅ Implementado: búsqueda por SKU/marca/viscosidad, carrito, IVA 16%, método de pago SAT, facturación CFDI toggle, timbrado
+Historial de ventas
+/historial-ventas
+✅ Implementado: filtros fecha/estado/texto, resumen, paginación, detalle expandible, acciones Surtir/Devolver, NC, REP
+Facturación CFDI
+/facturacion
+✅ Implementado: listado, UUID, timbrado diferido (modo SIMULADO), cancelación, descarga XML
+Notas de crédito
+/notas-credito
+✅ Implementado: NC electrónica contra facturas surtidas/timbradas, cancelación con motivo, reposición de stock
+Complementos de pago (REP)
+/complementos-pago
+✅ Implementado: REP Tipo P / Uso CP01, cobro con parcialidades (saldo anterior/pagado/insoluto)
+Corte de caja / Arqueo
+/corte-caja
+✅ Implementado: apertura con fondo, fotografía del sistema por forma de pago, cierre con conteo, historial con diferencias
+Almacén
+/almacen
+✅ Implementado: stock por sucursal, kardex auditado (30 días), entradas, ajustes, traspasos
+Compras
+/compras
+✅ Implementado: orden → recepción (lote + kardex COMPRA) → CxP (pagos), cancelación, estado de pagos
+Clientes
+/clientes
+✅ Implementado: CRUD con dirección SEPOMEX (combo obligatorio de colonias)
+Proveedores
+/proveedores
+✅ Implementado: CRUD (con dirección)
+Productos
+/productos
+✅ Implementado: CRUD con presentaciones (litros, garrafa, tambor) y stock por sucursal
+Usuarios
+/usuarios
+✅ Implementado: roles Admin/Vendedor/Almacen/Conta, PIN SHA-256
+Datos de la sucursal
+/sucursal
+✅ Implementado: RFC, domicilio, SEPOMEX, edición por rol Admin
+SEPOMEX
+/sepomex
+✅ Implementado: catálogo oficial TXT, Excel (.xls), combo de colonias, autocompletado
+Ticket 58mm
+/ticket/{id}
+✅ Implementado: window.print, código de barras 58mm
+Aceites por viscosidad
+/viscosidad
+✅ Implementado: tarjetas, stock, alerta de bajo mínimo, acceso a kardex
+Cuentas por cobrar
+/estado-cuentas
+✅ Implementado: lista de clientes, facturas abiertas, pagos, saldo pendiente
+Contabilidad
+—
+✅ Implementado: catálogo de cuentas, registrar asiento, libro mayor, saldos
+Reportes de gestión
+/ventas-gestion
+✅ Implementado: dashboard, ventas por día, rotación ABC, cortes por sucursal, viscosidad
+
+
+⚠️ Funcionalidades con Limitaciones
+	Timbrado CFDI: SOLO MODO SIMULADO
+		PacTimbradoService.TimbrarAsync devuelve Guid.NewGuid() y no hace ninguna petición al PAC real
+		Si se configura Cfdi:PacModo distinto de SIMULADO, lanza NotImplementedException
+		El sellado RSA-SHA256 con CSD existe pero está deshabilitado (requiere archivos certs/)
+	Cancelación de CFDI: SOLO MODO SIMULADO
+		FacturacionService.CancelarAsync lanza NotImplementedException si no está en modo SIMULADO
+		Solo roles Admin/Conta pueden cancelar
+	Dashboard de gestión /ventas-gestion NO enlazado al menú
+		La página existe e implementa KPIs (ingresos, utilidad, cortes abiertos, rotación ABC, cortes por sucursal, viscosidad)
+		Pero NavMenu.razor no incluye un enlace a esta ruta
+	Cuentas por cobrar /estado-cuentas NO enlazado al menú
+		La página y el servicio EstadoCuentasService están implementados
+		Pero no aparece en la navegación lateral
+
+📋 Brechas Documentales
+El README.md (versión 0.0.3) no menciona estos módulos que sí están implementados:
+	Contabilidad / Asientos contables
+	Cuentas por cobrar
+	Reportes de gestión (dashboard /ventas-gestion)
+	Notas de crédito electrónica
+	Complementos de pago (REP)
+	Corte de caja / Arqueo
+Sugiero actualizar el README para reflejar el estado completo de la implementación.
+
+📊 Resumen Ejecutivo
+El ERP está funcionalmente completo para la mayoría de los módulos que se describen en el README y en los commits recientes. Las únicas funcionalidades con limitación real son:
+Prioridad
+Funcionalidad
+Problema
+🔴 Alto
+Timbrado PAC real
+No implementado — solo modo SIMULADO
+🔴 Alto
+Cancelación real de CFDI
+No implementada (excepto SIMULADO)
+🟡 Medio
+Añadir enlaces al menú para /estado-cuentas y /ventas-gestion
+Desvinculados de la navegación
+🟢 Bajo
+Documentar módulos en README
+Actualizar los docs
+
+No hay funcionalidades "faltantes" de implementación — la mayoría están implementadas. Las limitaciones son principalmente de configuración de entorno (CSD/PAC, modo SIMULADO) y de integración de la navegación.
+
+Tarea completada y verificada. Resumen:
+Resultado final
+Episodio del disco D: La unidad D: (Guillermo 4TB) desapareció temporalmente durante la sesión; al reconectarla, el árbol de trabajo estaba intacto — ningún cambio se perdió.
+Estado del menú (la tarea pedida): Los dos enlaces desvinculados ya quedaron enlazados y confirmados en HEAD (commit 377bc3f "Contabilidad, Cuentas por cobrar, Reportes de gestión"), dentro de un grupo nuevo "Gestión" en D:\GMS\Jerry\OilsMexico\src\OilsMexico.Web\Components\Layout\NavMenu.razor:
+Enlace
+Ruta
+Grupo
+📈 Dashboard de gestión
+ventas-gestion
+Gestión (línea ~71)
+📋 Cuentas por cobrar
+estado-cuentas
+Gestión (línea ~78)
+
+Limpieza realizada en esta sesión: eliminé los saltos de línea residuales que había dejado la sesión anterior (1 línea tras "Notas de crédito" y 2 líneas tras "Proveedores"). NavMenu.razor ahora es idéntico a HEAD (git diff vacío para ese archivo).
+Validación
+		Rutas existentes: VentasGestion.razor → @page "/ventas-gestion" y EstadoCuentas.razor → @page "/estado-cuentas" ✓
+		Estructura del menú: grupos General → Ventas → Gestión → Almacén → Contactos → Configuración ✓
+		Compilación: dotnet build → EXIT=0, "Compilación correcta — 0 Advertencia(s), 0 Errores" ✓
+Nota: hay otros archivos modificados sin confirmar en el working tree (EstadoCuentas.razor/.cs, VentasGestion.razor/.cs, EstadoCuentasService.cs, etc.) que pertenecen al trabajo previo de esas páginas; no los toqué. Si quieres, puedo revisarlos o hacer commit de todo.
+
+13462078105
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Indique Finkok
+
+Sintonía con el timbrado PAC real completada y compilando (0 errores).
+Qué estaba desalineado
+		Impuestos global solo traía el atributo TotalImpuestosTraslados (nombre mal escrito y sin detalle) → el SAT/Finkok lo rechaza.
+		Impuesto="02" en conceptos → el catálogo c_Impuesto exige 002.
+		NC y REP usaban sello DEV simulado y bloqueaban modo real con NotImplementedException.
+		Cancelación solo marcaba local en SIMULADO, sin cancel_signature.
+Verificado contra evidencia oficial: WSDL stamp/cancel de Finkok y cfdv40.xsd + catCFDI.xsd del SAT (descargados a %TEMP%).
+Cambios
+CfdiServices.cs (sellado + PAC):
+		Impuesto="002", TotalImpuestosTrasladados + Traslados/Traslado (Base/SubTotal, Tasa 0.160000) a nivel concepto y global.
+		Centralizado: ResolverEmisor(), NormalizarLineas(), ArmarConceptos(), AgregarImpuestosGlobales().
+		Nuevo SellarNotaCreditoAsync() → Tipo E, CfdiRelacionados TipoRelacion 01 + UUID origen, UsoCFDI G02.
+		Nuevo SellarRepAsync() → Tipo P, Moneda XXX, SubTotal/Total 0, concepto 84111506/ACT/Pago, complemento Pagos20 v2.0 (Totales + Pago + DoctoRelacionado con IdDocumento/Serie/Folio/MonedaDR/EquivalenciaDR/NumParcialidad/Saldos/ObjetoImpDR 02).
+		PacTimbradoService: DatosPac()/ValidarModo(), SOAPAction parametrizada, CancelarAsync() vía cancel_signature (XML Cancelacion firmado RSA-SHA256 localmente, Motivo 01|02|03|04, FolioSustitucion solo en 01, store_pending=true, exige CodEstatus 201), EstadoSatAsync() vía get_sat_status. La llave nunca viaja al PAC (solo cancel_signature, no cancel con cer/key).
+		PacTimbradoService ahora recibe ErpDbContext (RFC/CP para firmar/consultar). Program.cs actualizado.
+Interfaces (Servicios.cs, FiscalCaja.cs):
+		ICfdiSelladoService: + SellarNotaCreditoAsync, SellarRepAsync.
+		IPacTimbradoService: + CancelarAsync(uuid,motivo,folioSustitucion?), EstadoSatAsync(uuid).
+		IFacturacionService.CancelarAsync y INotaCreditoService.CancelarAsync: + folioSustitucion?.
+Flujos reales:
+		NotaCreditoService.Crear.cs: quitado bloqueo, ahora SellarNotaCreditoAsync + pac.TimbrarAsync.
+		ComplementoPagoService.Cobro.cs: quitado bloqueo, ahora SellarRepAsync + pac.TimbrarAsync.
+		FacturacionService.CancelarAsync y NotaCreditoService.Consultas.CancelarAsync: validan 01-04, exigen UUID timbrado y sustituto en 01, llaman pac.CancelarAsync, guardan MotivoCancelacion ("01 (sustituye: uuid)").
+UI (Facturacion.razor/.cs, NotasCredito.razor/.cs):
+		Cancelar con select 01/02/03/04 + campo UUID sustituto visible solo en 01, validación de GUID en cliente.
+README.md: documentado modo real (CSD, PacModo TEST|PRODUCCION, user-secrets, Impuestos con Traslados, NC-E / REP-Pagos20, cancel_signature).
+Cómo operar en modo real
+		certs/csd.cer + certs/csd.key locales (nunca al repo; hoy la carpeta no existe → sigue en SIMULADO para facturas sin CSD).
+		dotnet user-secrets set "Cfdi:KeyPassword" "…" + Cfdi__Pac__Usuario / Cfdi__Pac__Password; Cfdi:PacModo=TEST (demo-finkok) o PRODUCCION.
+		Datos del emisor completos en /sucursal (RFC, razón social, régimen, CP 5 dígitos) y cliente con RFC/régimen/CP.
+		Timbrar factura/NC/REP normal; cancelar exige motivo SAT y en 01 el UUID sustituto.
+Validación
+		dotnet build solución: correcta, 0 advertencias, 0 errores.
+		Pendiente manual (requiere CSD + cuenta Finkok TEST): timbrar una factura PUE y una PPD+REP en TEST, cancelar con 02 y consultar EstadoSatAsync.
+

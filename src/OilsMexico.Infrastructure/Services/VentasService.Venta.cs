@@ -144,5 +144,5 @@ public sealed partial class VentasService
     /// <summary>Un vendedor sólo puede recibir crédito si el usuario existe, está activo y su rol lo permite.</summary>
     private async Task<bool> EsVendedorValidoAsync(int usuarioId, CancellationToken ct) =>
         await db.Usuarios.AsNoTracking().AnyAsync(u => u.Id == usuarioId && u.Activo
-            && (u.Rol == "Vendedor" || u.Rol == "Admin"), ct);
+            && (u.Rol == Roles.Vendedor || u.Rol == Roles.Admin), ct);
 }

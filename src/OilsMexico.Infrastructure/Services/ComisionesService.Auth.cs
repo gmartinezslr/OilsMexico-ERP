@@ -1,4 +1,5 @@
 using OilsMexico.Application.Interfaces;
+using OilsMexico.Domain.Services;
 
 namespace OilsMexico.Infrastructure.Services;
 
@@ -25,7 +26,7 @@ public sealed partial class ComisionesService
     /// </summary>
     protected string? RolSesion => ctx.Establecida ? ctx.Rol : null;
 
-    protected bool EsAdmin => RolSesion == "Admin";
+    protected bool EsAdmin => RolSesion == Roles.Admin;
 
     /// <summary>
     /// Identidad del usuario en sesión, ya validada. Null = no hay sesión real.

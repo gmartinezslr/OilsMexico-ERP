@@ -62,9 +62,23 @@ using (var scope = app.Services.CreateScope())
     if (args.Contains("--importar-aceites"))
     {
         var importador = scope.ServiceProvider.GetRequiredService<IImportacionProductosService>();
-        var ruta = Path.Combine(Directory.GetCurrentDirectory(), "lista_precios_aceites.xlsx");
-        if (!File.Exists(ruta)) ruta = Path.GetFullPath(Path.Combine(Directory.GetCurrentDirectory(), "..", "..", "lista_precios_aceites.xlsx"));
-        if (!File.Exists(ruta)) ruta = @"D:\GMS\Jerry\OilsMexico\lista_precios_aceites.xlsx";
+        // Ruta del catálogo (A8): fuente única = configuración. Se lee de
+        // Importacion:RutaCatalogo (appsettings.json, user-secrets o la variable de entorno
+        // Importacion__RutaCatalogo). Si es relativa, se resuelve contra el directorio actual;
+        // si no se configura nada, se busca "lista_precios_aceites.xlsx" junto al ejecutable.
+        // Ya no se asume ninguna ruta absoluta ni de desarrollo embebida en el código.
+        var ruta = builder.Configuration["Importacion:RutaCatalogo"] ?? "";
+        if (!string.IsNullOrWhiteSpace(ruta) && !Path.IsPathRooted(ruta))
+            ruta = Path.GetFullPath(ruta);
+        if (string.IsNullOrWhiteSpace(ruta) || !File.Exists(ruta))
+            ruta = Path.Combine(Directory.GetCurrentDirectory(), "lista_precios_aceites.xlsx");
+        if (!File.Exists(ruta))
+        {
+            Console.WriteLine("[CLI] No se encontró el catálogo de aceites. Configure Importacion:RutaCatalogo " +
+                              "(appsettings.json, user-secrets o la variable de entorno Importacion__RutaCatalogo) " +
+                              "con la ruta del archivo lista_precios_aceites.xlsx.");
+            return;
+        }
         Console.WriteLine($"[CLI] Importando aceites desde: {ruta}");
         var res = await importador.ImportarDesdeArchivoLocalAsync(ruta, actualizarExistentes: true);
         Console.WriteLine($"[CLI] {res.Mensaje}");

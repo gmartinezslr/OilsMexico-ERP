@@ -13,7 +13,7 @@ public sealed partial class VentasService
         string? texto, EstadoFactura? estado, int pagina, CancellationToken ct = default)
     {
         // REGLA #1: solo Admin puede consultar otra sucursal; el resto ve la suya.
-        var suc = ctx.Rol == "Admin" ? sucursalId : ctx.SucursalId;
+        var suc = ctx.ResolverSucursalAutorizada(sucursalId);
         if (desde > hasta) (desde, hasta) = (hasta, desde);
         // El rango de fechas llega en hora local del usuario; se convierte a UTC
         // (FechaEmision se guarda en UTC) e incluye todo el día "hasta".
@@ -74,7 +74,7 @@ public sealed partial class VentasService
             .Include(x => x.Cliente)
             .FirstOrDefaultAsync(x => x.Id == facturaId, ct);
         if (f is null) return null;
-        if (ctx.Rol != "Admin" && f.SucursalId != ctx.SucursalId) return null; // aislamiento
+        if (!ctx.EsAdmin && f.SucursalId != ctx.SucursalId) return null; // aislamiento
 
         return new HistorialDetalleDto(
             f.Id, f.FolioInterno, f.FechaEmision,

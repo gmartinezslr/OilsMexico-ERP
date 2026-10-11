@@ -7,7 +7,7 @@
 @if (Sesion.Autenticado)
 {
 <nav class="nav-groups" aria-label="Menú principal">
-    @if (Sesion.Sesion?.Rol is "Admin" or "Vendedor" or "Almacen" or "Conta")
+    @if (Sesion.Sesion?.Rol is Roles.Admin or Roles.Vendedor or Roles.Almacen or Roles.Conta)
     {
     <div class="nav-group @(GrupoAbierto == "general" ? "is-open" : "")">
         <button type="button" class="nav-group-header" @onclick='() => Alternar("general")'
@@ -35,7 +35,7 @@
     </div>
     }
 
-    @if (Sesion.Sesion?.Rol is "Admin" or "Vendedor" or "Conta")
+    @if (Sesion.Sesion?.Rol is Roles.Admin or Roles.Vendedor or Roles.Conta)
     {
     <div class="nav-group @(GrupoAbierto == "ventas" ? "is-open" : "")">
         <button type="button" class="nav-group-header" @onclick='() => Alternar("ventas")'
@@ -50,7 +50,7 @@
         {
             <div class="nav-sub" id="sub-ventas">
 
-        @if (Sesion.Sesion?.Rol is "Admin" or "Vendedor")
+        @if (Sesion.Sesion?.Rol is Roles.Admin or Roles.Vendedor)
         {
         <NavLink class="nav-link" href="ventas-pos">
             <span class="nav-ico" aria-hidden="true">
@@ -60,7 +60,7 @@
         </NavLink>
         }
 
-        @if (Sesion.Sesion?.Rol is "Admin" or "Vendedor" or "Conta")
+        @if (Sesion.Sesion?.Rol is Roles.Admin or Roles.Vendedor or Roles.Conta)
         {
         <NavLink class="nav-link" href="facturacion">
             <span class="nav-ico" aria-hidden="true">
@@ -70,7 +70,7 @@
         </NavLink>
         }
 
-        @if (Sesion.Sesion?.Rol is "Admin" or "Vendedor" or "Conta")
+        @if (Sesion.Sesion?.Rol is Roles.Admin or Roles.Vendedor or Roles.Conta)
         {
         <NavLink class="nav-link" href="historial-ventas">
             <span class="nav-ico" aria-hidden="true">
@@ -80,7 +80,7 @@
         </NavLink>
         }
 
-        @if (Sesion.Sesion?.Rol is "Admin" or "Vendedor" or "Conta")
+        @if (Sesion.Sesion?.Rol is Roles.Admin or Roles.Vendedor or Roles.Conta)
         {
         <NavLink class="nav-link" href="notas-credito">
             <span class="nav-ico" aria-hidden="true">
@@ -90,7 +90,7 @@
         </NavLink>
         }
 
-        @if (Sesion.Sesion?.Rol is "Admin" or "Conta")
+        @if (Sesion.Sesion?.Rol is Roles.Admin or Roles.Conta)
         {
         <NavLink class="nav-link" href="complementos-pago">
             <span class="nav-ico" aria-hidden="true">
@@ -100,7 +100,7 @@
         </NavLink>
         }
 
-        @if (Sesion.Sesion?.Rol is "Admin" or "Vendedor")
+        @if (Sesion.Sesion?.Rol is Roles.Admin or Roles.Vendedor)
         {
         <NavLink class="nav-link" href="corte-caja">
             <span class="nav-ico" aria-hidden="true">
@@ -112,7 +112,7 @@
 
         @* Metas y comisiones: el Admin captura metas y cierra periodos; el Vendedor ve su avance
            (la pantalla se protege por rol en Metas.razor.cs). *@
-        @if (Sesion.Sesion?.Rol is "Admin" or "Vendedor")
+        @if (Sesion.Sesion?.Rol is Roles.Admin or Roles.Vendedor)
         {
         <NavLink class="nav-link" href="metas">
             <span class="nav-ico" aria-hidden="true">
@@ -127,7 +127,7 @@
     }
 
 
-    @if (Sesion.Sesion?.Rol is "Admin" or "Conta")
+    @if (Sesion.Sesion?.Rol is Roles.Admin or Roles.Conta)
     {
     <div class="nav-group @(GrupoAbierto == "gestion" ? "is-open" : "")">
         <button type="button" class="nav-group-header" @onclick='() => Alternar("gestion")'
@@ -161,7 +161,7 @@
     }
 
 
-    @if (Sesion.Sesion?.Rol is "Admin" or "Almacen")
+    @if (Sesion.Sesion?.Rol is Roles.Admin or Roles.Almacen)
     {
     <div class="nav-group @(GrupoAbierto == "almacen" ? "is-open" : "")">
         <button type="button" class="nav-group-header" @onclick='() => Alternar("almacen")'
@@ -208,7 +208,7 @@
     </div>
     }
 
-    @if (Sesion.Sesion?.Rol is "Admin" or "Vendedor")
+    @if (Sesion.Sesion?.Rol is Roles.Admin or Roles.Vendedor)
     {
     <div class="nav-group @(GrupoAbierto == "contactos" ? "is-open" : "")">
         <button type="button" class="nav-group-header" @onclick='() => Alternar("contactos")'
@@ -241,7 +241,7 @@
     </div>
     }
 
-    @if (Sesion.Sesion?.Rol is "Admin")
+    @if (Sesion.Sesion?.Rol is Roles.Admin)
     {
     <div class="nav-group @(GrupoAbierto == "config" ? "is-open" : "")">
         <button type="button" class="nav-group-header" @onclick='() => Alternar("config")'

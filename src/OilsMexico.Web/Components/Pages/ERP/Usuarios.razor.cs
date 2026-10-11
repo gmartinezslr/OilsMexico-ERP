@@ -1,18 +1,19 @@
 using Microsoft.AspNetCore.Components;
 using Microsoft.EntityFrameworkCore;
 using OilsMexico.Domain.Entities;
+using OilsMexico.Domain.Services;
 
 namespace OilsMexico.Web.Components.Pages.ERP;
 
 public partial class Usuarios : ComponentBase
 {
-    private static readonly string[] RolesValidos = ["Admin", "Vendedor", "Almacen", "Conta"];
+    private static readonly string[] RolesValidos = Roles.Todos;
 
     private string filtro = "", msg = "", pin1 = "", pin2 = "";
     private bool err, guardando, esAdmin, soloActivos = true;
     private int miId;
     private List<UsuarioRow> lista = [];
-    private Usuario edit = new() { Rol = "Vendedor", Activo = true };
+    private Usuario edit = new() { Rol = Roles.Vendedor, Activo = true };
     private List<SucRow> sucursales = [];
     // Política de contraseña configurable por el administrador (longitud, historial, vigencia).
     private OilsMexico.Application.DTOs.PasswordConfigDto cfgPwd = new(20, 3, 90, true, true, true, true);
@@ -29,7 +30,7 @@ public partial class Usuarios : ComponentBase
     protected override async Task OnInitializedAsync()
     {
         if (!Sesion.Autenticado) return;
-        esAdmin = Sesion.Sesion?.Rol == "Admin";
+        esAdmin = Sesion.Sesion?.Rol == Roles.Admin;
         if (!esAdmin) { Nav.NavigateTo("/"); return; }
         miId = Sesion.Sesion?.UsuarioId ?? 0;
         sucursales = await Db.Sucursales.AsNoTracking().OrderBy(s => s.CodigoSucursal)
@@ -43,8 +44,8 @@ public partial class Usuarios : ComponentBase
     {
         if (!first) return;
         if (!Sesion.Autenticado && !await Sesion.RestaurarAsync()) { Nav.NavigateTo("/login"); return; }
-        if (Sesion.Sesion?.Rol != "Admin") { Nav.NavigateTo("/"); return; }
-        esAdmin = Sesion.Sesion?.Rol == "Admin";
+        if (Sesion.Sesion?.Rol != Roles.Admin) { Nav.NavigateTo("/"); return; }
+        esAdmin = Sesion.Sesion?.Rol == Roles.Admin;
         miId = Sesion.Sesion?.UsuarioId ?? 0;
         StateHasChanged();
     }
@@ -74,7 +75,7 @@ public partial class Usuarios : ComponentBase
     private void Nuevo()
     {
         if (!esAdmin) return;
-        edit = new Usuario { Rol = "Vendedor", Activo = true, SucursalId = sucursales.Count > 0 ? sucursales[0].Id : 0 };
+        edit = new Usuario { Rol = Roles.Vendedor, Activo = true, SucursalId = sucursales.Count > 0 ? sucursales[0].Id : 0 };
         pin1 = pin2 = "";
         msg = "";
     }
@@ -137,7 +138,7 @@ public partial class Usuarios : ComponentBase
 
         if (edit.Id == miId && !edit.Activo)
         { msg = "No puedes desactivar tu propio usuario."; err = true; return; }
-        if (edit.Id == miId && edit.Rol != "Admin")
+        if (edit.Id == miId && edit.Rol != Roles.Admin)
         { msg = "No puedes quitarte el rol Admin a ti mismo."; err = true; return; }
 
         guardando = true;

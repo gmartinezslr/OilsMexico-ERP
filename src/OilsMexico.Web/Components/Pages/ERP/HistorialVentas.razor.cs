@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Components;
 using OilsMexico.Application.DTOs;
 using OilsMexico.Domain.Enums;
+using OilsMexico.Domain.Services;
 
 namespace OilsMexico.Web.Components.Pages.ERP;
 
@@ -24,7 +25,7 @@ public partial class HistorialVentas : ComponentBase
     {
         if (!first) return;
         if (!Sesion.Autenticado && !await Sesion.RestaurarAsync()) { Nav.NavigateTo("/login"); return; }
-        if (Sesion.Sesion?.Rol is not ("Admin" or "Vendedor" or "Conta")) { Nav.NavigateTo("/"); return; }
+        if (Sesion.Sesion?.Rol is not (Roles.Admin or Roles.Vendedor or Roles.Conta)) { Nav.NavigateTo("/"); return; }
         await Cargar();
         StateHasChanged();
     }

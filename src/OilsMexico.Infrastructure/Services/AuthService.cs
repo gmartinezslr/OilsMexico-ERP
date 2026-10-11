@@ -311,7 +311,7 @@ public sealed class AuthService(ErpDbContext db, IConfiguration configuration, I
 
     public async Task<CambioPasswordResult> GuardarPasswordConfigAsync(PasswordConfigRequest request, int usuarioId, CancellationToken ct = default)
     {
-        var esAdmin = (ctx.Establecida ? ctx.Rol : null) == "Admin";
+        var esAdmin = ctx.EsAdmin;
         if (!esAdmin) return new(false, "Solo el administrador puede guardar la política de contraseña.");
 
         var valido = request.LongitudMinima >= 4 && request.LongitudMinima <= 100
@@ -344,7 +344,7 @@ public sealed class AuthService(ErpDbContext db, IConfiguration configuration, I
         if (u is null) return new(false, "No se encontró la cuenta.");
 
         var esPropia = ctx.Establecida && ctx.UsuarioId == usuarioId;
-        if (!esPropia && (!ctx.Establecida || ctx.Rol != "Admin"))
+        if (!esPropia && (!ctx.EsAdmin))
             return new(false, "Solo el administrador puede desactivar el 2FA de otros usuarios.");
 
         if (!u.DosFaActivo)
@@ -372,7 +372,7 @@ public sealed class AuthService(ErpDbContext db, IConfiguration configuration, I
         if (u is null) return new(false, Mensaje: "No se encontró la cuenta.");
 
         var esPropia = ctx.Establecida && ctx.UsuarioId == usuarioId;
-        if (!esPropia && (!ctx.Establecida || ctx.Rol != "Admin"))
+        if (!esPropia && (!ctx.EsAdmin))
             return new(false, Mensaje: "Solo el administrador puede consultar el estado del 2FA de otros usuarios.");
 
         // Sin 2FA activo y sin secreto pendiente: se genera para que el usuario pueda escanear el QR.
@@ -392,7 +392,7 @@ public sealed class AuthService(ErpDbContext db, IConfiguration configuration, I
         if (u is null) return new(false, "No se encontró la cuenta.");
 
         var esPropia = ctx.Establecida && ctx.UsuarioId == usuarioId;
-        var esAdmin = ctx.Establecida && ctx.Rol == "Admin";
+        var esAdmin = ctx.EsAdmin;
         if (!esPropia && !esAdmin)
             return new(false, "Solo el administrador puede activar el 2FA de otros usuarios.");
         if (string.IsNullOrWhiteSpace(u.DosFaSecret))
@@ -421,7 +421,7 @@ public sealed class AuthService(ErpDbContext db, IConfiguration configuration, I
         if (u is null) return new(false, "No se encontró la cuenta.");
 
         var esPropia = !ctx.Establecida || ctx.UsuarioId == usuarioId; // Sin sesión (login), la verificación de la contraseña actual acredita al dueño.
-        var esAdmin = ctx.Establecida && ctx.Rol == "Admin";
+        var esAdmin = ctx.EsAdmin;
         if (!esPropia && !esAdmin)
             return new(false, "Solo el administrador puede cambiar la contraseña de otros usuarios.");
 

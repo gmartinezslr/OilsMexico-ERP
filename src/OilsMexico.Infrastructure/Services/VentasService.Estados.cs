@@ -11,7 +11,7 @@ public sealed partial class VentasService
     {
         var f = await db.Facturas.FindAsync([facturaId], ct)
             ?? throw new InvalidOperationException("Factura no existe.");
-        if (f.SucursalId != ctx.SucursalId && ctx.Rol != "Admin")
+        if (f.SucursalId != ctx.SucursalId && !ctx.EsAdmin)
             throw new UnauthorizedAccessException("No puedes surtir ventas de otra sucursal.");
         f.Estado = EstadoFactura.Surtida;
         await db.SaveChangesAsync(ct);
@@ -25,7 +25,7 @@ public sealed partial class VentasService
         var f = await db.Facturas.Include(x => x.Detalles)
             .FirstOrDefaultAsync(x => x.Id == facturaId, ct)
             ?? throw new InvalidOperationException("Factura no existe.");
-        if (f.SucursalId != ctx.SucursalId && ctx.Rol != "Admin")
+        if (f.SucursalId != ctx.SucursalId && !ctx.EsAdmin)
             throw new UnauthorizedAccessException("No puedes devolver ventas de otra sucursal.");
         foreach (var d in f.Detalles)
         {

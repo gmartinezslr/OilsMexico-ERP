@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Components;
 using OilsMexico.Application.DTOs;
 using OilsMexico.Domain.Enums;
+using OilsMexico.Domain.Services;
 
 namespace OilsMexico.Web.Components.Pages.ERP;
 
@@ -17,7 +18,7 @@ public partial class Facturacion : ComponentBase
 
     protected override async Task OnInitializedAsync()
     {
-        puedeCancelar = Sesion.Sesion?.Rol is "Admin" or "Conta";
+        puedeCancelar = Sesion.Sesion?.Rol is Roles.Admin or Roles.Conta;
         // No cargar aquí: OnAfterRenderAsync lo hace tras restaurar sesión.
         // Cargar en ambos solapa dos consultas sobre el mismo DbContext
         // ("A second operation was started on this context instance").
@@ -27,8 +28,8 @@ public partial class Facturacion : ComponentBase
     {
         if (!first) return;
         if (!Sesion.Autenticado && !await Sesion.RestaurarAsync()) { Nav.NavigateTo("/login"); return; }
-        if (Sesion.Sesion?.Rol is not ("Admin" or "Vendedor" or "Conta")) { Nav.NavigateTo("/"); return; }
-        puedeCancelar = Sesion.Sesion?.Rol is "Admin" or "Conta";
+        if (Sesion.Sesion?.Rol is not (Roles.Admin or Roles.Vendedor or Roles.Conta)) { Nav.NavigateTo("/"); return; }
+        puedeCancelar = Sesion.Sesion?.Rol is Roles.Admin or Roles.Conta;
         if (!_primeraCarga) { _primeraCarga = true; await Cargar(); StateHasChanged(); }
     }
 

@@ -15,7 +15,7 @@ public sealed partial class NotaCreditoService
         var f = await db.Facturas.Include(x => x.Detalles)
             .FirstOrDefaultAsync(x => x.Id == req.FacturaOrigenId, ct)
             ?? throw new InvalidOperationException("Factura origen no existe.");
-        if (ctx.Rol != "Admin" && f.SucursalId != ctx.SucursalId)
+        if (!ctx.EsAdmin && f.SucursalId != ctx.SucursalId)
             throw new UnauthorizedAccessException("No puedes acreditar facturas de otra sucursal.");
         if (f.Estado is not (Domain.Enums.EstadoFactura.Timbrada
             or Domain.Enums.EstadoFactura.Surtida or Domain.Enums.EstadoFactura.Entregada))

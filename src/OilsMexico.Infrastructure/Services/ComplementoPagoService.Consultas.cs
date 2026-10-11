@@ -8,7 +8,7 @@ public sealed partial class ComplementoPagoService
     public async Task<List<RepListadoDto>> ListarAsync(
         int sucursalId, string? estado, CancellationToken ct = default)
     {
-        var suc = ctx.Rol == "Admin" ? sucursalId : ctx.SucursalId;
+        var suc = ctx.ResolverSucursalAutorizada(sucursalId);
         var q = db.ComplementosPago.AsNoTracking().Where(r => r.SucursalId == suc);
         if (!string.IsNullOrWhiteSpace(estado)) q = q.Where(r => r.Estado == estado);
         return await q.OrderByDescending(r => r.FechaEmision).Take(200)
@@ -26,7 +26,7 @@ public sealed partial class ComplementoPagoService
             .Include(x => x.Cliente).Include(x => x.Documentos)
             .FirstOrDefaultAsync(x => x.Id == repId, ct);
         if (r is null) return null;
-        if (ctx.Rol != "Admin" && r.SucursalId != ctx.SucursalId) return null;
+        if (!ctx.EsAdmin && r.SucursalId != ctx.SucursalId) return null;
         return new RepDetalleDto(
             r.Id, r.FolioInterno, r.FechaEmision,
             r.Cliente?.Nombre ?? "(sin cliente)", r.Total, r.UuidSat, r.Estado,
@@ -40,7 +40,7 @@ public sealed partial class ComplementoPagoService
         var r = await db.ComplementosPago.AsNoTracking()
             .FirstOrDefaultAsync(x => x.Id == repId, ct);
         if (r is null) return null;
-        if (ctx.Rol != "Admin" && r.SucursalId != ctx.SucursalId) return null;
+        if (!ctx.EsAdmin && r.SucursalId != ctx.SucursalId) return null;
         return r.XmlSellado;
     }
 }

@@ -16,7 +16,7 @@ public sealed partial class CorteCajaService(ErpDbContext db, ISucursalContext c
 {
     public async Task<CorteAbiertoDto?> AbiertoAsync(int sucursalId, CancellationToken ct = default)
     {
-        var suc = ctx.Rol == "Admin" ? sucursalId : ctx.SucursalId;
+        var suc = ctx.ResolverSucursalAutorizada(sucursalId);
         return await db.CortesCaja.AsNoTracking()
             .Where(c => c.SucursalId == suc && c.Estado == "Abierto")
             .OrderByDescending(c => c.FechaAperturaUtc)
@@ -27,7 +27,7 @@ public sealed partial class CorteCajaService(ErpDbContext db, ISucursalContext c
 
     public async Task<CorteAbiertoDto> AbrirAsync(int sucursalId, decimal fondoInicial, CancellationToken ct = default)
     {
-        var suc = ctx.Rol == "Admin" ? sucursalId : ctx.SucursalId;
+        var suc = ctx.ResolverSucursalAutorizada(sucursalId);
         if (fondoInicial < 0) throw new InvalidOperationException("El fondo inicial no puede ser negativo.");
         var existe = await db.CortesCaja
             .AnyAsync(c => c.SucursalId == suc && c.Estado == "Abierto", ct);

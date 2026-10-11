@@ -19,9 +19,9 @@ public sealed class Factura
     public string? XmlSellado { get; set; }
     public string? SelloDigital { get; set; }
     public string? CadenaOriginal { get; set; }
-    public string MetodoPagoSat { get; set; } = "PUE"; // PUE | PPD
-    public string FormaPagoSat { get; set; } = "01";    // Catálogo SAT c_FormaPago
-    public string UsoCfdi { get; set; } = "G03";
+    public string MetodoPagoSat { get; set; } = CfdiDefaults.MetodoPago;       // PUE | PPD
+    public string FormaPagoSat { get; set; } = CfdiDefaults.FormaPagoVenta;    // Catálogo SAT c_FormaPago
+    public string UsoCfdi { get; set; } = CfdiDefaults.UsoCfdiVenta;
     public EstadoFactura Estado { get; set; } = EstadoFactura.Pendiente;
     /// <summary>Motivo de cancelación CFDI (requerido por el SAT al cancelar).</summary>
     public string? MotivoCancelacion { get; set; }

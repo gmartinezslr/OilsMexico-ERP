@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using OilsMexico.Application.DTOs;
 using OilsMexico.Application.Interfaces;
 using OilsMexico.Domain.Enums;
+using OilsMexico.Domain.Services;
 using OilsMexico.Infrastructure.Persistence;
 
 namespace OilsMexico.Web.Components.Pages.ERP;
@@ -49,7 +50,7 @@ public partial class Metas : ComponentBase
     private List<TabuladorDto> tabulador = [];
     private string filtroProd = "";
 
-    private bool EsAdmin => Sesion.Sesion?.Rol == "Admin";
+    private bool EsAdmin => Sesion.Sesion?.Rol == Roles.Admin;
     private int VendedorActual => EsAdmin ? (vendSel?.Id ?? 0) : (Sesion.Sesion?.UsuarioId ?? 0);
     private string Periodo => $"{anio}-{mes:D2}";
 
@@ -65,7 +66,7 @@ public partial class Metas : ComponentBase
     {
         if (!first) return;
         if (!Sesion.Autenticado && !await Sesion.RestaurarAsync()) { Nav.NavigateTo("/login"); return; }
-        if (Sesion.Sesion?.Rol is not ("Admin" or "Vendedor")) { Nav.NavigateTo("/"); return; }
+        if (Sesion.Sesion?.Rol is not (Roles.Admin or Roles.Vendedor)) { Nav.NavigateTo("/"); return; }
         // En el prerrender la sesión aún no existe: si no se cargó nada, cargar ahora.
         if (vendedores.Count == 0)
         {
@@ -79,7 +80,7 @@ public partial class Metas : ComponentBase
     private async Task CargarVendedores()
     {
         vendedores = await Db.Usuarios.AsNoTracking()
-            .Where(u => u.Activo && (u.Rol == "Vendedor" || u.Rol == "Admin"))
+            .Where(u => u.Activo && (u.Rol == Roles.Vendedor || u.Rol == Roles.Admin))
             .OrderBy(u => u.Nombre)
             .Select(u => new VendedorItem(u.Id, u.Nombre, u.Rol))
             .ToListAsync();

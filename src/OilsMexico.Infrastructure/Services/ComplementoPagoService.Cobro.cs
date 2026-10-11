@@ -12,7 +12,7 @@ public sealed partial class ComplementoPagoService
         await using var tx = await db.Database.BeginTransactionAsync(ct);
         var f = await db.Facturas.FirstOrDefaultAsync(x => x.Id == req.FacturaId, ct)
             ?? throw new InvalidOperationException("Factura no existe.");
-        if (ctx.Rol != "Admin" && f.SucursalId != ctx.SucursalId)
+        if (!ctx.EsAdmin && f.SucursalId != ctx.SucursalId)
             throw new UnauthorizedAccessException("No puedes cobrar facturas de otra sucursal.");
         if (f.MetodoPagoSat != "PPD")
             throw new InvalidOperationException("Solo las ventas PPD se liquidan con REP.");
