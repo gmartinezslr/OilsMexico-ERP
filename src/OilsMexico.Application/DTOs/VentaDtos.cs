@@ -5,7 +5,8 @@ namespace OilsMexico.Application.DTOs;
 public sealed record ProductoDto(
     int Id, string Sku, string Nombre, string Marca, string Viscosidad,
     string TipoBase, decimal PrecioVenta, decimal PrecioMayoreo,
-    decimal StockSucursal, string UnidadVenta, decimal FactorConversion);
+    decimal StockSucursal, string UnidadVenta, decimal FactorConversion,
+    int UnidadMedidaId = 0, string? CodigoBarra = null);
 
 public sealed record CarritoItemDto(
     int ProductoId, string Sku, string Nombre,

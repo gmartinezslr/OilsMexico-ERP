@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using OilsMexico.Application.DTOs;
@@ -21,9 +22,12 @@ public partial class VentasPOS : ComponentBase
     [Inject] public ISesionActual Sesion { get; set; } = default!;
     [Inject] public NavigationManager Nav { get; set; } = default!;
     [Inject] public ICorteCajaService Caja { get; set; } = default!;
+    [Inject] public IAvisos Avisos { get; set; } = default!;
     protected CorteAbiertoDto? corteAbierto;
 
     protected string filtro = "";
+    protected bool mostrarAyudaScan;
+    private ElementReference cajaScan;
     protected List<ProductoDto> productos = [];
     protected List<CarritoItemDto> carrito = [];
     protected List<(int Id, string Nombre)> sucursales = [];
@@ -127,6 +131,33 @@ public partial class VentasPOS : ComponentBase
         await Buscar();
     }
 
+    /// <summary>
+    /// Enter = comportamiento de escáner: si hay UN solo resultado (típico del
+    /// código de barras exacto) entra directo al carrito, se limpia el campo y
+    /// el foco vuelve a la caja para el siguiente escaneo en cadena.
+    /// </summary>
+    protected async Task AlTecla(KeyboardEventArgs e)
+    {
+        if (e.Key != "Enter") return;
+        await Buscar();
+        if (productos.Count == 1)
+        {
+            Agregar(productos[0]);
+            mensaje = $"Agregado por escaneo: {productos[0].Sku} ({productos[0].UnidadVenta}).";
+            esError = false;
+            Avisos.Agregar($"Escaneo: {productos[0].Sku}", $"{productos[0].Nombre} · {productos[0].UnidadVenta}", "exito");
+            filtro = "";
+            productos = await Ventas.BuscarProductosAsync(SucursalCtx.SucursalId, "");
+            try { await cajaScan.FocusAsync(); } catch { }
+        }
+        else if (productos.Count == 0 && !string.IsNullOrWhiteSpace(filtro))
+        {
+            mensaje = $"Código '{filtro.Trim()}' no encontrado. Verifícalo o dalo de alta en Productos → Presentaciones.";
+            esError = true;
+            Avisos.Agregar($"Código no encontrado: {filtro.Trim()}", "Verifícalo o dalo de alta en Productos → Presentaciones.", "aviso");
+        }
+    }
+
     protected async Task CambiarSucursal(ChangeEventArgs e)
     {
         // Solo Admin puede cambiar de sucursal; el resto opera en la suya (Regla #1).
@@ -138,9 +169,11 @@ public partial class VentasPOS : ComponentBase
 
     protected void Agregar(ProductoDto p)
     {
-        var ex = carrito.FirstOrDefault(i => i.ProductoId == p.Id);
+        // La misma presentación suma cantidad; otra presentación del mismo producto
+        // es otro renglón (precio y litros distintos). UnidadMedidaId 0 = legacy.
+        var ex = carrito.FirstOrDefault(i => i.ProductoId == p.Id && i.UnidadMedidaId == p.UnidadMedidaId);
         if (ex is null)
-            carrito.Add(new CarritoItemDto(p.Id, p.Sku, p.Nombre, 0, p.UnidadVenta, p.FactorConversion, 1, p.PrecioVenta));
+            carrito.Add(new CarritoItemDto(p.Id, p.Sku, p.Nombre, p.UnidadMedidaId, p.UnidadVenta, p.FactorConversion, 1, p.PrecioVenta));
         else
             carrito[carrito.IndexOf(ex)] = ex with { Cantidad = ex.Cantidad + 1 };
     }
@@ -157,6 +190,7 @@ public partial class VentasPOS : ComponentBase
             ultimo = await Ventas.RegistrarVentaAsync(req);
             mensaje = $"Venta {ultimo.FolioInterno} registrada ({ultimo.Estado}).";
             esError = false;
+            Avisos.Agregar($"Venta {ultimo.FolioInterno} ({ultimo.Estado})", $"Total ${ultimo.Total:N2} · {carrito.Count} renglones.", "exito");
             carrito.Clear();
             await Hub.Clients.Group($"sucursal-{SucursalCtx.SucursalId}")
                 .SendAsync("venta-nueva", ultimo.FolioInterno, ultimo.Total);

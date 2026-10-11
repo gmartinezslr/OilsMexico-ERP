@@ -214,7 +214,9 @@ public partial class Productos : ComponentBase
         if (unidadEdit.PrecioUnitario < 0)
         { msg = "El precio no puede ser negativo."; err = true; return; }
         unidadEdit.ProductoId = edit.Id;
-        unidadEdit.CodigoBarra = string.IsNullOrWhiteSpace(unidadEdit.CodigoBarra) ? null : unidadEdit.CodigoBarra.Trim();
+        unidadEdit.CodigoBarra = CodigosBarra.Normalizar(unidadEdit.CodigoBarra);
+        var (barraOk, barraMsg) = CodigosBarra.Validar(unidadEdit.CodigoBarra);
+        if (!barraOk) { msg = barraMsg; err = true; return; }
         if (!string.IsNullOrEmpty(unidadEdit.CodigoBarra))
         {
             var dupBar = await Db.UnidadesMedida.AsNoTracking().AnyAsync(u =>

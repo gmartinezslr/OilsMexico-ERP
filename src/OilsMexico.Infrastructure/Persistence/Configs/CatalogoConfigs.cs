@@ -44,6 +44,8 @@ public sealed class UnidadMedidaConfig : IEntityTypeConfiguration<UnidadMedida>
         e.Property(x => x.UnidadNombre).HasColumnName("unidad_nombre").HasMaxLength(20).IsRequired();
         e.Property(x => x.FactorConversion).HasColumnName("factor_conversion").HasPrecision(10, 4);
         e.Property(x => x.CodigoBarra).HasColumnName("codigo_barra").HasMaxLength(50);
+        // Búsqueda de escáner en el POS: lower(codigo_barra) por presentación.
+        e.HasIndex(x => x.CodigoBarra).HasDatabaseName("ix_unidades_codigo_barra");
         e.Property(x => x.PrecioUnitario).HasColumnName("precio_unitario").HasPrecision(12, 2);
 
         // Tabulador de comisiones por presentación (fase 3). SchemaPatch agrega las columnas

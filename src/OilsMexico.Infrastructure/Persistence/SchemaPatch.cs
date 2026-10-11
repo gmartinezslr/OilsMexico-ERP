@@ -91,6 +91,19 @@ public static class SchemaPatch
             END $$;
         ");
 
+        // Códigos de barras por presentación: columna para BDs viejas, normalización de lo
+        // ya capturado (mayúsculas sin espacios/guiones) e índice de búsqueda del POS.
+        await db.Database.ExecuteSqlRawAsync("""
+            ALTER TABLE unidades_medida ADD COLUMN IF NOT EXISTS codigo_barra varchar(50);
+            UPDATE unidades_medida
+               SET codigo_barra = upper(regexp_replace(codigo_barra, '[\s\-\.]', '', 'g'))
+             WHERE codigo_barra IS NOT NULL AND codigo_barra <> upper(regexp_replace(codigo_barra, '[\s\-\.]', '', 'g'));
+            CREATE INDEX IF NOT EXISTS ix_unidades_codigo_barra ON unidades_medida (codigo_barra);
+            -- NOTA: sin UNIQUE a nivel BD a propósito: si una base legacy ya trae el mismo
+            -- código en dos presentaciones, el índice único tumbaría el arranque. Los duplicados
+            -- se bloquean en la UI (Productos.razor.cs) hacia adelante.
+            """);
+
         // Facturación CFDI: motivo de cancelación (obligatorio ante el SAT).
         await db.Database.ExecuteSqlRawAsync("""
             ALTER TABLE facturas ADD COLUMN IF NOT EXISTS motivo_cancelacion varchar(300);

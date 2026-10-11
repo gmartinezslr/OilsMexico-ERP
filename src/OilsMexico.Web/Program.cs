@@ -19,6 +19,7 @@ builder.Services.AddDbContext<ErpDbContext>(opt =>
 
 builder.Services.AddScoped<ISucursalContext, SucursalContext>();
 builder.Services.AddScoped<ISesionActual, SesionActual>();
+builder.Services.AddScoped<IAvisos, AvisosService>();
 builder.Services.AddScoped<ITimeoutSesion, TimeoutSesion>();
 builder.Services.AddScoped<IConfiguracionService, ConfiguracionService>();
 builder.Services.AddScoped<IAuthService, AuthService>();

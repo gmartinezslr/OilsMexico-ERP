@@ -12,6 +12,7 @@ public partial class Clientes : ComponentBase
     private string filtro = "", msg = "";
     private string vendedorSel = "";
     private bool err, guardando;
+    private int paso = 1;
     private List<Cliente> lista = [];
     private Cliente edit = new();
     private List<(int Id, string Nombre)> vendedores = [];
@@ -64,6 +65,7 @@ public partial class Clientes : ComponentBase
         edit = Clonar(c);
         vendedorSel = c.VendedorId?.ToString() ?? "";
         rfcInfo = ""; rfcErr = false;
+        paso = 1; msg = "";
     }
 
     /// <summary>Valida el RFC contra el validador oficial al salir del campo (feedback en vivo).</summary>
@@ -79,7 +81,23 @@ public partial class Clientes : ComponentBase
 
     private async Task AlEscribir(ChangeEventArgs e) { filtro = e.Value?.ToString() ?? ""; await Cargar(); }
 
-    private void Nuevo() { edit = new Cliente { CodigoPostal = "06600" }; vendedorSel = ""; }
+    private void Nuevo() { edit = new Cliente { CodigoPostal = "06600" }; vendedorSel = ""; paso = 1; msg = ""; }
+
+    private void IrPaso(int n) { paso = Math.Clamp(n, 1, 3); msg = ""; }
+
+    private void Siguiente()
+    {
+        // El wizard guía pero no bloquea datos ya capturados: valida el paso actual.
+        msg = "";
+        if (paso == 1 && (string.IsNullOrWhiteSpace(edit.Nombre) || string.IsNullOrWhiteSpace(edit.Rfc)))
+        { msg = "Paso 1: captura Nombre y RFC antes de continuar."; err = true; return; }
+        if (paso == 2 && string.IsNullOrWhiteSpace(edit.RegimenFiscal))
+        { msg = "Paso 2: elige el régimen fiscal."; err = true; return; }
+        err = false;
+        paso = Math.Min(3, paso + 1);
+    }
+
+    private void Anterior() { paso = Math.Max(1, paso - 1); msg = ""; }
 
     private async Task Editar(int id)
     {
@@ -117,6 +135,7 @@ public partial class Clientes : ComponentBase
             else Db.Clientes.Update(edit);
             await Db.SaveChangesAsync();
             msg = $"Cliente '{edit.Nombre}' guardado."; err = false;
+            Avisos.Agregar($"Cliente guardado: {edit.Nombre}", $"RFC {edit.Rfc} · {edit.RegimenFiscal}", "exito");
             var id = edit.Id;
             await Cargar();
             Seleccionar((await Db.Clientes.FindAsync(id))!);

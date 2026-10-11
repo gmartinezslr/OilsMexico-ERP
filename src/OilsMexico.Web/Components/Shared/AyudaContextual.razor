@@ -1,0 +1,36 @@
+@* Ayuda contextual reutilizable: botón "?" que despliega el texto sin navegar fuera. *@
+@if (!string.IsNullOrWhiteSpace(Titulo) || !string.IsNullOrWhiteSpace(Texto))
+{
+    <span class="ayuda-ctx">
+        <button type="button" class="btn btn-sm btn-outline-secondary ayuda-btn" title="@(Titulo ?? "Ayuda")"
+                @onclick="() => abierto = !abierto" aria-expanded="@abierto">?</button>
+        @if (abierto)
+        {
+            <span class="ayuda-globo shadow-sm">
+                @if (!string.IsNullOrWhiteSpace(Titulo))
+                {
+                    <strong class="d-block mb-1">@Titulo</strong>
+                }
+                <span class="small">@Texto</span>
+                @if (ChildContent is not null)
+                {
+                    <span class="d-block mt-1 small">@ChildContent</span>
+                }
+            </span>
+        }
+    </span>
+}
+
+<style>
+.ayuda-ctx { position: relative; display: inline-block; margin-left: 6px; vertical-align: middle; }
+.ayuda-btn { width: 22px; height: 22px; padding: 0; line-height: 1; border-radius: 50%; font-size: .75rem; font-weight: 700; }
+.ayuda-globo { position: absolute; left: 26px; top: -6px; width: 260px; background: #fff; border: 1px solid #dee2e6; border-radius: 8px; padding: 10px 12px; z-index: 1060; color: #212529; }
+</style>
+
+@code {
+    [Parameter] public string? Titulo { get; set; }
+    [Parameter] public string? Texto { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    private bool abierto;
+}
