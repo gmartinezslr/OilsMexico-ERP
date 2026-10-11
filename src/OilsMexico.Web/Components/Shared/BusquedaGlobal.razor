@@ -1,0 +1,113 @@
+@* Búsqueda global (Ctrl+K): un campo en el header que busca en clientes, productos,
+   proveedores, ventas y compras y navega a la página del resultado. Respeta sesión y sucursal. *@
+@rendermode InteractiveServer
+@inject OilsMexico.Application.Interfaces.IBusquedaGlobalService Busqueda
+@inject OilsMexico.Application.Interfaces.ISesionActual Sesion
+@inject OilsMexico.Application.Interfaces.ISucursalContext SucCtx
+@inject NavigationManager Nav
+@implements IDisposable
+
+<div class="busq-global">
+    <input class="form-control form-control-sm busq-input" placeholder="🔍 Buscar… (Ctrl+K)"
+           value="@texto" @oninput="AlEscribir" @onkeydown="AlTecla" @ref="caja" />
+    @if (abierto)
+    {
+        <div class="busq-panel shadow">
+            @if (buscando)
+            {
+                <div class="text-muted small px-2 py-1">Buscando…</div>
+            }
+            else if (resultados.Count == 0)
+            {
+                <div class="text-muted small px-2 py-1">Sin resultados. Mínimo 2 letras.</div>
+            }
+            else
+            {
+                @foreach (var g in resultados.GroupBy(r => r.Modulo))
+                {
+                    <div class="busq-grupo">@g.Key</div>
+                    @foreach (var r in g)
+                    {
+                        <button type="button" class="busq-item" @onclick="() => Ir(r.Url)">
+                            <span class="fw-semibold small">@r.Titulo</span>
+                            @if (!string.IsNullOrEmpty(r.Subtitulo))
+                            {
+                                <span class="d-block text-muted busq-sub">@r.Subtitulo</span>
+                            }
+                            @if (!string.IsNullOrEmpty(r.Etiqueta))
+                            {
+                                <span class="badge bg-secondary busq-tag">@r.Etiqueta</span>
+                            }
+                        </button>
+                    }
+                }
+            }
+        </div>
+    }
+</div>
+
+<style>
+.busq-global { position: relative; min-width: 220px; }
+.busq-input { border-radius: 20px; }
+.busq-panel { position: absolute; right: 0; top: 36px; width: 380px; max-height: 420px; overflow-y: auto; background: #fff; border: 1px solid #dee2e6; border-radius: 10px; padding: 8px; z-index: 1070; }
+.busq-grupo { font-size: .7rem; font-weight: 700; text-transform: uppercase; color: #868e96; margin: 6px 4px 2px; }
+.busq-item { display: block; width: 100%; text-align: left; border: 0; background: none; padding: 6px 8px; border-radius: 6px; }
+.busq-item:hover { background: #f1f3f5; }
+.busq-sub { font-size: .75rem; }
+.busq-tag { font-size: .65rem; margin-top: 2px; }
+</style>
+
+@code {
+    private string texto = "";
+    private bool abierto, buscando;
+    private List<OilsMexico.Application.DTOs.BusquedaGlobalDto> resultados = [];
+    private ElementReference caja;
+    private System.Threading.CancellationTokenSource? debounce;
+
+    protected override void OnInitialized() => Nav.LocationChanged += AlNavegar;
+
+    private void AlNavegar(object? s, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
+    {
+        abierto = false; texto = ""; resultados = [];
+        try { InvokeAsync(StateHasChanged); } catch { }
+    }
+
+    private async Task AlEscribir(ChangeEventArgs e)
+    {
+        texto = e.Value?.ToString() ?? "";
+        abierto = true;
+        debounce?.Cancel();
+        debounce = new System.Threading.CancellationTokenSource();
+        var tok = debounce.Token;
+        await Task.Delay(250);
+        if (tok.IsCancellationRequested) return;
+        if (!Sesion.Autenticado || texto.Trim().Length < 2) { resultados = []; return; }
+        buscando = true;
+        try { resultados = await Busqueda.BuscarAsync(texto, SucCtx.SucursalId); }
+        catch { resultados = []; }
+        buscando = false;
+    }
+
+    private void Ir(string url) { abierto = false; texto = ""; resultados = []; Nav.NavigateTo(url); }
+
+    private async Task AlTecla(Microsoft.AspNetCore.Components.Web.KeyboardEventArgs e)
+    {
+        if (e.Key == "Escape") { abierto = false; return; }
+        if (e.Key == "Enter" && resultados.Count > 0) Ir(resultados[0].Url);
+        await Task.CompletedTask;
+    }
+
+    /// <summary>El layout invoca este método con JS cuando se pulsa Ctrl+K.</summary>
+    public async Task Enfocar()
+    {
+        abierto = true;
+        try { await caja.FocusAsync(); } catch { }
+    }
+
+    public void Dispose()
+    {
+        Nav.LocationChanged -= AlNavegar;
+        debounce?.Cancel();
+        debounce?.Dispose();
+    }
+}

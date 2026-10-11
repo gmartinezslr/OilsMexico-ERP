@@ -8,7 +8,10 @@
 <PageTitle>Proveedores | OilsMexico ERP</PageTitle>
 <div class="container-fluid py-3">
     <div class="d-flex justify-content-between align-items-center mb-3">
-        <h3 class="fw-bold mb-0">Proveedores</h3>
+        <h3 class="fw-bold mb-0">Proveedores
+            <AyudaContextual Titulo="Alta de proveedores en 3 pasos"
+                Texto="1) Datos: nombre, RFC válido y contacto. 2) Facturación: situación fiscal (Cancelada/Baja bloquea). 3) Dirección SEPOMEX: CP de 5 dígitos + colonia del catálogo. Sin colonia no se puede guardar." />
+        </h3>
         <button class="btn btn-primary" @onclick="Nuevo">+ Nuevo proveedor</button>
     </div>
     @if (!string.IsNullOrEmpty(msg))
@@ -33,7 +36,20 @@
             </div>
         </div>
         <div class="col-lg-7"><div class="card shadow-sm"><div class="card-body">
-            <h5 class="fw-bold">@(edit.Id == 0 ? "Nuevo proveedor" : $"Editar #{edit.Id}")</h5>
+            <div class="d-flex justify-content-between align-items-center">
+                <h5 class="fw-bold mb-0">@(edit.Id == 0 ? "Nuevo proveedor" : $"Editar #{edit.Id}")</h5>
+                <span class="badge bg-secondary">Paso @paso de 3</span>
+            </div>
+            <div class="progress my-2" style="height:6px">
+                <div class="progress-bar" role="progressbar" style="width:@(paso * 100 / 3)%"></div>
+            </div>
+            <div class="btn-group btn-group-sm mb-3" role="group" aria-label="Pasos del alta">
+                <button type="button" class="btn @(paso == 1 ? "btn-primary" : "btn-outline-primary")" @onclick="() => IrPaso(1)">1 · Datos</button>
+                <button type="button" class="btn @(paso == 2 ? "btn-primary" : "btn-outline-primary")" @onclick="() => IrPaso(2)">2 · Facturación</button>
+                <button type="button" class="btn @(paso == 3 ? "btn-primary" : "btn-outline-primary")" @onclick="() => IrPaso(3)">3 · Dirección</button>
+            </div>
+            @if (paso == 1)
+            {
             <div class="row g-2">
                 <div class="col-md-8"><label class="form-label small">Nombre / Razón social *</label>
                     <input class="form-control" @bind="edit.Nombre" /></div>
@@ -47,27 +63,47 @@
                     <input class="form-control" @bind="edit.Email" /></div>
                 <div class="col-md-6"><label class="form-label small">Teléfono</label>
                     <input class="form-control" @bind="edit.Telefono" /></div>
-                <div class="col-md-6"><label class="form-label small">Situación fiscal (SAT)</label>
+            </div>
+            }
+            else if (paso == 2)
+            {
+            <div class="row g-2">
+                <div class="col-md-12"><label class="form-label small">Situación fiscal (SAT)</label>
                     <select class="form-select" @bind="edit.SituacionFiscal">
                         <option value="Actual">Actual — operaciones normales</option>
                         <option value="Adeudada">Adeudada — obligaciones fiscales pendientes</option>
                         <option value="Inactiva">Inactiva — no opera en el periodo</option>
                         <option value="Suspendida">Suspendida — incumplimientos temporales</option>
-                        <option value="Cancelada">Cancelada — anulada ante el SAT (no facturar)</option>
-                        <option value="Baja">Baja — baja definitiva (no facturar)</option>
-                    </select></div>
+                        <option value="Cancelada">Cancelada — anulada ante el SAT (no operar)</option>
+                        <option value="Baja">Baja — baja definitiva (no operar)</option>
+                    </select>
+                    <small class="text-muted">Cancelada/Baja bloquea el guardado aunque el RFC sea válido.</small></div>
             </div>
-            <h6 class="fw-bold mt-3">Dirección (SEPOMEX)</h6>
+            }
+            else
+            {
+            <h6 class="fw-bold mt-1">Dirección (SEPOMEX)</h6>
             <DireccionSepomex @bind-CodigoPostal="edit.CodigoPostal" @bind-Colonia="edit.Colonia"
                               @bind-Calle="edit.Calle" @bind-NumeroExterior="edit.NumeroExterior"
                               @bind-NumeroInterior="edit.NumeroInterior" @bind-Municipio="edit.Municipio"
                               @bind-Estado="edit.Estado" @bind-Ciudad="edit.Ciudad" />
-            <div class="d-flex gap-2 mt-3">
-                <button class="btn btn-success" @onclick="Guardar" disabled="@guardando">Guardar</button>
-                @if (edit.Id != 0)
-                {
-                    <button class="btn btn-outline-danger" @onclick="Desactivar">Desactivar</button>
-                }
+            }
+            <div class="d-flex justify-content-between gap-2 mt-3">
+                <button class="btn btn-outline-secondary" disabled="@(paso == 1)" @onclick="Anterior">← Anterior</button>
+                <div class="d-flex gap-2">
+                    @if (paso < 3)
+                    {
+                        <button class="btn btn-primary" @onclick="Siguiente">Siguiente →</button>
+                    }
+                    else
+                    {
+                        <button class="btn btn-success" @onclick="Guardar" disabled="@guardando">Guardar</button>
+                    }
+                    @if (edit.Id != 0)
+                    {
+                        <button class="btn btn-outline-danger" @onclick="Desactivar">Desactivar</button>
+                    }
+                </div>
             </div>
         </div></div></div>
     </div>

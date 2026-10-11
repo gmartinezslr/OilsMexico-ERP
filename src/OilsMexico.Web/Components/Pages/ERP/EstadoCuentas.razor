@@ -1,12 +1,16 @@
 @page "/estado-cuentas"
 @rendermode InteractiveServer
+@inject OilsMexico.Application.Interfaces.IBusquedaGlobalService PlantillasSvc
 @{
     var saldoInsoluto = _estados is null ? 0m : _estados.Sum(x => x.SaldoPendiente);
 }
 <PageTitle>Cuentas por Cobrar | OilsMexico ERP</PageTitle>
 <div class="container-fluid py-3">
     <div class="d-flex flex-wrap gap-2 align-items-center mb-3">
-        <h3 class="fw-bold mb-0">Cuentas por Cobrar <span class="badge bg-secondary">Saldo insoluto @saldoInsoluto:0.00</span></h3>
+        <h3 class="fw-bold mb-0">Cuentas por Cobrar <span class="badge bg-secondary">Saldo insoluto @saldoInsoluto:0.00</span>
+            <OilsMexico.Web.Components.Shared.AyudaContextual Titulo="Cobranza en 3 pasos"
+                Texto="1) Revisa el saldo por cliente. 2) Elige al cliente con saldo y genera el mensaje de cobro abajo. 3) Copia el texto y envíalo por WhatsApp o correo. El pago se registra en Complementos de pago." />
+        </h3>
         <span class="text-muted small">@(Sesion.Sesion?.Nombre ?? "") (@(Sesion.Sesion?.Rol ?? ""))</span>
     </div>
 
@@ -39,5 +43,12 @@
                 </tbody>
             </table>
         </div></div>
+    }
+    @if (_estados is not null && _estados.Count > 0)
+    {
+        <div class="mt-3">
+            <OilsMexico.Web.Components.Shared.PlantillasMensaje Clientes="_clientesPlantilla"
+                FolioInicial="" NombreInicial="@(_clienteSel ?? "")" TotalInicial="_saldoSel" />
+        </div>
     }
 </div>

@@ -1,0 +1,114 @@
+@* Plantillas de mensajes operativos: el usuario elige plantilla (cobro/entrega/bienvenida),
+   captura Folio/Total/Nombre/Fecha y copia el texto con variables rellenas para WhatsApp/correo/ticket. *@
+@rendermode InteractiveServer
+@inject OilsMexico.Application.Interfaces.IBusquedaGlobalService Plantillas
+@inject OilsMexico.Application.Interfaces.ISucursalContext SucCtx
+
+<div class="card shadow-sm">
+    <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+        <span>Plantillas de mensajes</span>
+        <OilsMexico.Web.Components.Shared.AyudaContextual Titulo="¿Para qué sirven?"
+            Texto="Genera el texto de cobro, entrega o bienvenida con los datos del cliente y folio. Copia y pégalo en WhatsApp o correo. No envía nada solo: el envío se hace desde tu app de mensajería." />
+    </div>
+    <div class="card-body">
+        <div class="row g-2">
+            <div class="col-md-4">
+                <label class="form-label small">Plantilla</label>
+                <select class="form-select" @bind="claveSel" @bind:after="Previsualizar">
+                    @foreach (var p in plantillas)
+                    {
+                        <option value="@p.Clave">@p.Nombre (@p.Canal)</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label small">Cliente (opcional)</label>
+                <select class="form-select" @bind="clienteSel" @bind:after="AlElegirCliente">
+                    <option value="">— Escribir nombre manual —</option>
+                    @foreach (var c in clientes)
+                    {
+                        <option value="@c.Id">@c.Nombre</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label small">Nombre</label>
+                <input class="form-control" @bind="nombre" @bind:after="Previsualizar" />
+            </div>
+            <div class="col-md-4">
+                <label class="form-label small">Folio</label>
+                <input class="form-control" @bind="folio" @bind:after="Previsualizar" placeholder="V-1-2026…" />
+            </div>
+            <div class="col-md-4">
+                <label class="form-label small">Total $</label>
+                <input class="form-control" type="number" min="0" step="0.01" @bind="total" @bind:after="Previsualizar" />
+            </div>
+            <div class="col-md-4">
+                <label class="form-label small">Fecha</label>
+                <input class="form-control" type="date" @bind="fecha" @bind:after="Previsualizar" />
+            </div>
+        </div>
+        <label class="form-label small mt-3">Vista previa</label>
+        <textarea class="form-control font-monospace" rows="4" readonly>@vistaPrevia</textarea>
+        <div class="d-flex gap-2 mt-2">
+            <button type="button" class="btn btn-outline-primary btn-sm" @onclick="Copiar">📋 Copiar texto</button>
+            @if (!string.IsNullOrEmpty(copiado))
+            {
+                <small class="text-success align-self-center">@copiado</small>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public string? FolioInicial { get; set; }
+    [Parameter] public string? NombreInicial { get; set; }
+    [Parameter] public decimal? TotalInicial { get; set; }
+    [Parameter] public List<(int Id, string Nombre)> Clientes { get; set; } = [];
+
+    private List<OilsMexico.Application.DTOs.PlantillaMensajeDto> plantillas = [];
+    private List<(int Id, string Nombre)> clientes = [];
+    private string claveSel = "cobro-whatsapp";
+    private string clienteSel = "";
+    private string nombre = "", folio = "", copiado = "", vistaPrevia = "";
+    private decimal? total;
+    private DateTime? fecha;
+
+    protected override void OnInitialized()
+    {
+        plantillas = Plantillas.ListarPlantillas();
+        clientes = Clientes;
+        folio = FolioInicial ?? "";
+        nombre = NombreInicial ?? "";
+        total = TotalInicial;
+        fecha = DateTime.Today;
+        Previsualizar();
+    }
+
+    private async Task AlElegirCliente()
+    {
+        copiado = "";
+        if (int.TryParse(clienteSel, out var id))
+        {
+            var c = clientes.FirstOrDefault(x => x.Id == id);
+            if (c.Id != 0) nombre = c.Nombre;
+        }
+        Previsualizar();
+        await Task.CompletedTask;
+    }
+
+    private void Previsualizar()
+    {
+        copiado = "";
+        var p = plantillas.FirstOrDefault(x => x.Clave == claveSel) ?? plantillas.FirstOrDefault();
+        if (p is null) { vistaPrevia = ""; return; }
+        vistaPrevia = Plantillas.RellenarPlantilla(p.Cuerpo, nombre, folio, total, fecha, "OilsMexico");
+    }
+
+    private async Task Copiar()
+    {
+        // Sin JS: se selecciona el texto vía textarea readonly; el navegador copia con Ctrl+C.
+        copiado = "Selecciona el texto de arriba y cópialo con Ctrl+C.";
+        await Task.CompletedTask;
+    }
+}

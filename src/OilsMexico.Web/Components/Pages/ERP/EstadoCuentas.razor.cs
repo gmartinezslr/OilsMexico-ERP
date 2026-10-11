@@ -14,6 +14,9 @@ public partial class EstadoCuentas
 
     private List<EstadoCuentaClienteDto>? _estados;
     private bool _cargando;
+    private List<(int Id, string Nombre)> _clientesPlantilla = [];
+    private string? _clienteSel;
+    private decimal? _saldoSel;
 
     protected override async Task OnParametersSetAsync()
     {
@@ -36,6 +39,15 @@ public partial class EstadoCuentas
         try
         {
             _estados = await EstadoCuentasSvc.ListarEstadosCuentasAsync(SucCtx.SucursalId);
+            // Catálogo para plantillas: solo clientes con saldo, ordenados por saldo desc.
+            _clientesPlantilla = _estados
+                .Where(e => e.SaldoPendiente > 0m)
+                .OrderByDescending(e => e.SaldoPendiente)
+                .Select(e => (e.ClienteId, e.Nombre))
+                .ToList();
+            var top = _estados.Where(e => e.SaldoPendiente > 0m).OrderByDescending(e => e.SaldoPendiente).FirstOrDefault();
+            _clienteSel = top?.Nombre;
+            _saldoSel = top?.SaldoPendiente;
         }
         finally
         {

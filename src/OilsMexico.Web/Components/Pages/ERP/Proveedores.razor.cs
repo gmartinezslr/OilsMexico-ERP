@@ -10,6 +10,7 @@ public partial class Proveedores : ComponentBase
 {
     private string filtro = "", msg = "";
     private bool err, guardando;
+    private int paso = 1;
     private List<Proveedor> lista = [];
     private Proveedor edit = new();
     // Resultado de la última validación de RFC en el campo (feedback en vivo).
@@ -41,7 +42,20 @@ public partial class Proveedores : ComponentBase
     }
 
     private async Task AlEscribir(ChangeEventArgs e) { filtro = e.Value?.ToString() ?? ""; await Cargar(); }
-    private void Nuevo() { edit = new Proveedor(); rfcInfo = ""; rfcErr = false; }
+    private void Nuevo() { edit = new Proveedor(); rfcInfo = ""; rfcErr = false; paso = 1; msg = ""; }
+
+    private void IrPaso(int n) { paso = Math.Clamp(n, 1, 3); msg = ""; }
+
+    private void Siguiente()
+    {
+        msg = "";
+        if (paso == 1 && (string.IsNullOrWhiteSpace(edit.Nombre) || string.IsNullOrWhiteSpace(edit.Rfc)))
+        { msg = "Paso 1: captura nombre y RFC."; err = true; return; }
+        err = false;
+        paso = Math.Min(3, paso + 1);
+    }
+
+    private void Anterior() { paso = Math.Max(1, paso - 1); msg = ""; }
 
     /// <summary>Valida el RFC contra el validador oficial al salir del campo (feedback en vivo).</summary>
     private async Task ValidarRfcCampo()
@@ -59,6 +73,7 @@ public partial class Proveedores : ComponentBase
         var p = await Db.Proveedores.FindAsync(id);
         if (p is null) return;
         rfcInfo = ""; rfcErr = false;
+        paso = 1; msg = "";
         edit = new Proveedor
         {
             Id = p.Id, Nombre = p.Nombre, Rfc = p.Rfc, Telefono = p.Telefono, Email = p.Email,
