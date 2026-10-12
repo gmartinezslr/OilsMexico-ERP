@@ -1,9 +1,8 @@
 @page "/"
 @rendermode InteractiveServer
-@inject OilsMexico.Infrastructure.Persistence.ErpDbContext Db
+@inject OilsMexico.Application.Interfaces.IDashboardService Dash
 @inject OilsMexico.Application.Interfaces.ISesionActual Sesion
 @inject NavigationManager Nav
-@using Microsoft.EntityFrameworkCore
 @using OilsMexico.Application.DTOs
 @using OilsMexico.Domain.Enums
 
@@ -245,42 +244,27 @@ else
         if (sesion is null) return;
         var rol = sesion.Rol;
         var sid = sesion.SucursalId;
-        // Kind=Utc para poder comparar contra facturas.fecha_emision (timestamptz);
-        // un DateTime con Kind=Unspecified hace que Npgsql lance ArgumentException.
-        var inicioMes = new DateTime(hoyUtc.Year, hoyUtc.Month, 1, 0, 0, 0, DateTimeKind.Utc);
 
         try
         {
-            var crudas = await Db.Facturas.AsNoTracking()
-                .Where(f => f.SucursalId == sid
-                    && f.FechaEmision >= inicioMes
-                    && f.Estado != EstadoFactura.Cancelada)
-                .Select(f => new { f.FechaEmision, f.Total, f.ClienteId })
-                .ToListAsync();
+            // Las lecturas viven en IDashboardService (Application): la página no toca el ORM (DIP).
+            var ventas = await Dash.VentasMesAsync(sid, hoyUtc.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc));
+            ventasMes = ventas.TotalMes;
 
-            ventasMes = crudas.Sum(f => f.Total);
-
-            serie14 = Enumerable.Range(0, 14)
-                .Select(i => hoyUtc.AddDays(-13 + i))
-                .Select(d => new SeriePunto(d, crudas
-                    .Where(f => DateOnly.FromDateTime(f.FechaEmision) == d)
-                    .Sum(f => f.Total)))
+            serie14 = ventas.Serie
+                .Select(p => new SeriePunto(DateOnly.FromDateTime(p.Fecha), p.Total))
                 .ToList();
             maxSerie = serie14.Count == 0 ? 0m : serie14.Max(s => s.Total);
             conDatos = serie14.Any(s => s.Total > 0);
 
-            var atendidos = crudas.Select(f => f.ClienteId).Distinct().Count();
-            var totalClientes = await Db.Clientes.CountAsync(c => c.Activo);
-            var porAtender = Math.Max(0, totalClientes - atendidos);
+            var clientes = await Dash.ClientesMesAsync(
+                sid, new DateTime(hoyUtc.Year, hoyUtc.Month, 1, 0, 0, 0, DateTimeKind.Utc));
 
-            var inv = await Db.InventarioSucursal.AsNoTracking()
-                .Where(i => i.SucursalId == sid && i.StockActual < i.StockMinimo)
-                .Select(i => new StockRow(i.Producto!.Nombre, i.StockActual, i.StockMinimo))
-                .ToListAsync();
-            stockLista = inv.OrderBy(s => s.Stock - s.Min).Take(6).ToList();
-            stockBajo = inv.Count;
+            var bajos = await Dash.StockBajoAsync(sid);
+            stockLista = bajos.Take(6).Select(s => new StockRow(s.Nombre, s.Stock, s.Minimo)).ToList();
+            stockBajo = bajos.Count;
 
-            ConstruirKpis(rol, totalClientes, atendidos, porAtender);
+            ConstruirKpis(rol, clientes.Activos, clientes.Atendidos, clientes.PorAtender);
             await CargarActividad(rol, sid);
         }
         catch (Exception)
@@ -339,43 +323,17 @@ else
         if (rol is Roles.Vendedor or Roles.Admin)
         {
             tituloActividad = "Últimos clientes";
-            var tops = await Db.Clientes
-                .Where(c => c.Activo)
-                .OrderByDescending(c => c.Id)
-                .Take(5)
-                .Select(c => new { c.Nombre, c.Rfc })
-                .ToListAsync();
-            actividad = tops.Select(c => new ActItem(c.Nombre, c.Rfc, "Alta", "#2563EB")).ToList();
+            actividad = Mapear(await Dash.ClientesRecientesAsync());
         }
         else if (rol == Roles.Almacen)
         {
             tituloActividad = "Últimos movimientos";
-            var movs = await Db.Movimientos
-                .Where(m => m.SucursalId == sid)
-                .OrderByDescending(m => m.FechaUtc)
-                .Take(5)
-                .Select(m => new { m.Tipo, m.CantidadLitros, m.Motivo, m.FechaUtc })
-                .ToListAsync();
-            actividad = movs
-                .Select(m => new ActItem(
-                    m.Tipo,
-                    m.Motivo ?? "—",
-                    $"{m.CantidadLitros:N2} L · {m.FechaUtc:dd/MM}",
-                    m.CantidadLitros >= 0 ? "#059669" : "#DC2626"))
-                .ToList();
+            actividad = Mapear(await Dash.MovimientosRecientesAsync(sid));
         }
         else if (rol == Roles.Conta)
         {
             tituloActividad = "Últimas facturas";
-            var facs = await Db.Facturas.AsNoTracking()
-                .Where(f => f.SucursalId == sid && f.Estado != EstadoFactura.Cancelada)
-                .OrderByDescending(f => f.FechaEmision)
-                .Take(5)
-                .Select(f => new { f.FolioInterno, f.Total, f.FechaEmision, Estado = f.Estado.ToString() })
-                .ToListAsync();
-            actividad = facs
-                .Select(f => new ActItem(f.FolioInterno, f.Estado, $"${f.Total:N2} · {f.FechaEmision:dd/MM}", "#2563EB"))
-                .ToList();
+            actividad = Mapear(await Dash.FacturasRecientesAsync(sid));
         }
         else
         {
@@ -383,6 +341,9 @@ else
             actividad = [];
         }
     }
+
+    private static List<ActItem> Mapear(List<DashboardActividadDto> filas) =>
+        filas.Select(f => new ActItem(f.Titulo, f.Subtitulo, f.Detalle, f.Color)).ToList();
 
 
     private static string IconoSvg(string name) => name switch

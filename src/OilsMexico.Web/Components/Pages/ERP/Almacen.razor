@@ -4,9 +4,8 @@
 @inject OilsMexico.Application.Interfaces.IInventarioService Inv
 @inject OilsMexico.Application.Interfaces.ISucursalContext SucCtx
 @inject OilsMexico.Application.Interfaces.ISesionActual Sesion
-@inject OilsMexico.Infrastructure.Persistence.ErpDbContext Db
+@inject OilsMexico.Application.Interfaces.ICatalogoConsultaService Catalogos
 @inject NavigationManager Nav
-@using Microsoft.EntityFrameworkCore
 <PageTitle>Almacen | OilsMexico ERP</PageTitle>
 <div class="container-fluid py-3">
 <div class="d-flex justify-content-between align-items-center mb-3">
@@ -76,7 +75,7 @@ List<OilsMexico.Application.DTOs.KardexDto> kardex=[];
 List<(int Id,string Nombre)> sucs=[];
 [Parameter, SupplyParameterFromQuery(Name="producto")] public int? ProductoQ{get;set;}
 protected override async Task OnInitializedAsync(){
-sucs=await Db.Sucursales.Select(s=>new ValueTuple<int,string>(s.Id,s.Nombre)).ToListAsync();
+sucs=(await Catalogos.SucursalesAsync()).Select(s=>new ValueTuple<int,string>(s.Id,s.Nombre)).ToList();
 if(sucs.Count>0) destId=sucs[0].Id;
 await Cargar();
 if(ProductoQ is int pq) await VerKardex(pq); // deep-link /almacen?producto={id}

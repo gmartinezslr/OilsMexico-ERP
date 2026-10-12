@@ -18,15 +18,23 @@ builder.Services.AddDbContext<ErpDbContext>(opt =>
     optionsLifetime: ServiceLifetime.Singleton);
 
 builder.Services.AddScoped<ISucursalContext, SucursalContext>();
+// Fábrica de ámbitos para lecturas puntuales desde componentes Blazor sin acoplarlos a ErpDbContext (DIP).
+builder.Services.AddSingleton<IVentaEscopoFactory, VentaEscopoFactory>();
 builder.Services.AddScoped<ISesionActual, SesionActual>();
 builder.Services.AddScoped<IAvisos, AvisosService>();
 builder.Services.AddScoped<ITimeoutSesion, TimeoutSesion>();
 builder.Services.AddScoped<IConfiguracionService, ConfiguracionService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<ICatalogosSatService, CatalogosSatService>();
+builder.Services.AddScoped<IPoliticaPassword, PoliticaPasswordService>();
+builder.Services.AddSingleton<IReloj, RelojSistema>();
 builder.Services.AddScoped<IVentasService, VentasService>();
 builder.Services.AddScoped<IInventarioService, InventarioService>();
 builder.Services.AddScoped<IAlmacenConsulta, AlmacenConsultaService>();
+builder.Services.AddScoped<ICatalogosService, CatalogosService>();
+// Lecturas de panel y catálogos de combos: evitan que las páginas Blazor inyecten ErpDbContext (DIP).
+builder.Services.AddScoped<IDashboardService, DashboardService>();
+builder.Services.AddScoped<ICatalogoConsultaService, CatalogoConsultaService>();
 builder.Services.AddScoped<ITicketService, TicketService>();
 builder.Services.AddScoped<ICfdiSelladoService, CfdiSelladoService>();
 // Cliente HTTP del PAC Finkok (named client con timeout); PacTimbradoService lo recibe vía DI.
