@@ -147,6 +147,23 @@ public interface IBancosService
 }
 
 /// <summary>
+/// Gastos operativos de la distribuidora (gasolina, taller, servicios…).
+/// Cierra el hueco «la caja no concilia con la operación real»: los gastos en
+/// efectivo del turno entran al cuadre de caja como egresos (ver CorteCajaService)
+/// y cada gasto genera su póliza (gasto vs. banco/efectivo) con ReglasAsiento.
+/// REGLA #1: toda lectura/escritura se filtra por sucursal autorizada.
+/// </summary>
+public interface IGastoService
+{
+    Task<GastoResult> CrearAsync(CrearGastoRequest request, CancellationToken ct = default);
+    Task<GastoResult> EditarAsync(int gastoId, CrearGastoRequest request, CancellationToken ct = default);
+    Task EliminarAsync(int gastoId, CancellationToken ct = default);
+    Task<List<GastoListadoDto>> ListarAsync(int sucursalId, DateTime desde, DateTime hasta, string? categoria, CancellationToken ct = default);
+    /// <summary>Reporte: totales por categoría en el período/sucursal (para el informe de gastos).</summary>
+    Task<List<GastoTotalCategoriaDto>> TotalesPorCategoriaAsync(int sucursalId, DateTime desde, DateTime hasta, CancellationToken ct = default);
+}
+
+/// <summary>
 /// Base de COBRANZA EFECTIVA (cash basis): el dinero que REALMENTE entró en un periodo,
 /// atribuido al vendedor que vendió. Es la fuente de verdad del módulo de comisiones.
 ///
@@ -238,6 +255,8 @@ public interface IAsientoGeneradorService
     Task<IReadOnlyList<AsientoLinea>> GenerarAsientosDeVentaAsync(int sucursalId, int usuarioId, decimal total, decimal subtotal, decimal iva, string metodoPagoSat, string formaPagoSat);
     Task<IReadOnlyList<AsientoLinea>> GenerarAsientosDeCompraAsync(int sucursalId, int usuarioId, decimal total);
     Task<IReadOnlyList<AsientoLinea>> GenerarAsientosDeDevolucionAsync(int sucursalId, int usuarioId, decimal total);
+    /// <summary>Líneas gasto vs. banco/efectivo (evento "Gasto" en ReglasAsiento).</summary>
+    Task<IReadOnlyList<AsientoLinea>> GenerarAsientosDeGastoAsync(int sucursalId, int usuarioId, decimal total);
 }
 
 /// <summary>Catálogo y gestión de la contabilidad básica (pólizas, libro mayor, saldos).</summary>

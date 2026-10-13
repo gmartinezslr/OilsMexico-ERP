@@ -32,7 +32,7 @@ public partial class CorteCaja : ComponentBase
         {
             abierto = await Caja.AbiertoAsync(SucCtx.SucursalId);
             foto = abierto is null ? null : await Caja.PreviewAsync(abierto.CorteId);
-            if (foto is not null) contado = abierto!.FondoInicial + foto.EfectivoSistema;
+            if (foto is not null) contado = foto.EfectivoNeto;
             historial = await Caja.HistorialAsync(SucCtx.SucursalId, 30);
         }
         catch (Exception ex) { msg = "Error: " + ex.Message; err = true; }

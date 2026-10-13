@@ -57,6 +57,7 @@ builder.Services.AddScoped<IComprasService, ComprasService>();
     builder.Services.AddScoped<IAsientoGeneradorService, AsientoGeneradorService>();
     builder.Services.AddScoped<IBancosService, BancosService>();
     builder.Services.AddScoped<ICotizacionesService, CotizacionesService>();
+    builder.Services.AddScoped<IGastoService, GastoService>();
     // Correo saliente (SMTP): remitente y servidor configurables en Configuración (tabla configuracion).
     builder.Services.AddScoped<IEmailService, EmailService>();
 

@@ -14,7 +14,10 @@ public sealed partial class CorteCajaService
         if (!ctx.EsAdmin && corte.SucursalId != ctx.SucursalId)
             throw new UnauthorizedAccessException("No puedes ver cortes de otra sucursal.");
         var ventas = await VentasTurnoAsync(corte.SucursalId, corte.FechaAperturaUtc, ct);
-        return Clasificar(corte.Id, corte.FondoInicial, ventas);
+        var gastos = await GastosEfectivoTurnoAsync(corte.SucursalId, corte.FechaAperturaUtc, ct);
+        var foto = Clasificar(corte.Id, corte.FondoInicial, ventas);
+        foto.GastosEfectivo = Math.Round(gastos, 2);
+        return foto;
     }
 
     public async Task<CorteResult> CerrarAsync(CerrarCorteRequest req, CancellationToken ct = default)
@@ -27,6 +30,8 @@ public sealed partial class CorteCajaService
         if (corte.Estado != "Abierto") throw new InvalidOperationException("El corte ya está cerrado.");
         var ventas = await VentasTurnoAsync(corte.SucursalId, corte.FechaAperturaUtc, ct);
         var foto = Clasificar(corte.Id, corte.FondoInicial, ventas);
+        foto.GastosEfectivo = Math.Round(
+            await GastosEfectivoTurnoAsync(corte.SucursalId, corte.FechaAperturaUtc, ct), 2);
         corte.TotalEfectivoSistema = foto.EfectivoSistema;
         corte.TotalTarjetaSistema = foto.TarjetaSistema;
         corte.TotalTransferSistema = foto.TransferSistema;
@@ -34,7 +39,8 @@ public sealed partial class CorteCajaService
         corte.TotalVentasSistema = foto.TotalVentasSistema;
         corte.NumVentas = foto.NumVentas;
         corte.EfectivoContado = Math.Round(req.EfectivoContado, 2);
-        corte.Diferencia = Math.Round(corte.EfectivoContado - (corte.FondoInicial + corte.TotalEfectivoSistema), 2);
+        // El efectivo esperado descuenta los gastos en efectivo del turno (egresos de caja).
+        corte.Diferencia = Math.Round(corte.EfectivoContado - foto.EfectivoNeto, 2);
         corte.FechaCierreUtc = DateTime.UtcNow;
         corte.UsuarioCierreId = ctx.UsuarioId;
         corte.Estado = "Cerrado";
@@ -67,6 +73,15 @@ public sealed partial class CorteCajaService
                 && f.Estado != EstadoFactura.Devolucion)
             .Select(f => new ValueTuple<string, decimal>(f.FormaPagoSat, f.Total))
             .ToListAsync(ct);
+
+    /// <summary>Egresos en efectivo del turno: gastos operativos con forma 01 desde la apertura.</summary>
+    private async Task<decimal> GastosEfectivoTurnoAsync(
+        int sucursalId, DateTime aperturaUtc, CancellationToken ct)
+        => await db.Gastos.AsNoTracking()
+            .Where(g => g.SucursalId == sucursalId
+                && g.Fecha >= aperturaUtc
+                && g.FormaPagoSat == "01")
+            .SumAsync(g => g.Importe, ct);
 
     private static CortePreviewDto Clasificar(
         int corteId, decimal fondo, IEnumerable<(string Forma, decimal Total)> ventas)

@@ -111,3 +111,24 @@ public enum EstadoConciliacion
     Pendiente,
     Conciliado
 }
+
+// ---------------------------------------------------------------------------
+// Módulo de gastos operativos (/gastos). Se guardan como texto en PG
+// (ver GastosPatch), con CHECK derivado de Enum.GetNames para no duplicar
+// los valores (mismo patrón que BancosPatch/ComisionPatch).
+// ---------------------------------------------------------------------------
+
+/// <summary>Categoría operativa del gasto (clasificación para el reporte por período).</summary>
+public enum CategoriaGasto
+{
+    Combustible,
+    Taller,
+    Herramientas,
+    Servicios,
+    Renta,
+    Nomina,
+    Papeleria,
+    Impuestos,
+    Otros
+}
+

@@ -55,6 +55,11 @@ public sealed partial class AsientoGeneradorService(ErpDbContext db) : IAsientoG
         return GenerarConEventoAsync("Devolucion", total, 0m, 0m);
     }
 
+    public Task<IReadOnlyList<AsientoLinea>> GenerarAsientosDeGastoAsync(int sucursalId, int usuarioId, decimal total)
+    {
+        return GenerarConEventoAsync("Gasto", total, 0m, 0m);
+    }
+
     private async Task<IReadOnlyList<AsientoLinea>> GenerarConEventoAsync(string evento, decimal montoTotal, decimal montoSubtotal, decimal montoIva)
     {
         var reglas = await db.ReglasAsiento

@@ -64,6 +64,11 @@ public sealed class ErpDbContext(DbContextOptions<ErpDbContext> options) : DbCon
     public DbSet<CuentaBancaria> CuentasBancarias => Set<CuentaBancaria>();
     public DbSet<MovimientoBancario> MovimientosBancarios => Set<MovimientoBancario>();
 
+    // ---------------------------------------------------------
+    //  Gastos operativos (/gastos): concilian la caja real
+    // ---------------------------------------------------------
+    public DbSet<Gasto> Gastos => Set<Gasto>();
+
     protected override void OnModelCreating(ModelBuilder b)
     {
         b.ApplyConfigurationsFromAssembly(typeof(ErpDbContext).Assembly);

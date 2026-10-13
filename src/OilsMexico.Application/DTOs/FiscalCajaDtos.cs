@@ -64,7 +64,13 @@ public sealed record CorteAbiertoDto(
 public sealed record CortePreviewDto(
     int CorteId, int NumVentas, decimal FondoInicial,
     decimal EfectivoSistema, decimal TarjetaSistema,
-    decimal TransferSistema, decimal OtrosSistema, decimal TotalVentasSistema);
+    decimal TransferSistema, decimal OtrosSistema, decimal TotalVentasSistema)
+{
+    /// <summary>Egresos en efectivo del turno (gastos operativos forma 01). Resta al efectivo esperado.</summary>
+    public decimal GastosEfectivo { get; set; }
+    /// <summary>Efectivo neto esperado: fondo + ventas en efectivo − gastos en efectivo.</summary>
+    public decimal EfectivoNeto => Math.Round(FondoInicial + EfectivoSistema - GastosEfectivo, 2);
+}
 
 public sealed record CerrarCorteRequest(
     int CorteId, decimal EfectivoContado, string? Observaciones);
