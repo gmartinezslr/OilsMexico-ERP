@@ -43,6 +43,18 @@ public interface ICotizacionesService
     /// <summary>Confirma una orden de venta: fija vendedor y pasa a Confirmada.</summary>
     Task<OrdenVentaConfirmarResult> ConfirmarOrdenVentaAsync(int id, OrdenVentaConfirmarRequest req, CancellationToken ct = default);
 
+    /// <summary>Suspende una orden Confirmada (bloqueo temporal en revisión; no se puede facturar mientras dure).</summary>
+    Task<OrdenResultado> SuspenderOrdenVentaAsync(int id, string? motivo, CancellationToken ct = default);
+
+    /// <summary>Reanuda una orden Suspendida: regresa a Confirmada (lista para facturar).</summary>
+    Task<OrdenResultado> ReanudarOrdenVentaAsync(int id, string? motivo, CancellationToken ct = default);
+
+    /// <summary>
+    /// Factura una orden Confirmada (Capa B): genera la venta/CFDI con los precios de compromiso
+    /// congelados y liga la Factura generada (la orden pasa a Facturada).
+    /// </summary>
+    Task<OrdenVentaFacturarResult> ConvertirOrdenAVentaAsync(int ordenId, OrdenVentaFacturarRequest req, CancellationToken ct = default);
+
     /// <summary>Anula una orden de venta (solo estado Borrador/Confirmada/Suspendida).</summary>
     Task<OrdenResultado> CancelarOrdenVentaAsync(int id, string motivo, CancellationToken ct = default);
 

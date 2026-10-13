@@ -57,7 +57,9 @@ public sealed partial class VentasService
                 if (ex.Lote is not null) ex.Lote.CantidadDisponible -= toma;
             }
             var prod = await db.Productos.FindAsync([item.ProductoId], ct);
-            var precio = cliente.TipoPrecio == "mayoreo"
+            // CongelarPrecios (orden de venta facturada): el precio del renglón es de compromiso
+            // y NO se sustituye por el precio mayoreo de catálogo del cliente.
+            var precio = !req.CongelarPrecios && cliente.TipoPrecio == "mayoreo"
                 ? (prod?.PrecioMayoreo ?? item.PrecioUnitario) : item.PrecioUnitario;
             var importe = item.Cantidad * precio;
             subtotal += importe;

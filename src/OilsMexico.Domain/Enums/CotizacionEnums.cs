@@ -29,5 +29,8 @@ public enum EstadoOrdenVenta
     Suspendida,
 
     /// <summary>Anulada.</summary>
-    Cancelada
+    Cancelada,
+
+    /// <summary>Ya se facturó/vendió: se generó la Factura y se ligó en <see cref="OrdenVenta.FacturaId"/>.</summary>
+    Facturada
 }

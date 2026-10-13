@@ -90,8 +90,12 @@ public sealed partial class CotizacionesService
         var orden = await db.OrdenesVenta.FindAsync([id], ct)
             ?? throw new InvalidOperationException("La orden de venta no existe.");
 
+        if (orden.SucursalId != ctx.SucursalId)
+            throw new InvalidOperationException("La orden pertenece a otra sucursal; cambia a esa sucursal para continuar.");
         if (orden.Estado is EstadoOrdenVenta.Cancelada)
             throw new InvalidOperationException("La orden de venta ya fue cancelada.");
+        if (orden.Estado is EstadoOrdenVenta.Facturada)
+            throw new InvalidOperationException("No se puede cancelar una orden ya facturada; cancela primero la factura.");
 
         orden.Estado = EstadoOrdenVenta.Cancelada;
         orden.Notas = orden.Notas + (orden.Notas is null or "" ? "" : Environment.NewLine) + $"Cancelada: {motivo}";

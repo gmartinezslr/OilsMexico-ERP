@@ -16,8 +16,16 @@ public sealed class OrdenVenta
     public string? FolioInterno { get; set; }
     public string? Notas { get; set; }
     public EstadoOrdenVenta Estado { get; set; } = EstadoOrdenVenta.Borrador;
-    public int CotizacionId { get; set; } = 0; // 0 = orden manual; >0 deriva de cotización
+    /// <summary>Cotización de origen: null = orden manual; con valor deriva de la cotización.</summary>
+    public int? CotizacionId { get; set; }
     public Cotizacion? Cotizacion { get; set; }
+    /// <summary>
+    /// Factura generada al convertir la orden en venta (Capa B del pipeline comercial).
+    /// null = la orden aún no se ha facturado. Sirve de guardia contra doble facturación y
+    /// para navegar de la orden al CFDI. Se fija en CotizacionesService.ConvertirOrdenAVentaAsync.
+    /// </summary>
+    public int? FacturaId { get; set; }
+    public Factura? Factura { get; set; }
     public int UsuarioId { get; set; }
     public List<OrdenVentaDetalle> Detalles { get; set; } = [];
 

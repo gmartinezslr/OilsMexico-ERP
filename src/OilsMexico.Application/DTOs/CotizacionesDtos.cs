@@ -56,7 +56,7 @@ public sealed record OrdenVentaDetalleDto(
     int? VendedorId, string? Vendedor, DateTime FechaEmision,
     string? FolioInterno, string? Notas, EstadoOrdenVenta Estado,
     List<OrdenVentaDetalleLineaDto> Detalles, decimal Subtotal, decimal Iva, decimal Total,
-    int CotizacionId);
+    int CotizacionId, int? FacturaId);
 
 /// <summary>Solicitud de creación de orden de venta manual.</summary>
 public sealed record OrdenVentaCrearRequest(
@@ -75,6 +75,21 @@ public sealed record OrdenVentaConfirmarRequest(int? VendedorId, string? Motivo)
 
 /// <summary>Resultado de la confirmación de orden de venta.</summary>
 public sealed record OrdenVentaConfirmarResult(int Id, string FolioInterno, EstadoOrdenVenta Estado);
+
+/// <summary>
+/// Facturación de una orden de venta confirmada (Capa B): se genera la venta/CFDI con los
+/// precios de compromiso congelados en la orden. Los códigos SAT por defecto se toman de
+/// <c>CfdiDefaults</c> cuando vienen vacíos. <see cref="RequiereFactura"/> = false deja la venta
+/// pendiente de timbrar (útil para pruebas o para diferir el timbrado).
+/// </summary>
+public sealed record OrdenVentaFacturarRequest(
+    string FormaPagoSat, string MetodoPagoSat, string UsoCfdi, bool RequiereFactura);
+
+/// <summary>Resultado de facturar la orden: la orden pasa a Facturada y queda ligada a la Factura.</summary>
+public sealed record OrdenVentaFacturarResult(
+    int OrdenVentaId, string FolioOrden, EstadoOrdenVenta EstadoOrden,
+    int FacturaId, string FolioFactura, string EstadoFactura,
+    decimal Subtotal, decimal Iva, decimal Total, Guid? UuidSat);
 
 /// <summary>Resultado de cancelación de cotización u orden de venta.</summary>
 public sealed record OrdenResultado(int Id, string FolioInterno, string Estado, string Tipo);

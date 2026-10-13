@@ -24,7 +24,11 @@ Commits cubiertos: `e458332 comisiones` (09/10) · `cad99a1 hardcode fases 1-6` 
 
 - ✅ **Conciliación bancaria — HECHO 12/10**: entidades `CuentaBancaria` + `MovimientoBancario` (extracto), enums `NaturalezaMovimiento` (Abono/Cargo) y `EstadoConciliacion` (Pendiente/Conciliado), tablas `cuentas_bancarias`/`movimientos_bancarios` en `BancosPatch` (CHECK de enums vía `Enum.GetNames`), `BancosConfigs` (EF snake_case), `IBancosService` + `BancosService(.Conciliacion)` y página `Bancos.razor`. Cierra el hueco «`CompraPago`/`VentaCobro` registran pago pero no la operación bancaria»: se captura el extracto del banco y cada renglón se **empata** con un `VentaCobro` (Abono) o un `CompraPago` (Cargo) con regla de naturaleza y 1-a-1; saldo = inicial + Σ abonos − Σ cargos. Verificado con prueba de integración contra PostgreSQL (15/15). Build 0 errores.
 
-Siguen 🔴 sin cambio: Cotizaciones/Órdenes de venta, `Gasto` + `/gastos`, vencimientos/mora CxC-CxP, costo por lote FIFO en asientos, cierre de periodo automático, balance/resultados, exportación Excel/PDF, evaluación de proveedores.
+- ✅ **Cotizaciones / Órdenes de venta / facturación (era 🔴 \#1) — HECHO 12/10**: pipeline completo cotización → orden de venta → factura. **Capa A**: entidades `Cotizacion(Detalle)` + `OrdenVenta(Detalle)`, enums `EstadoCotizacion`/`EstadoOrdenVenta`, `CotizacionesService.*` + `CotizacionesPatch`, páginas `Cotizaciones`/`CotizacionDetalle`/`CotizacionForm`/`OrdenesVenta`/`OrdenesVentaDetalle`. **Capa B**: `ConvertirOrdenAVentaAsync` factura la orden Confirmada con precios de compromiso congelados (`VentaPosRequest.CongelarPrecios` desactiva el override de mayoreo), liga `FacturaId`, estado `Facturada` + guards (confirmar/cancelar/facturar rechazan estados inválidos). **Capa C**: `ExpirarCotizacionesAsync` al cargar el listado de cotizaciones (por sucursal de sesión, idempotente) y acciones **Suspender** (Confirmada → Suspendida, no facturable) y **Reanudar** (Suspendida → Confirmada) en la OV, en listado y detalle. Fix derivado de la prueba: `OrdenVenta.CotizacionId` ahora `int?` (null = manual); antes se insertaba `0` y la FK `cotizacion_id → cotizaciones` rechazaba toda orden manual. Verificado con prueba de integración en PostgreSQL (4/4 Capa C y regresión Capa B; 9/9 Capa B en la sesión previa). Build 0 errores.
+
+Siguen 🔴 sin cambio: `Gasto` + `/gastos`, vencimientos/mora CxC-CxP, costo por lote FIFO en asientos, cierre de periodo automático, balance/resultados, exportación Excel/PDF, evaluación de proveedores.
+
+
 
 
 ## 1. Lo que ya existe y está operativo (actualizado al 11)
@@ -85,7 +89,7 @@ Siguen 🔴 sin cambio: Cotizaciones/Órdenes de venta, `Gasto` + `/gastos`, ven
 
 | Orden | Prioridad | Funcionalidad | Estado al 11 | Justificación |
 | - | - | - | - | - |
-| 1 | 🔴 | Cotizaciones/OV (SO/CT) | Pendiente | Precio comprometido, preventa |
+| 1 | 🔴 | Cotizaciones/OV (SO/CT) | ✅ Hecho 12/10 | Precio comprometido, preventa |
 | 2 | 🔴 | Gastos operativos | Pendiente | Conciliar caja real |
 | 3 | 🔴 | CxC/CxP vencimientos | Pendiente | Riesgo crédito/financiero |
 | 4 | 🔴 | Costo + cierre periodo | Pendiente | Resultados reales |

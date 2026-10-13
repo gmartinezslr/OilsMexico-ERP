@@ -51,6 +51,10 @@ public partial class OrdenesVenta : ComponentBase
 
     private void Cancelar(int id) => Nav.NavigateTo($"/ordenes-vente/detalle/{id}?accion=cancelar", forceLoad: true);
 
+    private void Suspender(int id) => Nav.NavigateTo($"/ordenes-vente/detalle/{id}?accion=suspender", forceLoad: true);
+
+    private void Reanudar(int id) => Nav.NavigateTo($"/ordenes-vente/detalle/{id}?accion=reanudar", forceLoad: true);
+
     private static string nombreEstado(EstadoOrdenVenta e) => e switch
     {
         EstadoOrdenVenta.Borrador => "Borrador",

@@ -116,14 +116,146 @@
                     </div>
                 </div>
             }
-            else
+            else if (Accion == "facturar")
+            {
+                <hr />
+                <h6 class="mt-3">Facturar orden de venta</h6>
+                @if (orden is null || orden.Estado is not EstadoOrdenVenta.Confirmada || orden.FacturaId is not null)
+                {
+                    <div class="alert alert-warning mt-2 mb-0">
+                        Solo se pueden facturar órdenes Confirmadas sin factura.
+                        <a href="/ordenes-vente/detalle/@Id">Volver al detalle</a>
+                    </div>
+                }
+                else
+                {
+                    <div class="row g-2">
+                        <div class="col-md-3">
+                            <label class="form-label small">Forma de pago</label>
+                            <select class="form-select" @bind="formaPago">
+                                @foreach (var f in catalogos.FormasPago)
+                                {
+                                    <option value="@f.Key">@f.Key – @f.Value</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label small">Método de pago</label>
+                            <select class="form-select" @bind="metodoPago">
+                                @foreach (var m in catalogos.MetodosPago)
+                                {
+                                    <option value="@m.Key">@m.Key – @m.Value</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label small">Uso CFDI</label>
+                            <select class="form-select" @bind="usoCfdi">
+                                @foreach (var u in catalogos.UsosCfdi)
+                                {
+                                    <option value="@u.Key">@u.Key – @u.Value</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-md-3 d-flex align-items-end gap-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="chkTimbrar" @bind="requiereFactura" />
+                                <label class="form-check-label small" for="chkTimbrar">Timbrar ahora</label>
+                            </div>
+                            <button class="btn btn-success btn-sm" @onclick="ConfirmarFacturacion" disabled="@facturando">
+                                @(facturando ? "Facturando…" : "Generar venta")
+                            </button>
+                        </div>
+                    </div>
+                    <div class="form-text">
+                        Se conservan los precios de compromiso de la orden (@orden.Total.ToString("N2")) y se
+                        descuentará el stock de la sucursal.
+                    </div>
+                }
+            }
+            else if (Accion == "suspender")
+            {
+                <hr />
+                <h6 class="mt-3">Suspender orden de venta</h6>
+                @if (orden is null || orden.Estado is not EstadoOrdenVenta.Confirmada || orden.FacturaId is not null)
+                {
+                    <div class="alert alert-warning mt-2 mb-0">
+                        Solo se pueden suspender órdenes Confirmadas sin factura.
+                        <a href="/ordenes-vente/detalle/@Id">Volver al detalle</a>
+                    </div>
+                }
+                else
+                {
+                    <div class="row g-2">
+                        <div class="col-md-6">
+                            <label class="form-label small">Motivo (opcional)</label>
+                            <input class="form-control" @bind="motivoSusp" placeholder="Motivo de la suspensión" />
+                        </div>
+                        <div class="col-md-6 d-flex align-items-end">
+                            <button class="btn btn-warning btn-sm" @onclick="ConfirmarSuspension" disabled="@suspendiendo">
+                                @(suspendiendo ? "Suspendiendo…" : "Suspender orden")
+                            </button>
+                        </div>
+                    </div>
+                    <div class="form-text">
+                        La orden queda bloqueada (no se puede facturar) hasta que se reanude; los precios de
+                        compromiso no cambian.
+                    </div>
+                }
+            }
+            else if (Accion == "reanudar")
+            {
+                <hr />
+                <h6 class="mt-3">Reanudar orden de venta</h6>
+                @if (orden is null || orden.Estado is not EstadoOrdenVenta.Suspendida)
+                {
+                    <div class="alert alert-warning mt-2 mb-0">
+                        Solo se pueden reanudar órdenes en estado Suspendida.
+                        <a href="/ordenes-vente/detalle/@Id">Volver al detalle</a>
+                    </div>
+                }
+                else
+                {
+                    <div class="row g-2">
+                        <div class="col-md-6">
+                            <label class="form-label small">Motivo (opcional)</label>
+                            <input class="form-control" @bind="motivoSusp" placeholder="Motivo de la reanudación" />
+                        </div>
+                        <div class="col-md-6 d-flex align-items-end">
+                            <button class="btn btn-success btn-sm" @onclick="ConfirmarReanudacion" disabled="@reanudando">
+                                @(reanudando ? "Reanudando…" : "Reanudar orden")
+                            </button>
+                        </div>
+                    </div>
+                    <div class="form-text">
+                        La orden regresa a Confirmada con sus precios de compromiso intactos y vuelve a ser facturable.
+                    </div>
+                }
+            }
+            else if (orden is not null)
             {
                 <div class="d-flex gap-2 mt-3">
                     @if (orden.Estado is EstadoOrdenVenta.Borrador)
                     {
                         <button class="btn btn-outline-success btn-sm" style="width:140px" @onclick="AbrirConfirmar">Confirmar</button>
                     }
-                    <button class="btn btn-outline-danger btn-sm" style="width:140px" @onclick="AbrirCancelar">Cancelar</button>
+                    @if (orden.Estado is EstadoOrdenVenta.Confirmada && orden.FacturaId is null)
+                    {
+                        <button class="btn btn-success btn-sm" style="width:180px" @onclick="AbrirFacturar">Facturar / Generar venta</button>
+                        <button class="btn btn-outline-warning btn-sm" style="width:140px" @onclick="AbrirSuspender">Suspender</button>
+                    }
+                    @if (orden.Estado is EstadoOrdenVenta.Suspendida)
+                    {
+                        <button class="btn btn-outline-success btn-sm" style="width:140px" @onclick="AbrirReanudar">Reanudar</button>
+                    }
+                    @if (orden.Estado is not EstadoOrdenVenta.Facturada)
+                    {
+                        <button class="btn btn-outline-danger btn-sm" style="width:140px" @onclick="AbrirCancelar">Cancelar</button>
+                    }
+                    @if (orden.FacturaId is int facturaId)
+                    {
+                        <a class="btn btn-outline-primary btn-sm" style="width:170px" href="/facturacion">Ver factura #@facturaId</a>
+                    }
                 </div>
             }
         </div>

@@ -68,6 +68,14 @@
                                         {
                                             <button class="btn btn-outline-danger" style="width:70px" @onclick="() => Cancelar(o.Id)">Cancelar</button>
                                         }
+                                        @if (o.Estado is EstadoOrdenVenta.Confirmada)
+                                        {
+                                            <button class="btn btn-outline-warning" style="width:80px" @onclick="() => Suspender(o.Id)">Suspender</button>
+                                        }
+                                        @if (o.Estado is EstadoOrdenVenta.Suspendida)
+                                        {
+                                            <button class="btn btn-outline-success" style="width:80px" @onclick="() => Reanudar(o.Id)">Reanudar</button>
+                                        }
                                     </div>
                                 </td>
                             </tr>

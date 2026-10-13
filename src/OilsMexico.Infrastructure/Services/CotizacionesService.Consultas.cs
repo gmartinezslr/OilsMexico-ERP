@@ -111,7 +111,7 @@ public sealed partial class CotizacionesService
             o.Id, o.SucursalId, o.Sucursal?.Nombre ?? string.Empty, o.ClienteId, o.Cliente?.Nombre ?? string.Empty,
             o.VendedorId, o.Vendedor?.Nombre, o.FechaEmision, o.FolioInterno, o.Notas, o.Estado,
             o.Detalles.Select(MapearAOrdenVentaLineaDto).ToList(),
-            totales.Subtotal, totales.Iva, totales.Total, o.CotizacionId);
+            totales.Subtotal, totales.Iva, totales.Total, o.CotizacionId ?? 0, o.FacturaId);
     }
 
     private static OrdenVentaDetalleLineaDto MapearAOrdenVentaLineaDto(OrdenVentaDetalle d) =>

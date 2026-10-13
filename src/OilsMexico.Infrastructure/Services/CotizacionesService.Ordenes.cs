@@ -129,7 +129,7 @@ public sealed partial class CotizacionesService
             ClienteId = cliente.Id,
             VendedorId = vendedorId,
             FechaEmision = ahora,
-            CotizacionId = req.CotizacionId ?? 0,
+            CotizacionId = req.CotizacionId,
             Notas = req.Notas?.Trim(),
             Estado = EstadoOrdenVenta.Borrador,
             UsuarioId = ctx.UsuarioId,
@@ -153,7 +153,9 @@ public sealed partial class CotizacionesService
         var orden = await db.OrdenesVenta.FindAsync([id], ct)
             ?? throw new InvalidOperationException("La orden de venta no existe.");
 
-        if (orden.Estado is EstadoOrdenVenta.Cancelada or EstadoOrdenVenta.Confirmada)
+        if (orden.SucursalId != ctx.SucursalId)
+            throw new InvalidOperationException("La orden pertenece a otra sucursal; cambia a esa sucursal para continuar.");
+        if (orden.Estado is EstadoOrdenVenta.Cancelada or EstadoOrdenVenta.Confirmada or EstadoOrdenVenta.Facturada)
             throw new InvalidOperationException("La orden de venta no se puede confirmar en su estado actual.");
 
         if (req.VendedorId is int vendId)
@@ -171,5 +173,51 @@ public sealed partial class CotizacionesService
         await db.SaveChangesAsync(ct);
 
         return new OrdenVentaConfirmarResult(orden.Id, orden.FolioInterno!, orden.Estado);
+    }
+
+    /// <summary>
+    /// Suspende una orden Confirmada (bloqueo temporal en revisión, Capa C).
+    /// Mientras esté Suspendida no se puede facturar; se reanuda para volver a Confirmada.
+    /// </summary>
+    public async Task<OrdenResultado> SuspenderOrdenVentaAsync(int id, string? motivo, CancellationToken ct = default)
+    {
+        var orden = await db.OrdenesVenta.FindAsync([id], ct)
+            ?? throw new InvalidOperationException("La orden de venta no existe.");
+
+        if (orden.SucursalId != ctx.SucursalId)
+            throw new InvalidOperationException("La orden pertenece a otra sucursal; cambia a esa sucursal para continuar.");
+        if (orden.Estado != EstadoOrdenVenta.Confirmada)
+            throw new InvalidOperationException("Solo se pueden suspender órdenes en estado Confirmada.");
+
+        orden.Estado = EstadoOrdenVenta.Suspendida;
+        if (!string.IsNullOrWhiteSpace(motivo))
+            orden.Notas = orden.Notas + (orden.Notas is null or "" ? "" : Environment.NewLine) + $"Suspendida: {motivo}";
+
+        await db.SaveChangesAsync(ct);
+
+        return new OrdenResultado(orden.Id, orden.FolioInterno ?? string.Empty, orden.Estado.ToString(), "orden_venta");
+    }
+
+    /// <summary>
+    /// Reanuda una orden Suspendida (Capa C): regresa a Confirmada con su precio de compromiso intacto,
+    /// por lo que vuelve a ser facturable.
+    /// </summary>
+    public async Task<OrdenResultado> ReanudarOrdenVentaAsync(int id, string? motivo, CancellationToken ct = default)
+    {
+        var orden = await db.OrdenesVenta.FindAsync([id], ct)
+            ?? throw new InvalidOperationException("La orden de venta no existe.");
+
+        if (orden.SucursalId != ctx.SucursalId)
+            throw new InvalidOperationException("La orden pertenece a otra sucursal; cambia a esa sucursal para continuar.");
+        if (orden.Estado != EstadoOrdenVenta.Suspendida)
+            throw new InvalidOperationException("Solo se pueden reanudar órdenes en estado Suspendida.");
+
+        orden.Estado = EstadoOrdenVenta.Confirmada;
+        if (!string.IsNullOrWhiteSpace(motivo))
+            orden.Notas = orden.Notas + (orden.Notas is null or "" ? "" : Environment.NewLine) + $"Reanudada: {motivo}";
+
+        await db.SaveChangesAsync(ct);
+
+        return new OrdenResultado(orden.Id, orden.FolioInterno ?? string.Empty, orden.Estado.ToString(), "orden_venta");
     }
 }

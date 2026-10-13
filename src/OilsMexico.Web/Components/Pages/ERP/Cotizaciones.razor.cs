@@ -26,6 +26,8 @@ public partial class Cotizaciones : ComponentBase
         try
         {
             var ahora = DateTime.UtcNow;
+            // Capa C: al cargar el listado se expira el vencido (idempotente y sólo de la sucursal de sesión).
+            await CotizSvc.ExpirarCotizacionesAsync(SucCtx.SucursalId);
             lista = await CotizSvc.ListarCotizacionesAsync(SucCtx.SucursalId, filtroEstado, filtroTexto,
                 null, ahora, 1, 50);
             msg = "";

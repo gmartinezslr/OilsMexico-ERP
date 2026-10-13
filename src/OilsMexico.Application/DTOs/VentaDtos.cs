@@ -17,11 +17,17 @@ public sealed record CarritoItemDto(
     public decimal Importe => Cantidad * PrecioUnitario;
 }
 
+/// <summary>
+/// Solicitud de venta POS. <c>CongelarPrecios = true</c> respeta exactamente el precio de cada
+/// renglón (no aplica el override de precio mayoreo del cliente): lo usa el pipeline
+/// Cotización → Orden → Factura para conservar el precio de compromiso.
+/// </summary>
 public sealed record VentaPosRequest(
     int SucursalId, int ClienteId, int UsuarioId,
     int? VendedorId,
     string FormaPagoSat, string MetodoPagoSat, string UsoCfdi,
-    bool RequiereFactura, List<CarritoItemDto> Items);
+    bool RequiereFactura, List<CarritoItemDto> Items,
+    bool CongelarPrecios = false);
 
 public sealed record VentaPosResult(
     int FacturaId, string FolioInterno, Guid? UuidSat,
