@@ -121,9 +121,15 @@
             }
             else
             {
-                <div class="d-flex gap-2 mt-3">
+                <div class="d-flex gap-2 mt-3 flex-wrap align-items-end">
                     <button class="btn btn-outline-success btn-sm" style="width:140px" @onclick="AbrirConvertir">Convertir a orden</button>
                     <button class="btn btn-outline-danger btn-sm" style="width:140px" @onclick="AbrirCancelar">Cancelar</button>
+                    <div class="input-group input-group-sm" style="max-width:360px">
+                        <input class="form-control" placeholder="Correo destino (vacio = cliente)…" @bind="correoDestino" disabled="@enviandoCorreo" />
+                        <button class="btn btn-outline-primary" @onclick="EnviarPorCorreo" disabled="@enviandoCorreo">
+                            @(enviandoCorreo ? "Enviando…" : "Enviar por correo")
+                        </button>
+                    </div>
                 </div>
             }
         </div>

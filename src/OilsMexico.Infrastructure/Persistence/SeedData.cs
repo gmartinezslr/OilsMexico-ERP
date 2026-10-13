@@ -37,7 +37,18 @@ public static class SeedData
             (ConfiguracionService.ClaveLoginBloqueosDefinitivo, "2"),
             // Umbrales de rotación ABC (fracciones del ingreso acumulado; editar desde Configuración).
             (ConfiguracionService.ClaveAbcUmbralA, "0.30"),
-            (ConfiguracionService.ClaveAbcUmbralB, "0.70")
+            (ConfiguracionService.ClaveAbcUmbralB, "0.70"),
+            // Correo saliente SMTP (remitente y servidor configurables en Configuración;
+            // el respaldo por defecto vive en appsettings sección "Correo").
+            (EmailService.ClaveHabilitado, "0"),
+            (EmailService.ClaveHost, ""),
+            (EmailService.ClavePuerto, "587"),
+            (EmailService.ClaveSsl, "1"),
+            (EmailService.ClaveUsuario, ""),
+            (EmailService.ClavePassword, ""),
+            (EmailService.ClaveRemitente, ""),
+            (EmailService.ClaveRemitenteNombre, "OilsMexico ERP"),
+            (EmailService.ClaveAutoCfdi, "0")
         };
         var clavesExistentes = await db.Configuracion.AsNoTracking().Select(c => c.Clave).ToListAsync();
         foreach (var (clave, valor) in clavesConfig)

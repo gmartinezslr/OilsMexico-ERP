@@ -1,8 +1,10 @@
 @* Plantillas de mensajes operativos: el usuario elige plantilla (cobro/entrega/bienvenida),
-   captura Folio/Total/Nombre/Fecha y copia el texto con variables rellenas para WhatsApp/correo/ticket. *@
+   captura Folio/Total/Nombre/Fecha y copia el texto con variables rellenas para WhatsApp/correo/ticket.
+   Además puede enviarlo por correo (IEmailService) desde el remitente de Configuración. *@
 @rendermode InteractiveServer
 @inject OilsMexico.Application.Interfaces.IBusquedaGlobalService Plantillas
 @inject OilsMexico.Application.Interfaces.ISucursalContext SucCtx
+@inject OilsMexico.Application.Interfaces.IEmailService CorreoSvc
 
 <div class="card shadow-sm">
     <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
@@ -50,11 +52,19 @@
         </div>
         <label class="form-label small mt-3">Vista previa</label>
         <textarea class="form-control font-monospace" rows="4" readonly>@vistaPrevia</textarea>
-        <div class="d-flex gap-2 mt-2">
+        <div class="d-flex gap-2 mt-2 flex-wrap align-items-end">
             <button type="button" class="btn btn-outline-primary btn-sm" @onclick="Copiar">📋 Copiar texto</button>
+            <input class="form-control form-control-sm" style="max-width:240px" placeholder="Correo destino…" @bind="correoDestino" disabled="@enviando" />
+            <button type="button" class="btn btn-outline-success btn-sm" @onclick="EnviarCorreo" disabled="@enviando">
+                @(enviando ? "Enviando…" : "✉ Enviar por correo")
+            </button>
             @if (!string.IsNullOrEmpty(copiado))
             {
                 <small class="text-success align-self-center">@copiado</small>
+            }
+            @if (!string.IsNullOrEmpty(msgEnvio))
+            {
+                <small class="@(errEnvio ? "text-danger" : "text-success") align-self-center">@msgEnvio</small>
             }
         </div>
     </div>
@@ -71,6 +81,8 @@
     private string claveSel = "cobro-whatsapp";
     private string clienteSel = "";
     private string nombre = "", folio = "", copiado = "", vistaPrevia = "";
+    private string correoDestino = "", msgEnvio = "";
+    private bool enviando, errEnvio;
     private decimal? total;
     private DateTime? fecha;
 
@@ -110,5 +122,25 @@
         // Sin JS: se selecciona el texto vía textarea readonly; el navegador copia con Ctrl+C.
         copiado = "Selecciona el texto de arriba y cópialo con Ctrl+C.";
         await Task.CompletedTask;
+    }
+
+    private async Task EnviarCorreo()
+    {
+        enviando = true; msgEnvio = "";
+        try
+        {
+            Previsualizar();
+            var destino = (correoDestino ?? "").Trim();
+            if (string.IsNullOrWhiteSpace(destino))
+            { msgEnvio = "Escribe el correo destino."; errEnvio = true; return; }
+            var p = plantillas.FirstOrDefault(x => x.Clave == claveSel);
+            var cuerpoHtml = "<p>" + System.Net.WebUtility.HtmlEncode(vistaPrevia).Replace("\n", "<br/>") + "</p>";
+            var r = await CorreoSvc.EnviarAsync(new OilsMexico.Application.DTOs.EmailMensajeDto(
+                destino, (p?.Nombre ?? "Mensaje") + " — OilsMexico", cuerpoHtml,
+                string.IsNullOrWhiteSpace(nombre) ? null : nombre));
+            msgEnvio = r.Mensaje; errEnvio = false;
+        }
+        catch (Exception ex) { msgEnvio = "Error: " + ex.Message; errEnvio = true; }
+        finally { enviando = false; }
     }
 }

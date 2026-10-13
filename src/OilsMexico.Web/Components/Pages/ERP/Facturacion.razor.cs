@@ -11,7 +11,8 @@ public partial class Facturacion : ComponentBase
     private List<FacturaListadoDto> lista = [];
     private EstadoFactura? estado;
     private string texto = "", msg = "", motivoCancelacion = "02", folioSustitucion = "";
-    private bool err, cargando, cancelando, puedeCancelar;
+    private string correoDestino = "";
+    private bool err, cargando, cancelando, puedeCancelar, enviandoCorreo;
     private FacturaListadoDto? sel;
     private HistorialDetalleDto? detalle;
     private bool _primeraCarga;
@@ -72,6 +73,19 @@ public partial class Facturacion : ComponentBase
         }
         catch (Exception ex) { msg = "Error: " + ex.Message; err = true; }
         cargando = false;
+    }
+
+    private async Task EnviarCfdi(int facturaId)
+    {
+        enviandoCorreo = true;
+        try
+        {
+            var destino = string.IsNullOrWhiteSpace(correoDestino) ? null : correoDestino.Trim();
+            var r = await CorreoSvc.EnviarCfdiAsync(facturaId, destino);
+            msg = r.Mensaje + " (desde el remitente de Configuración → Correo saliente)."; err = false;
+        }
+        catch (Exception ex) { msg = "Error: " + ex.Message; err = true; }
+        enviandoCorreo = false;
     }
 
     private void EmpezarCancelacion() { cancelando = true; motivoCancelacion = "02"; folioSustitucion = ""; }

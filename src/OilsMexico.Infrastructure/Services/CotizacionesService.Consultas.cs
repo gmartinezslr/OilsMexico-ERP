@@ -56,7 +56,8 @@ public sealed partial class CotizacionesService
             c.VendedorId, c.Vendedor?.Nombre, c.FechaEmision, c.FechaVencimiento,
             c.FolioInterno, c.Notas, c.Estado,
             c.Detalles.Select(MapearACotizacionRenglonDto).ToList(),
-            totales.Subtotal, totales.Iva, totales.Total);
+            totales.Subtotal, totales.Iva, totales.Total,
+            c.Cliente?.Email);
     }
 
     private static CotizacionRenglonDto MapearACotizacionRenglonDto(CotizacionDetalle d) =>

@@ -76,6 +76,15 @@ public sealed class ConfiguracionService(ErpDbContext db) : IConfiguracionServic
         return (a, b);
     }
 
+    public async Task<string> ObtenerTextoAsync(string clave, string defecto, CancellationToken ct = default)
+    {
+        var valor = await db.Configuracion.AsNoTracking()
+            .Where(c => c.Clave == clave)
+            .Select(c => c.Valor)
+            .FirstOrDefaultAsync(ct);
+        return string.IsNullOrWhiteSpace(valor) ? defecto : valor.Trim();
+    }
+
     public async Task GuardarAsync(string clave, string valor, CancellationToken ct = default)
     {
         var existente = await db.Configuracion.FirstOrDefaultAsync(c => c.Clave == clave, ct);

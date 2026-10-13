@@ -61,7 +61,8 @@ public sealed partial class ComprasService
                 d.Producto != null ? d.Producto.Sku : "",
                 d.UnidadNombre, d.Cantidad, d.CantidadRecibida, d.CostoUnitario,
                 Math.Round(d.Cantidad * d.CostoUnitario, 2), d.NumeroLote, d.FechaCaducidad)).ToList(),
-            pagos);
+            pagos,
+            c.ProveedorId);
     }
 
     public async Task<List<CuentasPorPagarDto>> CuentasPorPagarAsync(
@@ -81,6 +82,6 @@ public sealed partial class ComprasService
             .Select(c => new CuentasPorPagarDto(c.Id, c.FolioInterno, c.FechaEmision,
                 c.Proveedor != null ? c.Proveedor.Nombre : "(sin proveedor)",
                 c.FolioProveedor, c.Estado, c.Total, c.MontoPagado,
-                Math.Round(c.Total - c.MontoPagado, 2))).ToListAsync(ct);
+                Math.Round(c.Total - c.MontoPagado, 2), c.ProveedorId)).ToListAsync(ct);
     }
 }

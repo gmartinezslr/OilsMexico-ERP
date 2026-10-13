@@ -25,6 +25,10 @@ public partial class CotizacionDetalle : ComponentBase
     [Inject] public ISucursalContext SucCtx { get; set; } = default!;
     [Inject] public ISesionActual Sesion { get; set; } = default!;
     [Inject] public NavigationManager Nav { get; set; } = default!;
+    [Inject] public IEmailService CorreoSvc { get; set; } = default!;
+
+    private string correoDestino = "";
+    private bool enviandoCorreo;
 
     protected override async Task OnInitializedAsync()
     {
@@ -103,6 +107,19 @@ public partial class CotizacionDetalle : ComponentBase
         {
             cancelando = false;
         }
+    }
+
+    private async Task EnviarPorCorreo()
+    {
+        enviandoCorreo = true;
+        try
+        {
+            var destino = string.IsNullOrWhiteSpace(correoDestino) ? null : correoDestino.Trim();
+            var r = await CorreoSvc.EnviarCotizacionAsync(Id, destino);
+            msg = r.Mensaje; err = false;
+        }
+        catch (Exception ex) { msg = "Error: " + ex.Message; err = true; }
+        finally { enviandoCorreo = false; }
     }
 
     private static string ClaseEstado(EstadoCotizacion e) => e switch

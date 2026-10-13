@@ -37,7 +37,7 @@ public sealed record CotizacionResponseDto(
     int Id, int SucursalId, string Sucursal, int ClienteId, string Cliente,
     int? VendedorId, string? Vendedor, DateTime FechaEmision, DateTime? FechaVencimiento,
     string? FolioInterno, string? Notas, EstadoCotizacion Estado, List<CotizacionRenglonDto> Detalles,
-    decimal Subtotal, decimal Iva, decimal Total);
+    decimal Subtotal, decimal Iva, decimal Total, string? ClienteEmail = null);
 
 /// <summary>Fila de la lista de órdenes de venta.</summary>
 public sealed record OrdenVentaListadoDto(

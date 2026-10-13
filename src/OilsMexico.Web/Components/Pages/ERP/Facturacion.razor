@@ -4,6 +4,7 @@
 @inject OilsMexico.Application.Interfaces.IVentasService Ventas
 @inject OilsMexico.Application.Interfaces.ISucursalContext SucCtx
 @inject OilsMexico.Application.Interfaces.ISesionActual Sesion
+@inject OilsMexico.Application.Interfaces.IEmailService CorreoSvc
 @inject Microsoft.Extensions.Configuration.IConfiguration Config
 @inject NavigationManager Nav
 @using OilsMexico.Application.DTOs
@@ -130,6 +131,10 @@
                                             @if (sel.Estado is EstadoFactura.Timbrada or EstadoFactura.Surtida or EstadoFactura.Entregada)
                                             {
                                                 <a class="btn btn-sm btn-outline-danger" href="/notas-credito?origen=@sel.FacturaId">🧾 NC electrónica</a>
+                                                <input class="form-control form-control-sm" style="max-width:230px" placeholder="Correo destino (vacio = cliente)…" @bind="correoDestino" disabled="@enviandoCorreo" />
+                                                <button class="btn btn-sm btn-outline-primary" disabled="@(cargando || enviandoCorreo)" @onclick="() => EnviarCfdi(sel.FacturaId)">
+                                                    @(enviandoCorreo ? "Enviando…" : "✉ Enviar CFDI por correo")
+                                                </button>
                                             }
                                             @if (sel.Estado is EstadoFactura.Timbrada or EstadoFactura.Entregada)
                                             {

@@ -1,0 +1,74 @@
+@page "/comunicados"
+@rendermode InteractiveServer
+@inject IEmailService CorreoSvc
+@inject ISesionActual Sesion
+@inject NavigationManager Nav
+<PageTitle>Comunicados | OilsMexico ERP</PageTitle>
+<div class="container-fluid py-3" style="max-width:760px">
+    <h3 class="fw-bold mb-1">Comunicados y recordatorios</h3>
+    <p class="text-muted small">Envios masivos a clientes o proveedores desde el remitente de Configuracion.</p>
+    @if (!string.IsNullOrEmpty(msg))
+    {
+        <div class="alert @(err ? "alert-danger" : "alert-success") py-2">@msg</div>
+    }
+    <div class="card shadow-sm"><div class="card-body">
+        <div class="row g-2">
+            <div class="col-md-4">
+                <label class="form-label small mb-1">Destinatarios</label>
+                <select class="form-select form-select-sm" @bind="tipo">
+                    <option value="clientes">Clientes</option>
+                    <option value="proveedores">Proveedores</option>
+                </select>
+            </div>
+            <div class="col-md-4 d-flex align-items-end">
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="cm-act" @bind="soloActivos" />
+                    <label class="form-check-label small" for="cm-act">Solo activos</label>
+                </div>
+            </div>
+            <div class="col-md-4 d-flex align-items-end">
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="cm-saldo" @bind="soloConSaldo" />
+                    <label class="form-check-label small" for="cm-saldo">Solo con saldo</label>
+                </div>
+            </div>
+            <div class="col-12">
+                <label class="form-label small mb-1">Asunto</label>
+                <input class="form-control form-control-sm" @bind="asunto" placeholder="Ej: Aviso de horario…" />
+            </div>
+            <div class="col-12">
+                <label class="form-label small mb-1">Mensaje (variables: {Nombre} {Fecha} {Empresa})</label>
+                <textarea class="form-control form-control-sm" rows="4" @bind="cuerpo"></textarea>
+            </div>
+        </div>
+        <button class="btn btn-primary btn-sm mt-3" @onclick="Enviar" disabled="@enviando">
+            @(enviando ? "Enviando…" : "Enviar comunicado")
+        </button>
+    </div></div>
+</div>
+
+@code {
+    private string tipo = "clientes", asunto = "", cuerpo = "", msg = "";
+    private bool soloActivos = true, soloConSaldo, enviando, err;
+
+    protected override async Task OnAfterRenderAsync(bool first)
+    {
+        if (!first) return;
+        if (!Sesion.Autenticado && !await Sesion.RestaurarAsync()) { Nav.NavigateTo("/login"); return; }
+        if (Sesion.Sesion?.Rol is not (Roles.Admin or Roles.Conta or Roles.Vendedor)) { Nav.NavigateTo("/"); return; }
+    }
+
+    private async Task Enviar()
+    {
+        enviando = true;
+        try
+        {
+            var r = await CorreoSvc.EnviarComunicadoAsync(new ComunicadoRequest(tipo, asunto, cuerpo, soloActivos, soloConSaldo));
+            msg = $"Comunicado enviado: {r.Enviados}; fallidos: {r.Fallidos}; sin correo: {r.SinCorreo}." +
+                  (r.Errores.Count > 0 ? " " + string.Join(" | ", r.Errores.Take(3)) : "");
+            err = r.Enviados == 0;
+        }
+        catch (Exception ex) { msg = "Error: " + ex.Message; err = true; }
+        enviando = false;
+    }
+}

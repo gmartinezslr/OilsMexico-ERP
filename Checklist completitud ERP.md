@@ -1,0 +1,196 @@
+# Checklist de completitud del ERP — 12 de octubre de 2026
+
+> Lista maestra de **cada función que falta o necesita modificación/mejora** para que OilsMexico ERP quede completo.
+> Cada ítem fue **verificado contra el código al 12/10/2026** (build `OilsMexico.slnx` 0 errores; Cotizaciones Capa A+B+C probadas 5/5 en PostgreSQL desechable).
+> Leyenda: 🔴 alta prioridad · 🟡 media · 🟢 baja · `- [ ]` pendiente · `- [x]` hecho (sección 9, no re-trabajar).
+
+**Fuentes:** roadmap v11 (`Situación al 11 de octubre.md`), auditoría Gemini (`Gemini sugerencias sobre el estado y mejoras.md`), revisión hardcode/SOLID (`hardcode movible a tablas y mejoras SOLID.md`), auditoría SOLID de Cotizaciones (sesión 12/10) y verificación directa sobre el código hoy.
+
+**Mapa:** 1 Funcionalidades nuevas · 2 Exportación/CFDI · 3 Auditoría/permisos · 4 Comercial/crédito · 5 Logística · 6 Deuda técnica · 7 Verificación manual · 8 Documentación · 9 Hecho · 10 Fuera de alcance.
+
+---
+
+## 1. 🔴 Funcionalidades nuevas — bloqueantes
+
+### 1.1 Gastos operativos (`/gastos`) — roadmap #2
+
+Hoy **no existe** la entidad `Gasto` (verificado en `Domain/Entities`).
+
+- [ ] **Entidad `Gasto`** en `src/OilsMexico.Domain/Entities/` (fecha, categoría, importe, forma de pago SAT, sucursal, usuario, comprobante, `CorteCajaId?`, notas) + `GastoConfig` (snake_case) + tabla `gastos` en patch (CHECK de categorías vía `Enum.GetNames`).
+- [ ] **`IGastoService` + `GastoService`**: `CrearAsync`, `EditarAsync`, `EliminarAsync` (con guard de sucursal REGLA #1, patrón de las transiciones de OV), `ListarAsync(fechas, categoría)`, `TotalesPorCategoriaAsync`.
+- [ ] **Página `/gastos`** (`.razor` + `.razor.cs`) + `NavLink` en `NavMenu.razor` (grupo Gestión) + mapeo en `ActualizarGrupoPorUrl`.
+- [ ] **Vinculación con `CorteCajaService.Cierre.cs`**: los gastos en efectivo entran al cuadre como egresos (hoy solo entran ventas/cobros).
+- [ ] **Asiento contable automático** en `AsientoGeneradorService` (gasto vs. banco/efectivo) apoyándose en `ReglasAsiento`.
+- [ ] Reporte de gastos por período / sucursal / categoría.
+
+### 1.2 CxC y CxP con vencimientos — roadmap #3
+
+- [ ] **Antigüedad de saldos** en `EstadoCuentasService` (CxC) y `ComprasService.Cxp.cs` (CxP): rangos 0-15 / 16-30 / 31-60 / +60 días por cliente y proveedor.
+- [ ] **Intereses moratorios**: tasa configurable en tabla `configuracion` (patrón `password_policy_*`) + cálculo por día de atraso.
+- [ ] **Calendario de cobros/pagos**: fecha comprometida por factura/orden de compra + recordatorios.
+- [ ] **UI**: reporte en `EstadoCuentas.razor` y `Compras.razor` con saldos vencidos + aviso en `AvisosService` (campana).
+- [ ] **Bloqueo por morosidad** en POS/Facturación (depende de 4.1 `LimiteCredito`).
+
+### 1.3 Costo de ventas FIFO + cierre de período — roadmap #4
+
+- [ ] **Asiento de costo de venta** en `AsientoGeneradorService.cs`: hoy no genera (Costo de Ventas vs. Almacén) con el costo real del lote salido por FIFO (`InventarioLote` ya calcula el costo).
+- [ ] **Cierre contable mensual**: bandera de periodo cerrado + bloqueo de escritura de asientos en periodos cerrados (y reapertura solo Admin).
+- [ ] **Estado de Resultados del periodo** alimentado por esos asientos (ver 1.4).
+
+### 1.4 Reportes financieros — roadmap #7
+
+- [ ] **Balance General**, **Estado de Resultados por sucursal**, **Balanza de Comprobación** sobre `CuentasContables` / `AsientoContable` existentes.
+- [ ] **Informe de cambio de existencias** (inicial + compras − ventas ± ajustes ± traspasos).
+- [ ] **Indicadores por sucursal y periodo** (margen, rotación, días de inventario) → extender `DashboardService`/`GestionService`.
+- [ ] `NavLink` en menú Gestión (junto a `ventas-gestion`).
+
+---
+
+
+## 2. 🟡 Exportación y documentos
+
+### 2.1 Exportación Excel/PDF — roadmap #8
+
+Hoy **no hay librería de exportación** en ningún `.csproj` (verificado: solo `ExcelDataReader` de lectura; `window.print` en ticket).
+
+- [ ] Agregar paquetes: `MiniExcel` o `ClosedXML` (Excel) + `QuestPDF` (PDF).
+- [ ] **`IExportacionService` + `ExportacionService`**: `EstadoCuentaClienteAsync` (para WhatsApp/correo), `CxPendientesAsync`, `InventarioAsync`, `KardexAsync`, `VentasAsync`, `ComisionesAsync`, `ListaPreciosAsync`.
+- [ ] **PDF de factura CFDI con QR SAT** (`QRCoder` ya referenciado) — representación impresa formal.
+- [ ] **PDF/impresión de cotización y orden de venta** (`CotizacionDetalle` y `OrdenesVentaDetalle` hoy solo en pantalla).
+- [ ] Botones de exportación en las páginas correspondientes.
+
+### 2.2 Envío automático de CFDI por correo ✅ HECHO (13/10/2026)
+
+Remitente configurable en Configuración (tabla `configuracion`, claves `correo_*`, respaldo en
+`appsettings` sección `Correo`): servidor, puerto, SSL, usuario, password, **remitente**,
+nombre del remitente y bandera de envío automático. Build `OilsMexico.slnx` 0 errores.
+
+- [x] **Paquete `MailKit`** (SMTP) en `OilsMexico.Infrastructure` + `IEmailService` y `EmailService`
+  (+ `.Documentos.cs` + `.Masivos.cs`): config, prueba, `EnviarAsync`, cotizaciones, CFDI (XML adjunto),
+  estados de cuenta CxC/CxP, comunicados masivos y recordatorios de saldo.
+- [x] **Hook automático tras `TimbrarAsync`** (`EnviarCfdiAutomaticoAsync`: no rompe el timbrado si falla)
+  + botón manual en `Facturacion.razor`; envío de cotización en `CotizacionDetalle.razor`.
+- [x] **UI remitente**: componente `ConfigCorreo.razor` en `Configuracion.razor` (solo Admin) + claves
+  sembradas en `SeedData`; página `/comunicados` + enlace en `NavMenu` (Gestión).
+- [x] **Reutilización de `PlantillasMensaje`** (antes solo copiaban texto): ahora también envían por
+  correo y los recordatorios usan la plantilla de cobro. Destino por defecto: `Cliente.Email` /
+  `Proveedor.Email` (editable por envío).
+- [ ] Adjuntar el **PDF** del CFDI (hoy solo se adjunta el XML; no hay generador de PDF en el repo).
+- [ ] Verificación manual pendiente (con BD levantada): SMTP real, prueba, auto-envío al timbrar,
+  estados de cuenta y comunicado a correos reales.
+
+---
+
+## 3. 🟡 Auditoría y permisos granulares (roadmap #9 — parcial)
+
+- [ ] **UI de matriz permisos × roles**: las tablas `Roles`/`Permisos`/`RolPermisos` ya existen en `SchemaPatch`, pero **no hay interfaz** ni consumo.
+- [ ] **`IAutorizacionService.TienePermiso(recurso, accion)`** aplicado en `NavMenu.razor` (hoy solo ~15 filtros de rol duro) y en páginas críticas.
+- [ ] **Auditoría de acciones de UI**: ampliar `AuditLog` (hoy: `PasswordChange`, `DosFa*`, `RfcValidated`, `FiscalSituationChanged`, `PasswordPolicyChanged`) a: crear/editar producto y precios, compra, ajuste de almacén, configuración, cierre de caja, transiciones de Cotizaciones/OV.
+- [ ] **"Quién aprueba qué"** en transiciones de OV: hoy el motivo queda en `Notas`; falta registrar `usuario_id` del que confirma/suspende/reanuda/cancela (columna o `AuditLog`).
+- [ ] **Pantalla de consulta de auditoría** (filtros por fecha/usuario/acción) — no hay UI.
+
+---
+
+## 4. 🟢 Comercial y crédito (diferenciadores del giro)
+
+### 4.1 Límites de crédito
+
+- [ ] Campos **`Cliente.LimiteCredito`** y **`Cliente.DiasCredito`** — verificado: **no existen** en `Cliente.cs`.
+- [ ] Bloqueo automático en `VentasPOS` y facturación cuando el saldo vencido (1.2) supere el límite o haya mora.
+- [ ] Aviso en alta/edición de cliente, búsqueda global y cotizaciones.
+
+### 4.2 Listas de precios y descuento por volumen
+
+- [ ] Entidades `ListaPrecio` + detalle (Público, Taller, Refaccionaria, Mayorista) — hoy solo `PrecioVenta`/`PrecioMayoreo`/`PrecioUnitario` en `Producto` (verificado: no existe `ListaPrecio`).
+- [ ] Matriz de descuento por volumen (caja/tambor/escala) aplicada en POS, `CotizacionesService.Crear` y `CalcularTotales`.
+- [ ] UI: catálogo de listas + asignación por cliente/tipo de cliente.
+
+### 4.3 Guía de lubricación / compatibilidad
+
+- [ ] Entidades `VehiculoModelo` y `AceiteCompatibilidad` (marca, modelo, año, motor, viscosidad recomendada, norma OEM, capacidad de cárter en litros) — verificado: no existen.
+- [ ] Búsqueda "¿Qué aceite lleva un Versa 2020?" en la búsqueda de `VentasPOS.razor.cs` y en `CotizacionForm`.
+- [ ] Seed del parque vehicular común en México.
+
+### 4.4 Evaluación de proveedores
+
+- [ ] Calificación de recepciones en `Compras` (cumplimiento, retrasos, bonos/nivel de servicio) + reporte simple.
+
+---
+
+## 5. 🟢 Logística de lubricantes
+
+- [ ] **Tambor abierto / granel**: diferencia entre existencia sellada y fraccionada en uso (hoy `InventarioLote` solo descuenta litros) — evita vender un tambor cerrado cuando solo queda saldo abierto.
+- [ ] **Rutas y reparto**: entidades `RutaEntrega`, `VehiculoReparto`, `Chofer` (verificado: no existen); hoja de ruta, remisión de reparto, liquidación entregado vs. devuelto.
+- [ ] **Envases retornables**: control de tambores 208 L prestados al cliente y depósito/bonificación por devolución (cargo/abono en cuenta del cliente).
+- [ ] **Carta Porte 3.x**: servicio + UI para CFDI de traslado (hoy solo hay XSLTs genéricos en `Infrastructure/Cfdi/xslt`, sin servicio ni página).
+
+---
+
+## 6. 🟡 Deuda técnica — funciones existentes a MODIFICAR
+
+Verificado hoy en código (auditoría SOLID de Cotizaciones 12/10 + revisión hardcode).
+
+### 6.1 Hardcode remanente en UI
+
+- [ ] `Usuarios.razor:89-92` → iterar `Roles.Todos` (la constante ya existe en `Domain/Services/Roles.cs`; hoy los `<option>` siguen literales).
+- [ ] `Compras.razor:250-254` → consumir `ICatalogosSatService` (formas de pago hardcodeadas, bypass del servicio).
+- [ ] `Facturacion.razor:150-153` y `NotasCredito.razor:112-115` → motivos de cancelación centralizados en `CfdiDefaults` o catálogo (hoy duplicados a mano en ambas páginas).
+- [ ] `Home.razor:292` ("IVA 16% incluido"), `Home.razor:309` ("Módulo futuro (PAC)"), `Home.razor:120` ("Módulo futuro") → calcular con `Impuestos.TasaIva` y mostrar estado real del PAC.
+- [ ] Decisión: mover catálogos SAT de `CatalogosSatService` (diccionarios en código) a tabla `catalogos_sat` — impacta en OCP al agregar claves.
+
+### 6.2 SOLID / DRY / mantenibilidad
+
+- [ ] **B8 — helper único de sucursal**: el patrón `ctx.Rol == Roles.Admin ? sucursalId : ctx.SucursalId` está duplicado en ~15 sitios de 12 servicios (`FacturacionService.cs:21`, `ComprasService.cs:16`, `CorteCajaService.cs:19,30`, `ComplementoPagoService.cs:20`, …) → `ResolverSucursalAutorizada(...)` en `SucursalContext`/servicio de autorización.
+- [ ] **DIP**: `Metas.razor.cs` y `VentasPOS.razor.cs` **aún inyectan `ErpDbContext` directo** (únicos dos verificados; el resto ya usa servicios) → mover a `IComisionesService`/`IVentasService`.
+- [ ] **ISP (principal deuda de Cotizaciones)**: dividir `ICotizacionesService` (~20 métodos) en `ICotizacionesConsulta` + `ICotizacionesOperaciones`.
+- [ ] **ISP (ventas)**: separar `IVentasService` (mezcla POS + despacho de almacén + devoluciones + auditoría) en `IVentasPosService` / `IEntregaAlmacenService` / `IHistorialVentasService`.
+- [ ] **`IAsientoGeneradorService`**: `GenerarAsientosDeCompraAsync` y `GenerarAsientosDeDevolucionAsync` ignoran `sucursalId`/`usuarioId` → usarlos en el asiento o eliminar los parámetros.
+- [ ] **REGLA #1 en lecturas**: `ObtenerCotizacionAsync` y `ObtenerOrdenVentaAsync` no filtran por sucursal → añadir guard (las 4 transiciones ya lo tienen).
+- [ ] **Atomicidad**: envolver `ConvertirOrdenAVentaAsync` en transacción (`BeginTransactionAsync`) — hoy se crean factura/detalle/stock/kardex sin envolvente.
+- [ ] **Consistencia de estados**: homogeneizar `Estado` string vs. enum en DTOs de resultados (heterogéneo entre servicios).
+- [ ] **DRY de cálculo**: `CalcularTotales` se invoca ×3 en la creación de cotización → un único punto de cálculo.
+- [ ] **A9 estados**: literales aislados restantes (p. ej. `ComplementoPago.cs:46`) → enum `EstadoFactura`.
+
+### 6.3 CFDI / PAC — modo real
+
+- [ ] Colocar `certs/csd.cer` + `certs/csd.key` (nunca al repo; la carpeta no existe → sigue en SIMULADO) y `dotnet user-secrets` (`Cfdi:KeyPassword`, `Cfdi__Pac__Usuario`, `Cfdi__Pac__Password`), `Cfdi:PacModo=TEST`.
+- [ ] Prueba Finkok TEST: timbrar factura PUE, PPD + REP, cancelar con motivo 02 y consultar `EstadoSatAsync`.
+
+
+---
+
+## 7. 🔵 Verificación manual pendiente (con BD levantada)
+
+Tomada de `Situación al 11 de octubre.md` §4 y validaciones CFDI:
+
+- [ ] Login 2FA con app autenticadora + cambio de contraseña por vigencia vencida.
+- [ ] Alta/edición cliente/proveedor: RFC inválido, RFC duplicado, situación Cancelada/Baja (debe bloquear).
+- [ ] Escaneo de barras en POS (USB como teclado) + código inexistente (debe avisar en campana).
+- [ ] Cierre y reapertura de comisión en `Metas` y portal del vendedor.
+- [ ] Conciliación bancaria en UI (la prueba de integración dio 15/15; falta recorrido manual).
+- [ ] Cotizaciones/OV en UI real (expiración al abrir listado, Suspender/Reanudar con motivo) — la prueba dio 5/5, falta smoke manual.
+- [ ] Timbrado real Finkok (ver 6.3).
+
+## 8. 🟡 Documentación
+
+- [ ] `README.md` (v0.0.3) no menciona módulos ya implementados: contabilidad, comisiones, cotizaciones/OV, bancos/conciliación, RFC+2FA, búsqueda global, plantillas → actualizar.
+- [ ] `Situación al 11 de octubre.md` y este checklist quedan untracked hasta decidir el commit (working tree actual: A+B+C de Cotizaciones + fix FK `OrdenVenta.CotizacionId` + guards de sucursal + doc, **sin commitear**).
+
+## 9. ✅ Recién completado — NO re-trabajar
+
+- [x] Cotizaciones Capa A+B+C: pipeline cotización → OV → factura, expiración al cargar listado (`ExpirarCotizacionesAsync`), Suspender/Reanudar con guards estrictos y motivo en `Notas`.
+- [x] Fix FK: `OrdenVenta.CotizacionId` `int` → `int?` (manual = null) + `CotizacionesPatch` idempotente.
+- [x] REGLA #1 (guard de sucursal) en las 4 transiciones: `ConfirmarOrdenVentaAsync`, `SuspenderOrdenVentaAsync`, `ReanudarOrdenVentaAsync` (`Ordenes.cs`) y `CancelarOrdenVentaAsync` (`Convertir.cs`).
+- [x] Conciliación bancaria (`Bancos.razor`, 15/15) · RFC + situación fiscal (`RfcValidador`) · contraseña + 2FA · barras/escaneo · wizard 3 pasos · búsqueda global Ctrl+K · plantillas de mensaje · comisiones ampliadas.
+- [x] Hardcode: `Roles.Admin`, `CfdiDefaults`, `Impuestos`, `ReglasAsiento`, `ImportacionReglas`, umbrales ABC en configuración.
+- [x] Prueba de integración Capa C 5/5 (C1, C2, C2b, C2c) y build 0 errores.
+
+## 10. ⚪ Fuera de alcance (decisión de diseño)
+
+No considerados bloqueantes para "ERP completo" (análisis 09/10): nómina/RRHH · producción/BOM/MRP · multiempresa · microservicios · API REST para terceros.
+
+---
+
+### Orden sugerido de ataque
+
+**1 → 2 → 3** (mismo orden del roadmap v11; lo cerrado no se re-trabaja), atacando la **sección 6 en paralelo** por ser esfuerzo bajo y alto impacto (6.1 → 6.2 B8/DIP → 6.3). Las secciones 4 y 5 son diferenciadores del giro: opcionales para "completo", valiosas para el negocio.

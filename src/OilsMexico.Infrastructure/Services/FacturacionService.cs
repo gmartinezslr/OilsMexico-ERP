@@ -12,7 +12,7 @@ namespace OilsMexico.Infrastructure.Services;
 /// </summary>
 public sealed class FacturacionService(
     ErpDbContext db, ISucursalContext ctx,
-    ICfdiSelladoService sellado, IPacTimbradoService pac) : IFacturacionService
+    ICfdiSelladoService sellado, IPacTimbradoService pac, IEmailService correo) : IFacturacionService
 {
     public async Task<List<FacturaListadoDto>> ListarAsync(
         int sucursalId, EstadoFactura? estado, string? texto, CancellationToken ct = default)
@@ -71,6 +71,11 @@ public sealed class FacturacionService(
         f.XmlSellado = xmlTimbrado; // XML con el Timbre Fiscal Digital del PAC
         f.Estado = EstadoFactura.Timbrada;
         await db.SaveChangesAsync(ct);
+
+        // Envío automático de CFDI por correo (clave correo_auto_cfdi en Configuración):
+        // solo envía si está activo y el cliente tiene correo; un fallo de SMTP no invalida
+        // el timbrado (EnviarCfdiAutomaticoAsync traga la excepción y regresa null).
+        await correo.EnviarCfdiAutomaticoAsync(facturaId, ct);
 
         return new VentaPosResult(f.Id, f.FolioInterno, f.UuidSat,
             f.Subtotal, f.Iva, f.Total, "TIMBRADA");

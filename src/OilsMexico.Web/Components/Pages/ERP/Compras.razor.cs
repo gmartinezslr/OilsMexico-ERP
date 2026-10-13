@@ -22,6 +22,8 @@ public partial class Compras : ComponentBase
     private CompraDetalleDto? detalle;
     private int provId;
     private decimal pagoMonto;
+    private string correoDestinoProv = "";
+    private bool enviandoCorreoProv;
 
     private readonly Dictionary<int, string> cantRec = new();
     private readonly Dictionary<int, string> loteRec = new();
@@ -209,6 +211,21 @@ public partial class Compras : ComponentBase
         }
         catch (Exception ex) { msg = "Error: " + ex.Message; err = true; }
         pagando = false;
+    }
+
+    [Inject] private OilsMexico.Application.Interfaces.IEmailService CorreoSvc { get; set; } = default!;
+
+    private async Task EnviarEstadoCuentaProv(int proveedorId)
+    {
+        enviandoCorreoProv = true;
+        try
+        {
+            var destino = string.IsNullOrWhiteSpace(correoDestinoProv) ? null : correoDestinoProv.Trim();
+            var r = await CorreoSvc.EnviarEstadoCuentaProveedorAsync(proveedorId, destino);
+            msg = r.Mensaje; err = false;
+        }
+        catch (Exception ex) { msg = "Error: " + ex.Message; err = true; }
+        enviandoCorreoProv = false;
     }
 
     private static string ClaseEstado(EstadoCompra e) => e switch

@@ -27,6 +27,9 @@ public interface IConfiguracionService
     /// </summary>
     Task<(decimal UmbralA, decimal UmbralB)> ObtenerUmbralesAbcAsync(CancellationToken ct = default);
 
+    /// <summary>Lee una clave textual. Devuelve <paramref name="defecto"/> si la clave falta o el valor está vacío.</summary>
+    Task<string> ObtenerTextoAsync(string clave, string defecto, CancellationToken ct = default);
+
     /// <summary>Guarda una clave textual (inserta si falta; actualiza si existe).</summary>
     Task GuardarAsync(string clave, string valor, CancellationToken ct = default);
 

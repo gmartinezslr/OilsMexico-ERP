@@ -1,0 +1,79 @@
+<div class="card shadow-sm h-100">
+    <div class="card-header bg-dark text-white">@Titulo</div>
+    <div class="card-body">
+        @if (!string.IsNullOrEmpty(msg))
+        {
+            <div class="alert @(err ? "alert-danger" : "alert-success") py-1 small">@msg</div>
+        }
+        <div class="form-check form-switch mb-2">
+            <input class="form-check-input" type="checkbox" id="cc-hab" checked="@cfg.Habilitado"
+                   @onchange="(ChangeEventArgs e) => Set((bool?)e.Value == true, v => cfg with { Habilitado = v })"
+                   disabled="@(!esAdmin || guardando)" />
+            <label class="form-check-label" for="cc-hab">Envio por correo habilitado</label>
+        </div>
+        <label class="form-label small mb-1" for="cc-rem">Remitente (correo de origen)</label>
+        <input id="cc-rem" class="form-control form-control-sm" placeholder="facturacion@tuempresa.mx"
+               value="@cfg.Remitente"
+               @onchange="(ChangeEventArgs e) => Set(e.Value?.ToString() ?? string.Empty, v => cfg with { Remitente = v })"
+               disabled="@(!esAdmin || guardando)" />
+        <div class="form-text">Es el «De:» que ven clientes y proveedores en cotizaciones, CFDI, estados de cuenta, comunicados y recordatorios.</div>
+        <div class="row g-2 mt-1">
+            <div class="col-md-6">
+                <label class="form-label small mb-1">Nombre del remitente</label>
+                <input class="form-control form-control-sm" placeholder="OilsMexico ERP" value="@cfg.RemitenteNombre"
+                       @onchange="(ChangeEventArgs e) => Set(e.Value?.ToString() ?? string.Empty, v => cfg with { RemitenteNombre = v })"
+                       disabled="@(!esAdmin || guardando)" />
+            </div>
+            <div class="col-md-6">
+                <label class="form-label small mb-1">Servidor SMTP</label>
+                <input class="form-control form-control-sm" placeholder="smtp.gmail.com" value="@cfg.Host"
+                       @onchange="(ChangeEventArgs e) => Set(e.Value?.ToString() ?? string.Empty, v => cfg with { Host = v })"
+                       disabled="@(!esAdmin || guardando)" />
+            </div>
+            <div class="col-md-4">
+                <label class="form-label small mb-1">Puerto</label>
+                <input type="number" min="1" max="65535" class="form-control form-control-sm" value="@cfg.Puerto"
+                       @onchange="(ChangeEventArgs e) => Set(int.TryParse(e.Value?.ToString(), out var p) ? p : 587, v => cfg with { Puerto = v })"
+                       disabled="@(!esAdmin || guardando)" />
+            </div>
+            <div class="col-md-4 d-flex align-items-end">
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="cc-ssl" checked="@cfg.Ssl"
+                           @onchange="(ChangeEventArgs e) => Set((bool?)e.Value == true, v => cfg with { Ssl = v })"
+                           disabled="@(!esAdmin || guardando)" />
+                    <label class="form-check-label small" for="cc-ssl">SSL/TLS</label>
+                </div>
+            </div>
+            <div class="col-md-4 d-flex align-items-end">
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="cc-auto" checked="@cfg.EnvioAutomaticoCfdi"
+                           @onchange="(ChangeEventArgs e) => Set((bool?)e.Value == true, v => cfg with { EnvioAutomaticoCfdi = v })"
+                           disabled="@(!esAdmin || guardando)" />
+                    <label class="form-check-label small" for="cc-auto">Auto-CFDI</label>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label small mb-1">Usuario SMTP</label>
+                <input class="form-control form-control-sm" autocomplete="off" value="@cfg.Usuario"
+                       @onchange="(ChangeEventArgs e) => Set(e.Value?.ToString() ?? string.Empty, v => cfg with { Usuario = v })"
+                       disabled="@(!esAdmin || guardando)" />
+            </div>
+            <div class="col-md-6">
+                <label class="form-label small mb-1">Contrasena</label>
+                <input type="password" class="form-control form-control-sm" autocomplete="new-password" value="@cfg.Password"
+                       @onchange="(ChangeEventArgs e) => Set(e.Value?.ToString() ?? string.Empty, v => cfg with { Password = v })"
+                       disabled="@(!esAdmin || guardando)" />
+            </div>
+        </div>
+        <div class="row g-2 align-items-end mt-1">
+            <div class="col-md-6">
+                <label class="form-label small mb-1">Prueba (vacio = remitente)</label>
+                <input class="form-control form-control-sm" @bind="destinoPrueba" disabled="@(!esAdmin || probando)" />
+            </div>
+            <div class="col-md-6 d-flex gap-2">
+                <button class="btn btn-primary btn-sm flex-fill" @onclick="Guardar" disabled="@(!esAdmin || guardando)">Guardar</button>
+                <button class="btn btn-outline-secondary btn-sm flex-fill" @onclick="Probar" disabled="@(!esAdmin || probando)">Probar</button>
+            </div>
+        </div>
+    </div>
+</div>

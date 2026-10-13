@@ -52,9 +52,11 @@ public sealed record CompraDetalleDto(
     int CompraId, string FolioInterno, DateTime FechaEmision, string Proveedor,
     string? FolioProveedor, EstadoCompra Estado, EstadoPagoCompra EstadoPago,
     decimal Subtotal, decimal Iva, decimal Total, decimal MontoPagado, decimal Saldo,
-    string? Notas, List<CompraDetalleLineaDto> Lineas, List<CompraPagoDto> Pagos);
+    string? Notas, List<CompraDetalleLineaDto> Lineas, List<CompraPagoDto> Pagos,
+    int ProveedorId = 0);
 
 /// <summary>Cuentas por pagar: compras con saldo pendiente.</summary>
 public sealed record CuentasPorPagarDto(
     int CompraId, string FolioInterno, DateTime FechaEmision, string Proveedor,
-    string? FolioProveedor, EstadoCompra Estado, decimal Total, decimal MontoPagado, decimal Saldo);
+    string? FolioProveedor, EstadoCompra Estado, decimal Total, decimal MontoPagado, decimal Saldo,
+    int ProveedorId = 0);

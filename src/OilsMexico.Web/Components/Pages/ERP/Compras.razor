@@ -172,6 +172,12 @@
                 <div class="card-body">
                     <div><strong>Proveedor:</strong> @detalle.Proveedor
                         @if (!string.IsNullOrEmpty(detalle.FolioProveedor)) { <span class="text-muted">· Folio prov: @detalle.FolioProveedor</span> }</div>
+                    <div class="d-flex flex-wrap gap-2 align-items-end mt-1 mb-2">
+                        <input class="form-control form-control-sm" style="max-width:240px" placeholder="Correo destino (vacio = proveedor)…" @bind="correoDestinoProv" disabled="@enviandoCorreoProv" />
+                        <button class="btn btn-sm btn-outline-primary" @onclick="() => EnviarEstadoCuentaProv(detalle.ProveedorId)" disabled="@enviandoCorreoProv">
+                            @(enviandoCorreoProv ? "Enviando…" : "Enviar estado de cuenta")
+                        </button>
+                    </div>
                     @if (!string.IsNullOrEmpty(detalle.Notas)) { <div><small class="text-muted">Notas: @detalle.Notas</small></div> }
                     <div class="mb-2"><strong>Total: $@detalle.Total.ToString("N2")</strong>
                         <span class="text-muted">(Sub $@detalle.Subtotal.ToString("N2") + IVA $@detalle.Iva.ToString("N2"))</span>
