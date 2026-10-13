@@ -271,6 +271,7 @@ public static class SchemaPatch
         await RepPatch.AplicarAsync(db);
         await CajaPatch.AplicarAsync(db);
         await ComisionPatch.AplicarAsync(db);
+        await BancosPatch.AplicarAsync(db);
 
         // CASH BASIS: las ventas PUE (contado) se consideran cobradas al momento de emitirse.
         // Se estampa el cobro faltante en el histórico PUE para que Estado de Cuentas, cortes y

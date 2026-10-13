@@ -58,6 +58,12 @@ public sealed class ErpDbContext(DbContextOptions<ErpDbContext> options) : DbCon
 
     public DbSet<ImportacionRegla> ImportacionReglas => Set<ImportacionRegla>();
 
+    // ---------------------------------------------------------
+    //  Conciliación bancaria (extracto del banco ↔ cobros/pagos)
+    // ---------------------------------------------------------
+    public DbSet<CuentaBancaria> CuentasBancarias => Set<CuentaBancaria>();
+    public DbSet<MovimientoBancario> MovimientosBancarios => Set<MovimientoBancario>();
+
     protected override void OnModelCreating(ModelBuilder b)
     {
         b.ApplyConfigurationsFromAssembly(typeof(ErpDbContext).Assembly);

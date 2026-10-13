@@ -115,6 +115,38 @@ public interface IComprasService
 }
 
 /// <summary>
+/// Conciliación bancaria. Cierra el hueco «los pagos/cobros se registran pero no la
+/// operación bancaria»: aquí se captura el extracto del banco y se empata cada renglón
+/// con el cobro (VentaCobro, Abono) o el pago a proveedor (CompraPago, Cargo) del ERP.
+///
+/// Reglas de conciliación:
+///  - Un Abono (entró dinero) sólo se concilia contra un <see cref="CobroResult"/> del ERP
+///    (VentaCobro); un Cargo (salió dinero) sólo contra un pago a proveedor (CompraPago).
+///  - Cada movimiento del ERP y cada renglón del extracto se concilian una sola vez.
+///  - El saldo de la cuenta se deriva del saldo inicial + Σ abonos − Σ cargos del extracto.
+/// </summary>
+public interface IBancosService
+{
+    // ---- cuentas bancarias ----
+    Task<List<CuentaBancariaDto>> ListarCuentasAsync(int sucursalId, CancellationToken ct = default);
+    Task<CuentaBancariaDto> CrearCuentaAsync(CrearCuentaBancariaRequest request, CancellationToken ct = default);
+
+    // ---- extracto ----
+    Task<List<MovimientoBancarioDto>> ListarMovimientosAsync(int cuentaId, EstadoConciliacion? estado, CancellationToken ct = default);
+    Task<MovimientoBancarioDto> CargarMovimientoAsync(CargarMovimientoRequest request, CancellationToken ct = default);
+
+    // ---- candidatos del ERP sin conciliar ----
+    Task<List<MovimientoErpDto>> MovimientosErpPendientesAsync(int sucursalId, CancellationToken ct = default);
+
+    // ---- conciliación ----
+    Task ConciliarAsync(ConciliarMovimientoRequest request, CancellationToken ct = default);
+    Task DesconciliarAsync(int movimientoId, CancellationToken ct = default);
+
+    // ---- resumen ----
+    Task<ResumenConciliacionDto> ResumenAsync(int cuentaId, CancellationToken ct = default);
+}
+
+/// <summary>
 /// Base de COBRANZA EFECTIVA (cash basis): el dinero que REALMENTE entró en un periodo,
 /// atribuido al vendedor que vendió. Es la fuente de verdad del módulo de comisiones.
 ///

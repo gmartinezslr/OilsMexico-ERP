@@ -88,3 +88,26 @@ public enum EstadoNotaCredito
     Timbrada,
     Cancelada
 }
+
+// ---------------------------------------------------------------------------
+// Módulo de conciliación bancaria. Se guardan como texto en PG (ver BancosPatch),
+// con CHECK derivado de Enum.GetNames para no duplicar los valores.
+// ---------------------------------------------------------------------------
+
+/// <summary>
+/// Sentido del dinero en un renglón del extracto bancario.
+/// Abono = entró dinero a la cuenta (se concilia contra un <see cref="Entities.VentaCobro"/>).
+/// Cargo  = salió dinero de la cuenta (se concilia contra un <see cref="Entities.CompraPago"/>).
+/// </summary>
+public enum NaturalezaMovimiento
+{
+    Abono,
+    Cargo
+}
+
+/// <summary>Estado de la conciliación de un movimiento bancario.</summary>
+public enum EstadoConciliacion
+{
+    Pendiente,
+    Conciliado
+}

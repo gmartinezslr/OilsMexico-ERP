@@ -55,6 +55,7 @@ builder.Services.AddScoped<IComprasService, ComprasService>();
     builder.Services.AddScoped<IComisionesService, ComisionesService>();
     builder.Services.AddScoped<IBusquedaGlobalService, BusquedaGlobalService>();
     builder.Services.AddScoped<IAsientoGeneradorService, AsientoGeneradorService>();
+    builder.Services.AddScoped<IBancosService, BancosService>();
 
 builder.Services.AddScoped<ISepomexService, SepomexService>();
 builder.Services.AddScoped<IImportacionProductosService, ImportacionProductosService>();

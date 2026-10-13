@@ -1,0 +1,198 @@
+@page "/bancos"
+@rendermode InteractiveServer
+@inject OilsMexico.Application.Interfaces.IBancosService BancosSvc
+@inject OilsMexico.Application.Interfaces.ISucursalContext SucCtx
+@inject OilsMexico.Application.Interfaces.ISesionActual Sesion
+@inject NavigationManager Nav
+@using OilsMexico.Domain.Enums
+<PageTitle>Conciliación bancaria | OilsMexico ERP</PageTitle>
+<div class="container-fluid py-3">
+    <div class="d-flex flex-wrap gap-2 align-items-center mb-3">
+        <h3 class="fw-bold mb-0">Conciliación bancaria <span class="badge bg-secondary">Suc @SucCtx.SucursalId</span></h3>
+        <button class="btn btn-outline-primary btn-sm" @onclick="() => mostrarAltaCuenta = !mostrarAltaCuenta">+ Nueva cuenta</button>
+        <span class="text-muted small">@(Sesion.Sesion?.Nombre ?? "") (@(Sesion.Sesion?.Rol ?? ""))</span>
+    </div>
+
+    @if (!string.IsNullOrEmpty(msg))
+    {
+        <div class="alert @(err ? "alert-danger" : "alert-success")">@msg</div>
+    }
+
+    @if (mostrarAltaCuenta)
+    {
+        <div class="card shadow-sm mb-3"><div class="card-header">Nueva cuenta bancaria</div>
+            <div class="card-body">
+                <div class="row g-2 align-items-end">
+                    <div class="col-md-3"><label class="form-label small mb-1">Banco</label>
+                        <input class="form-control form-control-sm" @bind="banco" placeholder="BBVA, Banamex…" /></div>
+                    <div class="col-md-3"><label class="form-label small mb-1">Alias</label>
+                        <input class="form-control form-control-sm" @bind="alias" placeholder="Cuenta principal" /></div>
+                    <div class="col-md-2"><label class="form-label small mb-1">Nº cuenta</label>
+                        <input class="form-control form-control-sm" @bind="numeroCuenta" /></div>
+                    <div class="col-md-2"><label class="form-label small mb-1">CLABE</label>
+                        <input class="form-control form-control-sm" @bind="clabe" maxlength="18" /></div>
+                    <div class="col-md-1"><label class="form-label small mb-1">Moneda</label>
+                        <input class="form-control form-control-sm" @bind="moneda" maxlength="3" /></div>
+                    <div class="col-md-1"><label class="form-label small mb-1">Saldo ini.</label>
+                        <input type="number" step="0.01" class="form-control form-control-sm" @bind="saldoInicial" /></div>
+                    <div class="col-12"><button class="btn btn-sm btn-primary" @onclick="CrearCuenta" disabled="@cargando">Guardar cuenta</button></div>
+                </div>
+            </div>
+        </div>
+    }
+
+    @if (cuentas.Count == 0)
+    {
+        <div class="alert alert-info">Aún no hay cuentas bancarias. Crea una con «+ Nueva cuenta».</div>
+    }
+    else
+    {
+        <div class="card shadow-sm mb-3"><div class="card-body py-2">
+            <div class="row g-2 align-items-end">
+                <div class="col-md-6"><label class="form-label small mb-1">Cuenta</label>
+                    <select class="form-select form-select-sm" value="@cuentaSel" @onchange="CambiarCuenta" disabled="@cargando">
+                        @foreach (var c in cuentas)
+                        {
+                            <option value="@c.Id">@c.Banco — @c.Alias (@c.Moneda, saldo @c.SaldoCalculado.ToString("N2"))</option>
+                        }
+                    </select></div>
+                <div class="col-md-3"><label class="form-label small mb-1">Estado del extracto</label>
+                    <select class="form-select form-select-sm" @onchange="CambiarFiltro">
+                        <option value="">Todos</option>
+                        <option value="@nameof(EstadoConciliacion.Pendiente)">Pendientes</option>
+                        <option value="@nameof(EstadoConciliacion.Conciliado)">Conciliados</option>
+                    </select></div>
+            </div>
+        </div></div>
+
+        @if (resumen is not null)
+        {
+            <div class="row g-2 mb-3">
+                <div class="col-auto"><span class="badge bg-dark">Saldo inicial @resumen.SaldoInicial.ToString("N2")</span></div>
+                <div class="col-auto"><span class="badge bg-success">Abonos @resumen.TotalAbonos.ToString("N2")</span></div>
+                <div class="col-auto"><span class="badge bg-danger">Cargos @resumen.TotalCargos.ToString("N2")</span></div>
+                <div class="col-auto"><span class="badge bg-primary">Saldo calculado @resumen.SaldoCalculado.ToString("N2")</span></div>
+                <div class="col-auto"><span class="badge bg-secondary">Pendientes @resumen.Pendientes</span></div>
+                <div class="col-auto"><span class="badge bg-info text-dark">Conciliados @resumen.Conciliados</span></div>
+            </div>
+        }
+        <div class="row g-3">
+            <div class="col-lg-7">
+                <div class="card shadow-sm mb-3"><div class="card-header">Cargar movimiento del extracto</div>
+                    <div class="card-body">
+                        <div class="row g-2 align-items-end">
+                            <div class="col-md-3"><label class="form-label small mb-1">Fecha</label>
+                                <input type="date" class="form-control form-control-sm" @bind="movFecha" /></div>
+                            <div class="col-md-3"><label class="form-label small mb-1">Naturaleza</label>
+                                <select class="form-select form-select-sm" @bind="movNaturaleza">
+                                    <option value="@NaturalezaMovimiento.Abono">Abono (entró dinero)</option>
+                                    <option value="@NaturalezaMovimiento.Cargo">Cargo (salió dinero)</option>
+                                </select></div>
+                            <div class="col-md-2"><label class="form-label small mb-1">Monto</label>
+                                <input type="number" step="0.01" min="0" class="form-control form-control-sm" @bind="movMonto" /></div>
+                            <div class="col-md-4"><label class="form-label small mb-1">Concepto</label>
+                                <input class="form-control form-control-sm" @bind="movConcepto" placeholder="SPEI / depósito / cheque…" /></div>
+                            <div class="col-md-8"><label class="form-label small mb-1">Referencia</label>
+                                <input class="form-control form-control-sm" @bind="movReferencia" placeholder="Folio, rastreo, nº cheque…" /></div>
+                            <div class="col-md-4"><button class="btn btn-sm btn-success w-100" @onclick="CargarMovimiento">Cargar</button></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card shadow-sm"><div class="card-header">Extracto de la cuenta</div>
+                    <div class="card-body p-0">
+                        <table class="table table-sm table-hover align-middle mb-0">
+                            <thead class="table-dark"><tr>
+                                <th>Fecha</th><th>Concepto</th><th>Ref</th><th class="text-end">Monto</th>
+                                <th>Natur.</th><th>Estado</th><th>Conciliado con</th><th></th></tr></thead>
+                            <tbody>
+                            @foreach (var m in movimientos)
+                            {
+                                var clase = m.Naturaleza == NaturalezaMovimiento.Abono ? "text-success" : "text-danger";
+                                <tr>
+                                    <td><small>@m.Fecha.ToLocalTime().ToString("dd/MM/yyyy")</small></td>
+                                    <td><small>@m.Concepto</small></td>
+                                    <td><small>@(m.Referencia ?? "—")</small></td>
+                                    <td class="text-end @clase"><small>$@m.Monto.ToString("N2")</small></td>
+                                    <td><small>@m.Naturaleza</small></td>
+                                    <td>
+                                        @if (m.Estado == EstadoConciliacion.Conciliado)
+                                        { <span class="badge bg-success">Conciliado</span> }
+                                        else
+                                        { <span class="badge bg-warning text-dark">Pendiente</span> }
+                                    </td>
+                                    <td><small>@(m.ConciliadoCon ?? "—")</small></td>
+                                    <td class="text-end">
+                                        @if (m.Estado == EstadoConciliacion.Pendiente)
+                                        {
+                                            <button class="btn btn-sm btn-outline-primary" @onclick="() => EmpezarConciliar(m.Id)">Conciliar</button>
+                                        }
+                                        else
+                                        {
+                                            <button class="btn btn-sm btn-outline-secondary" @onclick="() => Desconciliar(m.Id)">Deshacer</button>
+                                        }
+                                    </td>
+                                </tr>
+                                @if (conciliarMovId == m.Id)
+                                {
+                                    <tr class="table-light"><td colspan="8">
+                                        <div class="p-2">
+                                            <div class="small fw-bold mb-1">Emparejar con un movimiento del ERP (@(m.Naturaleza == NaturalezaMovimiento.Abono ? "Cobros" : "Pagos a proveedor")):</div>
+                                            @if (!Candidatos(m).Any())
+                                            {
+                                                <div class="text-muted small">No hay @(m.Naturaleza == NaturalezaMovimiento.Abono ? "cobros" : "pagos") pendientes de conciliar.</div>
+                                            }
+                                            else
+                                            {
+                                                <div class="list-group" style="max-height:220px;overflow-y:auto">
+                                                @foreach (var c in Candidatos(m))
+                                                {
+                                                    <button type="button" class="list-group-item list-group-item-action d-flex justify-content-between"
+                                                            @onclick="() => Conciliar(m, c)">
+                                                        <span><span class="badge bg-secondary">@c.Origen</span> @c.Contraparte
+                                                            <small class="text-muted">@c.Fecha.ToLocalTime().ToString("dd/MM/yyyy") @(c.Referencia ?? "")</small></span>
+                                                        <span class="fw-bold">$@c.Monto.ToString("N2")</span>
+                                                    </button>
+                                                }
+                                                </div>
+                                            }
+                                            <button class="btn btn-sm btn-outline-secondary mt-2" @onclick="() => conciliarMovId = null">Cancelar</button>
+                                        </div>
+                                    </td></tr>
+                                }
+                            }
+                            @if (movimientos.Count == 0)
+                            {
+                                <tr><td colspan="8" class="text-center text-muted">Sin movimientos para este filtro.</td></tr>
+                            }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-5">
+                <div class="card shadow-sm"><div class="card-header">Movimientos del ERP sin conciliar</div>
+                    <div class="card-body p-0">
+                        <table class="table table-sm mb-0">
+                            <thead class="table-dark"><tr><th>Origen</th><th>Contraparte</th><th>Fecha</th><th class="text-end">Monto</th></tr></thead>
+                            <tbody>
+                            @foreach (var p in pendientes)
+                            {
+                                <tr>
+                                    <td><span class="badge @(p.Origen == "Cobro" ? "bg-success" : "bg-danger")">@p.Origen</span></td>
+                                    <td><small>@p.Contraparte</small></td>
+                                    <td><small>@p.Fecha.ToLocalTime().ToString("dd/MM/yyyy")</small></td>
+                                    <td class="text-end"><small>$@p.Monto.ToString("N2")</small></td>
+                                </tr>
+                            }
+                            @if (pendientes.Count == 0)
+                            {
+                                <tr><td colspan="4" class="text-center text-muted">Todo conciliado. ¡Al día!</td></tr>
+                            }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>

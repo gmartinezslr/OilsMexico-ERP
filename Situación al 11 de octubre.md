@@ -22,7 +22,9 @@ Commits cubiertos: `e458332 comisiones` (09/10) · `cad99a1 hardcode fases 1-6` 
 
 - ✅ **Deuda técnica hardcode**: `Roles.cs` (`Roles.Admin`), `CfdiDefaults.cs`, `Impuestos` (fuente única IVA), cliente POS por RFC `XAXX010101000` (`RfcValidador.RfcPublicoGeneral`), `Importacion:RutaCatalogo` en `appsettings.json`, `ValidarModo` acepta SIMULADO, tablas `Roles/Permisos/RolPermisos/ReglasAsiento` en `SchemaPatch`.
 
-Siguen 🔴 sin cambio: Cotizaciones/Órdenes de venta, `Gasto` + `/gastos`, vencimientos/mora CxC-CxP, costo por lote FIFO en asientos, cierre de periodo automático, conciliación bancaria, balance/resultados, exportación Excel/PDF, evaluación de proveedores.
+- ✅ **Conciliación bancaria — HECHO 12/10**: entidades `CuentaBancaria` + `MovimientoBancario` (extracto), enums `NaturalezaMovimiento` (Abono/Cargo) y `EstadoConciliacion` (Pendiente/Conciliado), tablas `cuentas_bancarias`/`movimientos_bancarios` en `BancosPatch` (CHECK de enums vía `Enum.GetNames`), `BancosConfigs` (EF snake_case), `IBancosService` + `BancosService(.Conciliacion)` y página `Bancos.razor`. Cierra el hueco «`CompraPago`/`VentaCobro` registran pago pero no la operación bancaria»: se captura el extracto del banco y cada renglón se **empata** con un `VentaCobro` (Abono) o un `CompraPago` (Cargo) con regla de naturaleza y 1-a-1; saldo = inicial + Σ abonos − Σ cargos. Verificado con prueba de integración contra PostgreSQL (15/15). Build 0 errores.
+
+Siguen 🔴 sin cambio: Cotizaciones/Órdenes de venta, `Gasto` + `/gastos`, vencimientos/mora CxC-CxP, costo por lote FIFO en asientos, cierre de periodo automático, balance/resultados, exportación Excel/PDF, evaluación de proveedores.
 
 
 ## 1. Lo que ya existe y está operativo (actualizado al 11)
@@ -41,6 +43,7 @@ Siguen 🔴 sin cambio: Cotizaciones/Órdenes de venta, `Gasto` + `/gastos`, ven
 | Contabilidad | Sin cambio (asientos venta/compra/devolución, mayor, saldos) + reglas en tabla `ReglasAsiento`. Sigue sin costo por lote ni cierre automático. |
 | Reportes | Sin cambio (ventas/día/producto/marca, ABC con umbrales en `configuracion`, cortes, viscosidad). Sin balance/resultados ni exportación. |
 | Caja | Sin cambio (apertura/foto/cuadre/cierre/historial). |
+| Bancos | **Nuevo 12/10:** `CuentaBancaria` + extracto `MovimientoBancario` (Abono/Cargo), conciliación contra `VentaCobro`/`CompraPago` con regla de naturaleza y 1-a-1, deshacer, saldo calculado y pendientes por cuenta. Página `Bancos.razor` (Gestión, Admin/Conta). |
 | Utilidades | SEPOMEX, ticket 58mm, datos sucursal, timeout. **Hecho 11/10:** `AyudaContextual` + campana `Avisos` + `BusquedaGlobal` (Ctrl+K) + `PlantillasMensaje` + wizard proveedores. |
 
 
@@ -61,7 +64,7 @@ Siguen 🔴 sin cambio: Cotizaciones/Órdenes de venta, `Gasto` + `/gastos`, ven
 
 ### 🟡 Media — control y cumplimiento
 
-1. **Conciliación bancaria** — 🟡 SIN CAMBIO. `CompraPago`/`VentaCobro` registran pago pero no operación bancaria.
+1. **Conciliación bancaria** — ✅ HECHO 12/10. `CuentaBancaria` + `MovimientoBancario` (extracto), `BancosPatch`/`BancosConfigs`, `IBancosService` + `BancosService`, página `Bancos.razor` (grupo Gestión, Admin/Conta). Cada renglón del extracto se empata con `VentaCobro` (Abono) o `CompraPago` (Cargo) con regla de naturaleza y 1-a-1; permite deshacer y muestra saldo calculado y pendientes de ambos lados. Verificado con prueba de integración en PostgreSQL (15/15). Build 0 errores.
 
 2. **Reportes financieros** — 🟡 SIN CAMBIO. Sin balance, resultados, cambios de existencias ni indicadores por sucursal/periodo.
 
@@ -87,7 +90,7 @@ Siguen 🔴 sin cambio: Cotizaciones/Órdenes de venta, `Gasto` + `/gastos`, ven
 | 3 | 🔴 | CxC/CxP vencimientos | Pendiente | Riesgo crédito/financiero |
 | 4 | 🔴 | Costo + cierre periodo | Pendiente | Resultados reales |
 | 5 | 🔴 | RFC/situación fiscal | ✅ Hecho 10/10 | SAT — cerrar |
-| 6 | 🟡 | Conciliación bancaria | Pendiente | Efectivo/proveedores |
+| 6 | 🟡 | Conciliación bancaria | ✅ Hecho 12/10 | Efectivo/proveedores |
 | 7 | 🟡 | Reportes conta/cotización | Pendiente | Balance por sucursal |
 | 8 | 🟡 | Exportar Excel/PDF | Pendiente | Operativa/entregas |
 | 9 | 🟡 | Auditoría + permisos | 🟡 Parcial | Trazabilidad |
