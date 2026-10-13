@@ -1,0 +1,115 @@
+@page "/cotizaciones/nueva"
+@page "/cotizaciones/editar/{id}"
+@rendermode InteractiveServer
+@using OilsMexico.Application.DTOs
+@using OilsMexico.Domain.Enums
+<PageTitle>@(@Id > 0 ? "Editar" : "Nueva") cotización | OilsMexico ERP</PageTitle>
+<div class="container-fluid py-3">
+    <div class="card shadow-sm">
+        <div class="card-header"><h5>@Titulo</h5></div>
+        <div class="card-body">
+            @if (cargando)
+            {
+                <div class="alert alert-light">Cargando…</div>
+            }
+            else if (!string.IsNullOrEmpty(msg))
+            {
+                <div class="alert @(err ? "alert-danger" : "alert-success")">@msg</div>
+            }
+            else
+            {
+                <div class="row g-2">
+                    <div class="col-md-4">
+                        <label class="form-label small">Cliente</label>
+                        <select class="form-select" @bind="clienteId" @bind:after="CargarSucursales">
+                            <option value="0">Selecciona un cliente</option>
+                            @foreach (var c in clientes)
+                            {
+                                <option value="@c.Id" selected="@(c.Id == clienteId)">@c.Nombre</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small">Vendedor</label>
+                        <select class="form-select" @bind="vendedorId">
+                            <option value="0">Dueño comercial del cliente</option>
+                            @foreach (var v in vendedores)
+                            {
+                                <option value="@v.Id" selected="@(v.Id == vendedorId)">@v.Nombre</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small">Vence</label>
+                        <input class="form-control" type="datetime-local" @bind="fechaVencimiento" />
+                    </div>
+                </div>
+                <div class="row g-2 mt-2">
+                    <div class="col-12">
+                        <label class="form-label small">Producto</label>
+                        <input class="form-control form-control-sm" @bind="filtroProducto"
+                               @oninput="FiltrarProductos" placeholder="Buscar SKU o nombre…" />
+                    </div>
+                </div>
+                <div class="row g-2 mt-2">
+                    <div class="col-12">
+                        <div class="table-responsive">
+                            <table class="table table-sm align-middle">
+                                <thead><tr class="bg-secondary">
+                                    <th style="width:34%">Producto</th>
+                                    <th style="width:14%" class="text-end">Cant.</th>
+                                    <th style="width:22%" class="text-end">Precio</th>
+                                    <th style="width:16%" class="text-end">Desc.</th>
+                                    <th style="width:14%" class="text-center"></th>
+                                </tr></thead>
+                                                                <tbody>
+                                @for (int i = 0; i < renglones.Count; i++)
+                                {
+                                    var r = renglones[i];
+                                    <tr class="align-middle">
+                                        <td>
+                                            <select class="form-select form-select-sm" style="min-width:190px"
+                                                    @bind="r.ProductoId" @bind:after="() => AsignarPrecio(i)">
+                                                @if (productosFiltrados.Count == 0)
+                                                {
+                                                    <option value="0">Sin coincidencias</option>
+                                                }
+                                                @foreach (var p in productosFiltrados)
+                                                {
+                                                    <option value="@p.Id">@p.Sku &nbsp;-&nbsp; @p.Nombre</option>
+                                                }
+                                            </select>
+                                        </td>
+                                        <td class="text-end">
+                                            <input class="form-control form-control-sm" style="width:60px" type="number" step="0.01" min="0" @bind="r.Cantidad" />
+                                        </td>
+                                        <td class="text-end">
+                                            <input class="form-control form-control-sm" style="width:70px" type="number" step="0.01" min="0" @bind="r.Precio" />
+                                        </td>
+                                        <td class="text-end">
+                                            <input class="form-control form-control-sm" style="width:60px" type="number" step="0.01" min="0" @bind="r.Descuento" />
+                                        </td>
+                                        <td class="text-center">
+                                            <button class="btn btn-outline-danger btn-sm" @onclick="() => EliminarRenglon(i)">X</button>
+                                        </td>
+                                    </tr>
+                                }
+                                </tbody>
+                            </table>
+                        </div>
+                        <button class="btn btn-outline-secondary btn-sm mt-2" @onclick="AgregarRenglon">+ Agregar</button>
+                    </div>
+                </div>
+                <div class="row g-2 mt-2 mb-0">
+                    <div class="col-6"><span class="text-muted small">Subtotal</span><span class="fw-bold ms-2">$@Subtotal.ToString("N2")</span></div>
+                    <div class="col-6 text-end"><span class="fw-bold text-danger ms-2">$@Total.ToString("N2")</span></div>
+                    <div class="col-6 text-end"><span class="text-muted small">IVA 16%</span><span class="fw-bold ms-2">$@Iva.ToString("N2")</span></div>
+                    <div class="col-6 text-end">
+                        <button class="btn btn-primary btn-sm" @onclick="Guardar" disabled="@(renglones.Count == 0 || guardando)">@GuardandoTexto</button>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+

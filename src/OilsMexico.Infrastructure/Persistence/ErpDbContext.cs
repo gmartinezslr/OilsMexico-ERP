@@ -51,6 +51,11 @@ public sealed class ErpDbContext(DbContextOptions<ErpDbContext> options) : DbCon
     //  PUNTO 6: Reglas de importación de productos
     // ---------------------------------------------------------
     public DbSet<ImportacionParametro> ImportacionParametros => Set<ImportacionParametro>();
+    public DbSet<Cotizacion> Cotizaciones => Set<Cotizacion>();
+    public DbSet<CotizacionDetalle> CotizacionDetalles => Set<CotizacionDetalle>();
+    public DbSet<OrdenVenta> OrdenesVenta => Set<OrdenVenta>();
+    public DbSet<OrdenVentaDetalle> OrdenVentaDetalles => Set<OrdenVentaDetalle>();
+
     public DbSet<ImportacionRegla> ImportacionReglas => Set<ImportacionRegla>();
 
     protected override void OnModelCreating(ModelBuilder b)

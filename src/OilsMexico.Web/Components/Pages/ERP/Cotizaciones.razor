@@ -1,0 +1,87 @@
+@page "/cotizaciones"
+@rendermode InteractiveServer
+@inject ICotizacionesService CotizSvc
+@inject ISucursalContext SucCtx
+@inject ISesionActual Sesion
+@inject NavigationManager Nav
+@using OilsMexico.Application.DTOs
+@using OilsMexico.Domain.Enums
+<PageTitle>Cotizaciones | OilsMexico ERP</PageTitle>
+<div class="container-fluid py-3">
+    <div class="d-flex flex-wrap gap-2 align-items-center mb-3">
+        <div class="d-flex gap-2 flex-wrap">
+            <input class="form-control form-control-sm" placeholder="Folio o cliente"
+                   @bind="filtroTexto" @bind:event="oninput" @bind:after="Cargar" />
+            <select class="form-select form-select-sm" @bind="filtroEstado" @bind:after="Cargar">
+                <option value="">Todos los estados</option>
+                @foreach (var e in Enum.GetValues<EstadoCotizacion>())
+                {
+                    <option value="@e">@nombreEstado(e)</option>
+                }
+            </select>
+        </div>
+        <button class="btn btn-primary btn-sm" @onclick="NuevaCotizacion">+ Nueva cotización</button>
+    </div>
+
+    @if (cargando)
+    {
+        <div class="alert alert-light">Cargando cotizaciones…</div>
+    }
+    else if (!string.IsNullOrEmpty(msg))
+    {
+        <div class="alert @(err ? "alert-danger" : "alert-success")">@msg</div>
+    }
+    else if (lista.Count == 0)
+    {
+        <div class="alert alert-light">Sin cotizaciones.</div>
+    }
+    else
+    {
+        <div class="card shadow-sm">
+            <div class="card-body p-0 p-3">
+                <table class="table table-sm table-hover align-middle mb-0">
+                    <thead>
+                        <tr class="bg-secondary">
+                            <th style="width:18%">Folio</th>
+                            <th style="width:16%">Fecha</th>
+                            <th style="width:20%">Cliente</th>
+                            <th style="width:14%">Vendedor</th>
+                            <th style="width:11%">Estado</th>
+                            <th style="width:12%" class="text-end">Total</th>
+                            <th style="width:9%"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var c in lista)
+                        {
+                            <tr>
+                                <td><strong>@c.FolioInterno</strong></td>
+                                <td>@c.FechaEmision.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
+                                <td>@c.Cliente</td>
+                                <td>@c.Vendedor ?? "—"</td>
+                                <td>@c.Estado</td>
+                                <td class="text-end">$@c.Total.ToString("N2")</td>
+                                <td>
+                                    <div class="btn-group btn-group-sm">
+                                        <button class="btn btn-outline-primary" @onclick="() => AbrirDetalle(c.Id)">Ver</button>
+                                        @if (c.Estado is EstadoCotizacion.Borrador)
+                                        {
+                                            <button class="btn btn-outline-success" style="width:70px"
+                                                    @onclick="() => Convertir(c.Id)">Convertir</button>
+                                        }
+                                        @if (c.Estado is EstadoCotizacion.Borrador)
+                                        {
+                                            <button class="btn btn-outline-danger" style="width:70px"
+                                                    @onclick="() => Cancelar(c.Id)">Cancelar</button>
+                                        }
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+</div>
+

@@ -17,7 +17,7 @@ namespace OilsMexico.Infrastructure.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.12")
+                .HasAnnotation("ProductVersion", "10.0.0")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -956,6 +956,140 @@ namespace OilsMexico.Infrastructure.Migrations
                     b.ToTable("cortes_caja", (string)null);
                 });
 
+            modelBuilder.Entity("OilsMexico.Domain.Entities.Cotizacion", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("ClienteId")
+                        .HasColumnType("integer")
+                        .HasColumnName("cliente_id");
+
+                    b.Property<string>("Estado")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("estado");
+
+                    b.Property<DateTime>("FechaEmision")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("fecha_emision");
+
+                    b.Property<DateTime?>("FechaVencimiento")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("fecha_vencimiento");
+
+                    b.Property<string>("FolioInterno")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("folio_interno");
+
+                    b.Property<decimal>("Iva")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("numeric(12,2)")
+                        .HasColumnName("iva");
+
+                    b.Property<string>("Notas")
+                        .HasColumnType("text")
+                        .HasColumnName("notas");
+
+                    b.Property<decimal>("Subtotal")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("numeric(12,2)")
+                        .HasColumnName("subtotal");
+
+                    b.Property<int>("SucursalId")
+                        .HasColumnType("integer")
+                        .HasColumnName("sucursal_id");
+
+                    b.Property<decimal>("Total")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("numeric(12,2)")
+                        .HasColumnName("total");
+
+                    b.Property<int>("UsuarioId")
+                        .HasColumnType("integer")
+                        .HasColumnName("usuario_id");
+
+                    b.Property<int?>("VendedorId")
+                        .HasColumnType("integer")
+                        .HasColumnName("vendedor_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ClienteId");
+
+                    b.HasIndex("SucursalId");
+
+                    b.HasIndex("VendedorId");
+
+                    b.ToTable("cotizaciones", (string)null);
+                });
+
+            modelBuilder.Entity("OilsMexico.Domain.Entities.CotizacionDetalle", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("Cantidad")
+                        .HasPrecision(12, 4)
+                        .HasColumnType("numeric(12,4)")
+                        .HasColumnName("cantidad");
+
+                    b.Property<int>("CotizacionId")
+                        .HasColumnType("integer")
+                        .HasColumnName("cotizacion_id");
+
+                    b.Property<decimal>("Descuento")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("numeric(12,2)")
+                        .HasColumnName("descuento");
+
+                    b.Property<decimal>("Importe")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("numeric(12,2)")
+                        .HasColumnName("importe");
+
+                    b.Property<int?>("LoteId")
+                        .HasColumnType("integer")
+                        .HasColumnName("lote_id");
+
+                    b.Property<decimal>("PrecioUnitario")
+                        .HasPrecision(12, 4)
+                        .HasColumnType("numeric(12,4)")
+                        .HasColumnName("precio_unitario");
+
+                    b.Property<int>("ProductoId")
+                        .HasColumnType("integer")
+                        .HasColumnName("producto_id");
+
+                    b.Property<int>("UnidadMedidaId")
+                        .HasColumnType("integer")
+                        .HasColumnName("unidad_medida_id");
+
+                    b.Property<string>("UnidadNombre")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("unidad_nombre");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CotizacionId");
+
+                    b.HasIndex("ProductoId");
+
+                    b.ToTable("cotizacion_detalle", (string)null);
+                });
+
             modelBuilder.Entity("OilsMexico.Domain.Entities.CuentaContable", b =>
                 {
                     b.Property<int>("Id")
@@ -1653,6 +1787,142 @@ namespace OilsMexico.Infrastructure.Migrations
                     b.ToTable("nota_credito_detalle", (string)null);
                 });
 
+            modelBuilder.Entity("OilsMexico.Domain.Entities.OrdenVenta", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("ClienteId")
+                        .HasColumnType("integer")
+                        .HasColumnName("cliente_id");
+
+                    b.Property<int>("CotizacionId")
+                        .HasColumnType("integer")
+                        .HasColumnName("cotizacion_id");
+
+                    b.Property<string>("Estado")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("estado");
+
+                    b.Property<DateTime>("FechaEmision")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("fecha_emision");
+
+                    b.Property<string>("FolioInterno")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("folio_interno");
+
+                    b.Property<decimal>("Iva")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("numeric(12,2)")
+                        .HasColumnName("iva");
+
+                    b.Property<string>("Notas")
+                        .HasColumnType("text")
+                        .HasColumnName("notas");
+
+                    b.Property<decimal>("Subtotal")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("numeric(12,2)")
+                        .HasColumnName("subtotal");
+
+                    b.Property<int>("SucursalId")
+                        .HasColumnType("integer")
+                        .HasColumnName("sucursal_id");
+
+                    b.Property<decimal>("Total")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("numeric(12,2)")
+                        .HasColumnName("total");
+
+                    b.Property<int>("UsuarioId")
+                        .HasColumnType("integer")
+                        .HasColumnName("usuario_id");
+
+                    b.Property<int?>("VendedorId")
+                        .HasColumnType("integer")
+                        .HasColumnName("vendedor_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ClienteId");
+
+                    b.HasIndex("CotizacionId");
+
+                    b.HasIndex("SucursalId");
+
+                    b.HasIndex("VendedorId");
+
+                    b.ToTable("ordenes_venta", (string)null);
+                });
+
+            modelBuilder.Entity("OilsMexico.Domain.Entities.OrdenVentaDetalle", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("Cantidad")
+                        .HasPrecision(12, 4)
+                        .HasColumnType("numeric(12,4)")
+                        .HasColumnName("cantidad");
+
+                    b.Property<decimal>("Descuento")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("numeric(12,2)")
+                        .HasColumnName("descuento");
+
+                    b.Property<decimal>("Importe")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("numeric(12,2)")
+                        .HasColumnName("importe");
+
+                    b.Property<int?>("LoteId")
+                        .HasColumnType("integer")
+                        .HasColumnName("lote_id");
+
+                    b.Property<int>("OrdenVentaId")
+                        .HasColumnType("integer")
+                        .HasColumnName("orden_venta_id");
+
+                    b.Property<decimal>("PrecioUnitario")
+                        .HasPrecision(12, 4)
+                        .HasColumnType("numeric(12,4)")
+                        .HasColumnName("precio_unitario");
+
+                    b.Property<int>("ProductoId")
+                        .HasColumnType("integer")
+                        .HasColumnName("producto_id");
+
+                    b.Property<int>("UnidadMedidaId")
+                        .HasColumnType("integer")
+                        .HasColumnName("unidad_medida_id");
+
+                    b.Property<string>("UnidadNombre")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("unidad_nombre");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrdenVentaId");
+
+                    b.HasIndex("ProductoId");
+
+                    b.ToTable("orden_venta_detalle", (string)null);
+                });
+
             modelBuilder.Entity("OilsMexico.Domain.Entities.PasswordHistory", b =>
                 {
                     b.Property<int>("Id")
@@ -2168,6 +2438,9 @@ namespace OilsMexico.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("CodigoBarra")
+                        .HasDatabaseName("ix_unidades_codigo_barra");
+
                     b.HasIndex("ProductoId");
 
                     b.ToTable("unidades_medida", (string)null);
@@ -2468,6 +2741,50 @@ namespace OilsMexico.Infrastructure.Migrations
                     b.Navigation("Sucursal");
                 });
 
+            modelBuilder.Entity("OilsMexico.Domain.Entities.Cotizacion", b =>
+                {
+                    b.HasOne("OilsMexico.Domain.Entities.Cliente", "Cliente")
+                        .WithMany("Cotizaciones")
+                        .HasForeignKey("ClienteId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("OilsMexico.Domain.Entities.Sucursal", "Sucursal")
+                        .WithMany()
+                        .HasForeignKey("SucursalId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("OilsMexico.Domain.Entities.Usuario", "Vendedor")
+                        .WithMany()
+                        .HasForeignKey("VendedorId");
+
+                    b.Navigation("Cliente");
+
+                    b.Navigation("Sucursal");
+
+                    b.Navigation("Vendedor");
+                });
+
+            modelBuilder.Entity("OilsMexico.Domain.Entities.CotizacionDetalle", b =>
+                {
+                    b.HasOne("OilsMexico.Domain.Entities.Cotizacion", "Cotizacion")
+                        .WithMany("Detalles")
+                        .HasForeignKey("CotizacionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("OilsMexico.Domain.Entities.Producto", "Producto")
+                        .WithMany()
+                        .HasForeignKey("ProductoId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Cotizacion");
+
+                    b.Navigation("Producto");
+                });
+
             modelBuilder.Entity("OilsMexico.Domain.Entities.CuotaVendedor", b =>
                 {
                     b.HasOne("OilsMexico.Domain.Entities.Usuario", "Vendedor")
@@ -2626,6 +2943,58 @@ namespace OilsMexico.Infrastructure.Migrations
                     b.Navigation("Producto");
                 });
 
+            modelBuilder.Entity("OilsMexico.Domain.Entities.OrdenVenta", b =>
+                {
+                    b.HasOne("OilsMexico.Domain.Entities.Cliente", "Cliente")
+                        .WithMany("OrdenesVenta")
+                        .HasForeignKey("ClienteId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("OilsMexico.Domain.Entities.Cotizacion", "Cotizacion")
+                        .WithMany("OrdenesVenta")
+                        .HasForeignKey("CotizacionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("OilsMexico.Domain.Entities.Sucursal", "Sucursal")
+                        .WithMany()
+                        .HasForeignKey("SucursalId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("OilsMexico.Domain.Entities.Usuario", "Vendedor")
+                        .WithMany()
+                        .HasForeignKey("VendedorId");
+
+                    b.Navigation("Cliente");
+
+                    b.Navigation("Cotizacion");
+
+                    b.Navigation("Sucursal");
+
+                    b.Navigation("Vendedor");
+                });
+
+            modelBuilder.Entity("OilsMexico.Domain.Entities.OrdenVentaDetalle", b =>
+                {
+                    b.HasOne("OilsMexico.Domain.Entities.OrdenVenta", "OrdenVenta")
+                        .WithMany("Detalles")
+                        .HasForeignKey("OrdenVentaId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("OilsMexico.Domain.Entities.Producto", "Producto")
+                        .WithMany()
+                        .HasForeignKey("ProductoId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("OrdenVenta");
+
+                    b.Navigation("Producto");
+                });
+
             modelBuilder.Entity("OilsMexico.Domain.Entities.PasswordHistory", b =>
                 {
                     b.HasOne("OilsMexico.Domain.Entities.Usuario", "Usuario")
@@ -2719,7 +3088,11 @@ namespace OilsMexico.Infrastructure.Migrations
 
             modelBuilder.Entity("OilsMexico.Domain.Entities.Cliente", b =>
                 {
+                    b.Navigation("Cotizaciones");
+
                     b.Navigation("Facturas");
+
+                    b.Navigation("OrdenesVenta");
                 });
 
             modelBuilder.Entity("OilsMexico.Domain.Entities.ComplementoPago", b =>
@@ -2732,12 +3105,24 @@ namespace OilsMexico.Infrastructure.Migrations
                     b.Navigation("Detalles");
                 });
 
+            modelBuilder.Entity("OilsMexico.Domain.Entities.Cotizacion", b =>
+                {
+                    b.Navigation("Detalles");
+
+                    b.Navigation("OrdenesVenta");
+                });
+
             modelBuilder.Entity("OilsMexico.Domain.Entities.Factura", b =>
                 {
                     b.Navigation("Detalles");
                 });
 
             modelBuilder.Entity("OilsMexico.Domain.Entities.NotaCredito", b =>
+                {
+                    b.Navigation("Detalles");
+                });
+
+            modelBuilder.Entity("OilsMexico.Domain.Entities.OrdenVenta", b =>
                 {
                     b.Navigation("Detalles");
                 });

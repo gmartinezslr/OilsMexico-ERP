@@ -36,5 +36,9 @@ public sealed class Cliente
 
     public List<Factura> Facturas { get; set; } = [];
 
+    public List<Cotizacion> Cotizaciones { get; set; } = [];
+
+    public List<OrdenVenta> OrdenesVenta { get; set; } = [];
+
     public SituacionFiscal SituacionFiscal { get; set; } = SituacionFiscal.Actual; // Estado de Situación Fiscal declarado ante el SAT (ver EsSituacionFiscal).
 }

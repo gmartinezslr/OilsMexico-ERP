@@ -1,0 +1,188 @@
+using Microsoft.AspNetCore.Components;
+using Microsoft.EntityFrameworkCore;
+using OilsMexico.Application.DTOs;
+using OilsMexico.Application.Interfaces;
+using OilsMexico.Domain.Enums;
+using OilsMexico.Domain.Services;
+
+namespace OilsMexico.Web.Components.Pages.ERP;
+
+public partial class CotizacionForm : ComponentBase
+{
+    private sealed class Renglon
+    {
+        public int Id { get; set; }
+        public int ProductoId { get; set; }
+        public string Sku { get; set; } = "";
+        public string Nombre { get; set; } = "";
+        public int UnidadMedidaId { get; set; }
+        public decimal Cantidad { get; set; } = 1;
+        public decimal Precio { get; set; }
+        public decimal Descuento { get; set; }
+    }
+
+    [Parameter] public int Id { get; set; }
+    private string Titulo => Id > 0 ? "Editar cotización" : "Nueva cotización";
+
+    private List<(int Id, string Nombre)> clientes = [];
+    private List<(int Id, string Nombre)> vendedores = [];
+    private List<Renglon> renglones = [];
+    private int clienteId;
+    private int vendedorId;
+    private DateTime fechaVencimiento = DateTime.UtcNow.AddDays(7);
+    private string notas = "";
+    private string filtroProducto = "";
+    private List<ProductoDto> productos = [];
+    private List<ProductoDto> productosFiltrados =>
+        productos.Where(p => p.Sku.Contains(filtroProducto) || p.Nombre.Contains(filtroProducto)).ToList();
+
+    private bool cargando;
+    private bool guardando;
+    private string msg = "";
+    private bool err;
+
+    private decimal Subtotal => renglones.Sum(r => r.Cantidad * r.Precio - r.Descuento);
+    private decimal Iva => Impuestos.IvaDeBase(Subtotal);
+    private decimal Total => Math.Round(Subtotal + Iva, 2);
+
+    [Inject] public ICotizacionesService CotizSvc { get; set; } = default!;
+    [Inject] public ISucursalContext SucCtx { get; set; } = default!;
+    [Inject] public ISesionActual Sesion { get; set; } = default!;
+    [Inject] public NavigationManager Nav { get; set; } = default!;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!Sesion.Autenticado) return;
+        if (Id > 0)
+        {
+            cargando = true;
+            try
+            {
+                var detalle = await CotizSvc.ObtenerCotizacionAsync(Id);
+                if (detalle is null)
+                {
+                    Nav.NavigateTo("/cotizaciones", forceLoad: true);
+                    return;
+                }
+                clienteId = detalle.ClienteId;
+                vendedorId = detalle.VendedorId ?? 0;
+                fechaVencimiento = detalle.FechaVencimiento?.ToLocalTime() ?? DateTime.UtcNow.AddDays(7);
+                notas = detalle.Notas ?? "";
+                renglones = detalle.Detalles.Select(d => new Renglon
+                {
+                    Id = d.Id, ProductoId = d.ProductoId, Sku = d.Sku, Nombre = d.Nombre,
+                    UnidadMedidaId = d.UnidadMedidaId, Cantidad = d.Cantidad,
+                    Precio = d.PrecioUnitario, Descuento = d.Descuento
+                }).ToList();
+                msg = "";
+            }
+            catch (Exception ex)
+            {
+                msg = "Error: " + ex.Message;
+                err = true;
+            }
+            finally
+            {
+                cargando = false;
+            }
+        }
+        else
+        {
+            renglones = [new Renglon()];
+        }
+
+        productos = await CotizSvc.ListarProductosAsync(SucCtx.SucursalId);
+        await CargarClientes();
+        await CargarVendedores();
+    }
+
+    private string GuardandoTexto => guardando ? "Guardando…" : (Id > 0 ? "Guardar cambios" : "Crear cotización");
+
+    private async Task CargarClientes()
+    {
+        clientes = await CotizSvc.ListarClientesAsync(SucCtx.SucursalId);
+        if (clientes.Count > 0 && clienteId == 0) clienteId = clientes[0].Id;
+        StateHasChanged();
+    }
+
+    private async Task CargarVendedores()
+    {
+        vendedores = await CotizSvc.ListarVendedoresAsync(SucCtx.SucursalId);
+        if (vendedores.Count > 0 && vendedorId == 0) vendedorId = vendedores[0].Id;
+        StateHasChanged();
+    }
+
+    private void CargarSucursales() => StateHasChanged();
+
+    private async Task Guardar()
+    {
+        if (clienteId == 0) { msg = "Selecciona un cliente."; err = true; return; }
+        var validos = renglones.Where(r => r.ProductoId > 0 && r.Cantidad > 0).ToList();
+        if (validos.Count == 0) { msg = "Agrega al menos un producto."; err = true; return; }
+
+        guardando = true;
+        msg = ""; err = false;
+        try
+        {
+            var detalles = validos.Select(r => new CotizacionRenglonCrearDto(
+                r.ProductoId, r.UnidadMedidaId > 0 ? r.UnidadMedidaId : null,
+                r.Cantidad, r.Precio, r.Descuento)).ToList();
+
+            if (Id > 0)
+            {
+                await CotizSvc.ActualizarCotizacionAsync(Id, new CotizacionCrearRequest(
+                    clienteId, vendedorId > 0 ? vendedorId : null, fechaVencimiento, notas, detalles));
+                msg = "Cotización actualizada.";
+            }
+            else
+            {
+                var res = await CotizSvc.CrearCotizacionAsync(new CotizacionCrearRequest(
+                    clienteId, vendedorId > 0 ? vendedorId : null, fechaVencimiento, notas, detalles));
+                msg = $"Cotización {res.FolioInterno} creada.";
+            }
+            Nav.NavigateTo("/cotizaciones", forceLoad: true);
+        }
+        catch (Exception ex)
+        {
+            msg = "Error: " + ex.Message;
+            err = true;
+        }
+        finally
+        {
+            guardando = false;
+        }
+    }
+
+    private void FiltrarProductos(ChangeEventArgs e)
+    {
+        filtroProducto = e.Value?.ToString() ?? "";
+        StateHasChanged();
+    }
+
+    private void AgregarRenglon()
+    {
+        var r = renglones.LastOrDefault();
+        renglones.Add(r is not null && r.ProductoId > 0
+            ? new Renglon()
+            : new Renglon());
+    }
+
+    private void EliminarRenglon(int i)
+    {
+        if (renglones.Count <= 1) return;
+        renglones.RemoveAt(i);
+    }
+
+    private void AsignarPrecio(int i)
+    {
+        if (i < 0 || i >= renglones.Count) return;
+        var r = renglones[i];
+        var prod = productos.FirstOrDefault(p => p.Id == r.ProductoId);
+        if (prod is null) return;
+        r.Sku = prod.Sku;
+        r.Nombre = prod.Nombre;
+        r.UnidadMedidaId = prod.UnidadMedidaId;
+        if (prod.PrecioVenta > 0) r.Precio = prod.PrecioVenta;
+    }
+}
+
