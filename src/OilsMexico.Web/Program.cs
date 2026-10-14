@@ -47,6 +47,8 @@ builder.Services.AddScoped<IFacturacionService, FacturacionService>();
 builder.Services.AddScoped<INotaCreditoService, NotaCreditoService>();
 builder.Services.AddScoped<IComplementoPagoService, ComplementoPagoService>();
 builder.Services.AddScoped<ICorteCajaService, CorteCajaService>();
+    builder.Services.AddScoped<IReportesFinancierosService, ReportesFinancierosService>();
+
 builder.Services.AddScoped<IComprasService, ComprasService>();
     builder.Services.AddScoped<ICuentasContablesService, CuentasContablesService>();
     builder.Services.AddScoped<IEstadoCuentasService, EstadoCuentasService>();

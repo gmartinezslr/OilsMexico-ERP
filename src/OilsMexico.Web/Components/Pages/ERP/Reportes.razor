@@ -1,0 +1,78 @@
+@page "/reportes"
+@using OilsMexico.Application.Interfaces
+@using OilsMexico.Domain.Enums
+@using OilsMexico.Application.DTOs
+
+<PageTitle>Reportes Financieros</PageTitle>
+
+<div class="card">
+    <div class="card-header">
+        <h3>Reportes Financieros</h3>
+    </div>
+    <div class="card-body">
+        <div class="row mb-3">
+            <div class="col-md-3">
+                <label class="form-label">Sucursal</label>
+                <select class="form-select" @bind="@_sucursalId" @bind:after="@OnSucursalChange">
+                    <option value="0">Todas</option>
+                    @foreach (var s in _sucursales)
+                    {
+                        <option value="@s.Id" selected="@(_sucursalId == s.Id)">@s.Nombre</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Desde</label>
+                <input class="form-control" type="date" @bind="@_desde" @bind:after="@Cargar" />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Hasta</label>
+                <input class="form-control" type="date" @bind="@_hasta" @bind:after="@Cargar" />
+            </div>
+            <div class="col-md-3 d-flex align-items-end">
+                <button class="btn btn-primary w-100" @onclick="@Cargar"><span class="bi bi-search"></span> Generar</button>
+            </div>
+        </div>
+
+        @if (_cargando)
+        {
+            <div class="alert alert-secondary">Cargando...</div>
+        }
+        else if (_errores != null)
+        {
+            <div class="alert alert-danger">@_errores</div>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-bordered table-hover">
+                    <thead>
+                        <tr><th>Tipo de reporte</th><th>Total Debites</th><th>Total Créditos</th><th>Saldo Deudor</th><th>Saldo Acreedor</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><a href="@($"/api/reportes/balanza?sucursalId={_sucursalId}&desde={_desde:yyyy-MM-dd}&hasta={_hasta:yyyy-MM-dd}")" class="btn btn-sm btn-info">Balanza de Comprobación</a></td>
+                            <td colspan="4">Ver detalle de la tabla</td>
+                        </tr>
+                        <tr>
+                            <td><a href="@($"/api/reportes/balance?sucursalId={_sucursalId}&corte={_corte:yyyy-MM-dd}")" class="btn btn-sm btn-success">Balance General</a></td>
+                            <td colspan="4">Ver estado de cuenta del corte</td>
+                        </tr>
+                        <tr>
+                            <td><a href="@($"/api/reportes/resultados?sucursalId={_sucursalId}&desde={_desde:yyyy-MM-dd}&hasta={_hasta:yyyy-MM-dd}")" class="btn btn-sm btn-warning">Estado de Resultados</a></td>
+                            <td colspan="4">Ingresos, gastos, utilidad</td>
+                        </tr>
+                        <tr>
+                            <td><a href="@($"/api/reportes/existencias?sucursalId={_sucursalId}&desde={_desde:yyyy-MM-dd}&hasta={_hasta:yyyy-MM-dd}")" class="btn btn-sm btn-secondary">Cambio de Existencias</a></td>
+                            <td colspan="4">Inicial + Compras - Ventas ± Ajustes ± Traspasos</td>
+                        </tr>
+                        <tr>
+                            <td><a href="@($"/api/reportes/indicadores?desde={_desde:yyyy-MM-dd}&hasta={_hasta:yyyy-MM-dd}&sucursalId={(_sucursalId == 0 ? "" : _sucursalId.ToString())}")" class="btn btn-sm btn-primary">Indicadores</a></td>
+                            <td colspan="4">Margen, rotación, días de inventario</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</div>

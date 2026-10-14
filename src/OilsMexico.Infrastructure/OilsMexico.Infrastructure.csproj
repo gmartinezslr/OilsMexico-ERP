@@ -9,6 +9,12 @@
     <!-- Identity (PasswordHasher) proviene del shared framework ASP.NET Core; sin paquete NuGet. -->
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <PackageReference Include="ExcelDataReader" Version="3.7.0" />
+    <!-- Exportación Excel (2.1): ClosedXML — reportes .xlsx en memoria (EstadoCta, CxP,
+         Inventario, Kardex, Ventas, Comisiones, ListaPrecios, financieros). -->
+    <PackageReference Include="ClosedXML" Version="0.105.1" />
+    <!-- Exportación PDF (2.1): QuestPDF — representación impresa CFDI con QR SAT,
+         cotización/orden y estados financieros. Licencia Community (ver Program.cs). -->
+    <PackageReference Include="QuestPDF" Version="2025.7.1" />
     <!-- Envío de correos SMTP (cotizaciones, CFDI, estados de cuenta, comunicados, recordatorios).
          El remitente y el servidor se configuran en Configuración (tabla configuracion / appsettings Correo). -->
     <PackageReference Include="MailKit" Version="4.18.1" />
