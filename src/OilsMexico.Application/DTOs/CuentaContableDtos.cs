@@ -26,7 +26,7 @@ public sealed record AsientoContableDto(
 
 public sealed record RegistrarAsientoRequest(
     int SucursalId, int UsuarioId, string Tipo, string? Concepto,
-    List<RegistrarDetalleAsientoRequest> Detalles);
+    List<RegistrarDetalleAsientoRequest> Detalles, DateTime? FechaUtc = null);
 
 public sealed record RegistrarDetalleAsientoRequest(
     int CuentaId, int TipoMovimiento, decimal Importe, string? Descripcion);
@@ -35,3 +35,14 @@ public sealed record RegistrarDetalleAsientoRequest(
 public sealed record RegistrarAsientoResult(
     int AsientoId, string Numeracion, List<DetalleAsientoDto> Detalles, decimal TotalDebitos, decimal TotalCreditos,
     bool Equilibrado);
+
+// ---------- Cierre de periodo contable (checklist §1.3) ----------
+
+/// <summary>Periodo (año/mes) cerrado de una sucursal con el costo de ventas de su póliza de cierre.</summary>
+public sealed record PeriodoContableDto(
+    int SucursalId, int Anio, int Mes, DateTime CerradoUtc, int UsuarioCierreId,
+    string? Notas, decimal CostoVentas);
+
+/// <summary>Resultado del cierre/reapertura de un periodo.</summary>
+public sealed record CierreContableResultDto(
+    int SucursalId, int Anio, int Mes, int? AsientoId, decimal CostoVentas, bool Cerrado, string Mensaje);

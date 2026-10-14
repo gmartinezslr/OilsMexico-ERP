@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using OilsMexico.Application.DTOs;
 using OilsMexico.Application.Interfaces;
 using OilsMexico.Domain.Enums;
+using OilsMexico.Domain.Services;
 using OilsMexico.Infrastructure.Persistence;
 
 namespace OilsMexico.Infrastructure.Services;
@@ -26,24 +27,15 @@ public sealed partial class ReportesFinancierosService
                 && f.FechaEmision >= ini && f.FechaEmision < fin
                 && f.Estado != EstadoFactura.Cancelada
                 && f.Estado != EstadoFactura.Devolucion)
-            .Select(f => new
-            {
-                f.Subtotal,
-                f.Iva,
-                f.Total,
-                Detalles = f.Detalles
-                    .Where(d => d.Factura!.Estado != EstadoFactura.Cancelada
-                        && d.Factura.Estado != EstadoFactura.Devolucion)
-                    .Select(d => new { d.Cantidad, d.Producto!.PrecioCosto })
-                    .ToList()
-            })
+            .Select(f => new { f.Subtotal, f.Iva, f.Total })
             .ToListAsync(ct);
 
         var ventasNetas = filas.Sum(f => f.Subtotal);
         var ivaTrasladado = filas.Sum(f => f.Iva);
         var totalVentas = filas.Sum(f => f.Total);
 
-        var costoVentas = Math.Round(filas.SelectMany(f => f.Detalles).Sum(d => d.Cantidad * d.PrecioCosto), 2);
+        // §1.3: costo de ventas FIFO (meses cerrados leen su póliza de cierre; abiertos, FIFO en vivo).
+        var costoVentas = Math.Round(await CostoVentasDelRangoAsync(suc, desde, hasta, ct), 2);
         var utilidadBruta = Math.Round(totalVentas - costoVentas, 2);
         var margenBruto = totalVentas > 0 ? Math.Round(utilidadBruta / totalVentas * 100m, 2) : 0m;
 
@@ -164,15 +156,7 @@ public sealed partial class ReportesFinancierosService
         var ventasNetas = res.Sum(r => r.Total);
         var numVentas = res.Count;
 
-        var costoVentas = Math.Round(await db.Facturas.AsNoTracking()
-            .Where(f => f.SucursalId == suc
-                && f.FechaEmision >= ini && f.FechaEmision < fin
-                && f.Estado != EstadoFactura.Cancelada
-                && f.Estado != EstadoFactura.Devolucion)
-            .SelectMany(f => f.Detalles)
-            .Where(d => d.Factura!.Estado != EstadoFactura.Cancelada
-                && d.Factura.Estado != EstadoFactura.Devolucion)
-            .SumAsync(d => d.Cantidad * d.Producto!.PrecioCosto, ct), 2);
+        var costoVentas = Math.Round(await CostoVentasDelRangoAsync(suc, desde, hasta, ct), 2);
 
         var utilidadBruta = Math.Round(ventasNetas - costoVentas, 2);
         var margen = ventasNetas > 0 ? Math.Round(utilidadBruta / ventasNetas * 100m, 2) : 0m;
@@ -201,5 +185,42 @@ public sealed partial class ReportesFinancierosService
             suc, sucursalNombre, desde.Date, hasta.Date,
             ventasNetas, utilidadBruta, margen,
             rotacion, diasInv, ticket, numVentas, Math.Round(invProm, 2));
+    }
+
+    /// <summary>
+    /// Costo de ventas del rango (§1.3): los meses COMPLETOS cerrados leen el importe de su póliza
+    /// de cierre (fuente contable); el resto del rango se calcula en vivo con el motor FIFO del
+    /// IAsientoGeneradorService (mismo algoritmo que usa el cierre, por lo que ambos cuadran).
+    /// </summary>
+    private async Task<decimal> CostoVentasDelRangoAsync(int suc, DateTime desde, DateTime hasta, CancellationToken ct)
+    {
+        var total = 0m;
+        var finExclusivo = hasta.Date.AddDays(1);
+        for (var mes = new DateTime(desde.Year, desde.Month, 1); mes <= hasta; mes = mes.AddMonths(1))
+        {
+            var mesFin = mes.AddMonths(1); // exclusivo
+            var pedIni = desde > mes ? desde : mes;
+            var pedFin = finExclusivo < mesFin ? finExclusivo : mesFin;
+            var mesCompleto = pedIni == mes && pedFin == mesFin;
+
+            decimal? costoCerrado = mesCompleto
+                ? await CostoDelAsientoCierreAsync(suc, mes.Year, mes.Month, ct)
+                : null;
+            total += costoCerrado
+                ?? (await generador.CalcularCostoVentasFifoAsync(suc, pedIni, pedFin.AddDays(-1), ct)).Total;
+        }
+        return total;
+    }
+
+    /// <summary>Importe del asiento de cierre FIFO del periodo; null si el periodo no tiene póliza.</summary>
+    private async Task<decimal?> CostoDelAsientoCierreAsync(int suc, int anio, int mes, CancellationToken ct)
+    {
+        var concepto = CierresContables.ConceptoCierre(anio, mes);
+        var q = db.DetallesAsientos.AsNoTracking()
+            .Where(d => d.AsientoContable!.SucursalId == suc
+                && d.AsientoContable.Tipo == CierresContables.TipoAsiento
+                && d.AsientoContable.Concepto == concepto
+                && d.TipoMovimiento == MovimientoTipo.Debito);
+        return await q.AnyAsync(ct) ? Math.Round(await q.SumAsync(d => d.Importe, ct), 2) : null;
     }
 }

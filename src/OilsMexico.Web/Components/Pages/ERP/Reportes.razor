@@ -76,6 +76,9 @@
                 <li class="nav-item">
                     <button class="nav-link @(_tab == "indicadores" ? "active" : "")" @onclick='() => SeleccionarTab("indicadores")'>Indicadores</button>
                 </li>
+                <li class="nav-item">
+                    <button class="nav-link @(_tab == "cierre" ? "active" : "")" @onclick='() => SeleccionarTab("cierre")'>Cierre contable</button>
+                </li>
             </ul>
 
             <div class="tab-content pt-3">
@@ -242,6 +245,82 @@
                             </tbody>
                         </table>
                     </div>
+                }
+
+                @* ---------- CIERRE CONTABLE (§1.3) ---------- *@
+                @if (_tab == "cierre")
+                {
+                    <div class="alert alert-info">
+                        Cerrar un periodo registra la póliza <strong>Costo de ventas FIFO vs. Almacén</strong> del mes
+                        y bloquea el registro de asientos en ese periodo. La reapertura es exclusiva de Admin.
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-md-3">
+                            <label class="form-label">Periodo</label>
+                            <select class="form-select" @bind="_periodoSel">
+                                @foreach (var m in _periodosCandidatos)
+                                {
+                                    <option value="@m.Clave" selected="@(_periodoSel == m.Clave)">
+                                        @m.Etiqueta @(m.Cerrado ? "· cerrado" : "")
+                                    </option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-md-6 d-flex align-items-end gap-2">
+                            <button class="btn btn-primary" @onclick="CerrarPeriodoAsync" disabled="@_cargandoCierre">
+                                @(_cargandoCierre ? "Procesando..." : "Cerrar período")
+                            </button>
+                            @if (EsAdmin)
+                            {
+                                <button class="btn btn-outline-danger" @onclick="ReabrirPeriodoAsync" disabled="@_cargandoCierre">
+                                    Reabrir período
+                                </button>
+                            }
+                        </div>
+                    </div>
+
+                    @if (!string.IsNullOrEmpty(_mensajeCierre))
+                    {
+                        <div class="alert @(_errorCierre ? "alert-danger" : "alert-success")">@_mensajeCierre</div>
+                    }
+
+                    @if (_cierres == null)
+                    {
+                        <div class="alert alert-secondary">Cargando cierres...</div>
+                    }
+                    else if (_cierres.Count == 0)
+                    {
+                        <p class="text-muted">Todavía no hay periodos cerrados en esta sucursal.</p>
+                    }
+                    else
+                    {
+                        <div class="table-responsive">
+                            <table class="table table-bordered table-sm table-hover">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Periodo</th>
+                                        <th class="text-end">Costo de ventas registrado</th>
+                                        <th>Cerrado (UTC)</th>
+                                        <th>Usuario</th>
+                                        <th>Póliza</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var c in _cierres)
+                                    {
+                                        <tr>
+                                            <td>@($"{c.Anio:0000}-{c.Mes:00}")</td>
+                                            <td class="text-end">@c.CostoVentas.ToString("N2")</td>
+                                            <td>@c.CerradoUtc.ToString("dd/MM/yyyy HH:mm")</td>
+                                            <td>@c.UsuarioCierreId</td>
+                                            <td>@(c.Notas ?? "—")</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
                 }
             </div>
         }

@@ -6,7 +6,8 @@ using OilsMexico.Infrastructure.Persistence;
 namespace OilsMexico.Infrastructure.Services;
 
 /// <summary>Reportes financieros §1.4 (parte 1: balanza + balance).</summary>
-public sealed partial class ReportesFinancierosService(ErpDbContext db, ISucursalContext ctx) : IReportesFinancierosService
+public sealed partial class ReportesFinancierosService(
+    ErpDbContext db, ISucursalContext ctx, IAsientoGeneradorService generador) : IReportesFinancierosService
 {
     public async Task<BalanzaComprobacionDto> BalanzaAsync(int sucursalId, DateTime desde, DateTime hasta, CancellationToken ct = default)
     {

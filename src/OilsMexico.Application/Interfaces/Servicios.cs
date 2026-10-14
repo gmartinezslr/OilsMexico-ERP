@@ -275,6 +275,20 @@ public interface IAsientoGeneradorService
     Task<IReadOnlyList<AsientoLinea>> GenerarAsientosDeDevolucionAsync(int sucursalId, int usuarioId, decimal total);
     /// <summary>Líneas gasto vs. banco/efectivo (evento "Gasto" en ReglasAsiento).</summary>
     Task<IReadOnlyList<AsientoLinea>> GenerarAsientosDeGastoAsync(int sucursalId, int usuarioId, decimal total);
+
+    /// <summary>
+    /// Costo de ventas FIFO del periodo (§1.3): reconstruye las capas de inventario desde el
+    /// kardex (entradas COMPRA con el costo de compra por litro; respaldo: Producto.PrecioCosto)
+    /// y suma el costo consumido por las salidas VENTA de facturas activas (misma regla de
+    /// ingreso que el Estado de Resultados: no canceladas ni devueltas). REGLA #1 aplicada.
+    /// </summary>
+    Task<CostoVentasFifoDto> CalcularCostoVentasFifoAsync(int sucursalId, DateTime desde, DateTime hasta, CancellationToken ct = default);
+
+    /// <summary>
+    /// Líneas del asiento "Costo de Ventas vs. Almacén" del periodo (§1.3): evento "CostoVenta"
+    /// en ReglasAsiento si está sembrado, o fallback 5000↔1200. Devuelve vacío si no hay costo.
+    /// </summary>
+    Task<IReadOnlyList<AsientoLinea>> GenerarAsientosDeCostoVentaAsync(int sucursalId, DateTime desde, DateTime hasta, CancellationToken ct = default);
 }
 
 /// <summary>Catálogo y gestión de la contabilidad básica (pólizas, libro mayor, saldos).</summary>
@@ -286,4 +300,28 @@ public interface ICuentasContablesService
     Task<AsientoContableDto?> DetalleAsientoAsync(int asientoId, CancellationToken ct = default);
     Task<List<DetalleAsientoDto>> LibroMayorAsync(int sucursalId, DateTime desde, DateTime hasta, int? cuentaId, int pagina, CancellationToken ct = default);
     Task<List<CuentaContableDto>> SaldoPorCuentaAsync(int sucursalId, CancellationToken ct = default);
+}
+
+/// <summary>
+/// Cierre de periodo contable mensual (checklist §1.3): genera el asiento de costo de
+/// ventas FIFO del mes, marca el periodo cerrado (bandera + bloqueo de escritura de
+/// asientos en RegistrarAsientoAsync) y permite reabrirlo solo con rol Admin.
+/// REGLA #1: sucursal resuelta con ResolverSucursalAutorizada.
+/// </summary>
+public interface ICierreContableService
+{
+    /// <summary>Periodos cerrados de la sucursal con su costo de ventas registrado.</summary>
+    Task<List<PeriodoContableDto>> ListarAsync(int sucursalId, CancellationToken ct = default);
+
+    /// <summary>¿La fecha (mes local) cae en un periodo cerrado de la sucursal?</summary>
+    Task<bool> EstaCerradoAsync(int sucursalId, DateTime fecha, CancellationToken ct = default);
+
+    /// <summary>
+    /// Cierra el periodo: siembra cuentas faltantes, registra el asiento de costo de ventas FIFO
+    /// fechado al cierre del mes (si hay costo) y marca el periodo como cerrado. Admin/Conta.
+    /// </summary>
+    Task<CierreContableResultDto> CerrarAsync(int sucursalId, int anio, int mes, CancellationToken ct = default);
+
+    /// <summary>Reabre el periodo: elimina el asiento de cierre, revierte sus saldos y la bandera. Solo Admin.</summary>
+    Task ReabrirAsync(int sucursalId, int anio, int mes, CancellationToken ct = default);
 }

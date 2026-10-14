@@ -6,7 +6,7 @@ using OilsMexico.Infrastructure.Persistence;
 
 namespace OilsMexico.Infrastructure.Services;
 
-public sealed partial class AsientoGeneradorService(ErpDbContext db) : IAsientoGeneradorService
+public sealed partial class AsientoGeneradorService(ErpDbContext db, ISucursalContext ctx) : IAsientoGeneradorService
 {
     public async Task<IReadOnlyList<AsientoLinea>> GenerarAsientosDeVentaAsync(
         int sucursalId, int usuarioId, decimal total, decimal subtotal, decimal iva, string metodoPagoSat, string formaPagoSat)

@@ -69,6 +69,11 @@ public sealed class ErpDbContext(DbContextOptions<ErpDbContext> options) : DbCon
     // ---------------------------------------------------------
     public DbSet<Gasto> Gastos => Set<Gasto>();
 
+    // ---------------------------------------------------------
+    //  Cierre de periodo contable (§1.3): bandera de mes cerrado
+    // ---------------------------------------------------------
+    public DbSet<PeriodoContable> PeriodosContables => Set<PeriodoContable>();
+
     protected override void OnModelCreating(ModelBuilder b)
     {
         b.ApplyConfigurationsFromAssembly(typeof(ErpDbContext).Assembly);

@@ -1,7 +1,7 @@
 # Checklist de completitud del ERP — 13 de octubre de 2026
 
 > Lista maestra de **cada función que falta o necesita modificación/mejora** para que OilsMexico ERP quede completo.
-> Cada ítem fue **verificado contra el código** (build `OilsMexico.slnx` 0 errores; Cotizaciones Capa A+B+C probadas 5/5 en PostgreSQL desechable). Última actualización **13/10/2026** (rev. 3): §1.2 implementado y compilado; quedan pendientes pruebas integrales de BD/SMTP y bloqueo de crédito (depende de completar UI/política de crédito en §4.1).
+> Cada ítem fue **verificado contra el código** (build `OilsMexico.slnx` 0 errores; Cotizaciones Capa A+B+C probadas 5/5 en PostgreSQL desechable). Última actualización **13/10/2026** (rev. 4): §1.3 implementado y compilado (motor FIFO + cierre de período + bloqueo de asientos + UI), probado 20/20 con EF InMemory (10 nuevas en `CierreContableTests` + 10 de regresión); pendiente smoke manual con PostgreSQL productiva y pruebas SMTP/crédito (§4.1).
 > Leyenda: 🔴 alta prioridad · 🟡 media · 🟢 baja · `- [ ]` pendiente · `- [x]` hecho (sección 9, no re-trabajar).
 
 **Fuentes:** roadmap v11 (`Situación al 11 de octubre.md`), auditoría Gemini (`Gemini sugerencias sobre el estado y mejoras.md`), revisión hardcode/SOLID (`hardcode movible a tablas y mejoras SOLID.md`), auditoría SOLID de Cotizaciones (sesión 12/10) y verificación directa sobre el código hoy.
@@ -32,11 +32,20 @@
 - [ ] **Bloqueo por morosidad** en POS/Facturación cuando el saldo vencido supere el límite — depende de configurar y administrar `Cliente.LimiteCredito` desde UI en §4.1.
 - [ ] **Verificación con BD**: build verificado; pendiente prueba integral de CxC/CxP con PostgreSQL para backfill de esquema, vencimientos, pagos parciales y cálculo de tasas.
 
-### 1.3 Costo de ventas FIFO + cierre de período — roadmap #4
+### 1.3 Costo de ventas FIFO + cierre de período — roadmap #4 ✅ IMPLEMENTADO (13/10/2026 rev.4)
 
-- [ ] **Asiento de costo de venta** en `AsientoGeneradorService.cs`: hoy no genera (Costo de Ventas vs. Almacén) con el costo real del lote salido por FIFO (`InventarioLote` ya calcula el costo).
-- [ ] **Cierre contable mensual**: bandera de periodo cerrado + bloqueo de escritura de asientos en periodos cerrados (y reapertura solo Admin).
-- [ ] **Estado de Resultados del periodo** alimentado por esos asientos (ver 1.4).
+**Servicio + UI implementados** (build `OilsMexico.slnx` 0 errores; 10/10 pruebas nuevas en `tests/OilsMexico.IntegrationTests/CierreContableTests.cs` con EF InMemory + 10/10 de regresión; parche SQL idempotente `PeriodoContablePatch`).
+
+- [x] **Motor FIFO** (`AsientoGeneradorService.CostoVenta.cs`, `CalcularCostoVentasFifoAsync`): reconstruye las capas de inventario replantando el kardex de la sucursal en orden cronológico — entradas `COMPRA` toman el costo por litro del renglón de compra (`CompraDetalle.CostoUnitario` / `FactorConversion`; respaldos: costo de la capa vigente y `Producto.PrecioCosto`) y las salidas consumen capas FIFO. El costo de las salidas `VENTA` del periodo se atribuye a la factura que las originó **solo si sigue activa** (misma regla de ingreso que el Estado de Resultados: no cancelada ni devuelta), para que costos e ingresos cuadren. *Nota: a diferencia de lo que decía el checklist, `InventarioLote` **no** almacena costo — el costo se reconstruye del kardex + compras.*
+- [x] **Asiento de costo de venta** (`GenerarAsientosDeCostoVentaAsync`): líneas del evento `"CostoVenta"` en `ReglasAsiento` si está sembrado, o fallback **5000 ↔ 1200** (Costo de Ventas vs. Almacén). Vacío si no hay costo en el periodo.
+- [x] **Cierre contable mensual** (`ICierreContableService` + `CierreContableService`): `CerrarAsync` (Admin/Conta) siembra el catálogo de cuentas faltante, registra la póliza fechada al **último instante local del mes** (concepto marcador `Cierre aaaa-mm · Costo de ventas FIFO`, idempotente: un cierre a medias reutiliza la póliza) y marca el periodo en `periodos_contables` (índice único sucursal+año+mes = guard de concurrencia). `RegistrarAsientoAsync` **rechaza escrituras fechadas en periodos cerrados** (fail-closed, incluso para Admin; `RegistrarAsientoRequest` ahora acepta `FechaUtc` opcional). `ReabrirAsync` **solo Admin**: elimina la póliza de cierre, revierte sus saldos (`SaldoActual`) y la bandera.
+- [x] **Estado de Resultados del periodo alimentado por esos asientos** (`ReportesFinancierosService.CostoVentasDelRangoAsync`): los meses COMPLETOS cerrados leen el importe de su póliza de cierre (fuente contable); el resto del rango se calcula en vivo con el mismo motor FIFO → mismo número que el libro. `IndicadoresAsync` también usa FIFO (ya no usa `Producto.PrecioCosto`).
+- [x] **UI**: pestaña **"Cierre contable"** en `/reportes` (lista de periodos cerrados con costo y póliza; Cerrar para Admin/Conta; Reaprar visible solo para Admin; avisos de resultado). Guard de rol Admin/Conta de la página incluido.
+- [x] **Catálogo de cuentas sembrado** (`CuentasContablesService.AsegurarCatalogoAsync`, idempotente, invocado desde `SeedData` en cada arranque y desde el cierre): antes **nada** siembra `cuentas_contables` (los reportes salían vacíos); ahora se crean por sucursal los códigos 1000…6000 **+ 5000 "Costo de ventas"** (solo faltantes).
+- [ ] **Verificación con BD PostgreSQL productiva**: los tests usan EF InMemory; falta smoke manual de `PeriodoContablePatch` + cierre/reabrire en la BD real (ver 7).
+
+**Pendiente (refinamiento / decisión de diseño):**
+- [ ] POS y Notas de Crédito **no validan periodo cerrado** (solo se bloquean asientos): si se vende en un mes ya cerrado, la póliza de cierre conserva el costo previo. Decidir si bloquear ventas en meses cerrados o recomputar al reabrir.
 
 ### 1.4 Reportes financieros — roadmap #7
 
@@ -50,13 +59,13 @@
 - [x] **Página `/reportes` consumiendo el servicio** (carga perezosa por pestaña, `??=` para no recalcular): 5 pestañas (Balanza/Balance/Resultados/Existencias/Indicadores) con tablas Bootstrap + `NavLink` "Reportes Financieros" en menú Gestión; filtros sucursal/desde/hasta/corte y guard de rol `Admin`/`Conta`.
 
 **Pendiente (refinamiento):**
-- [ ] **Costo de ventas FIFO real** en Estado de Resultados (hoy usa `Producto.PrecioCosto` del catálogo, no el costo del lote salido) — depende de 1.3.
+- [x] **Costo de ventas FIFO real** en Estado de Resultados — **hecho en §1.3 (rev.4)**: motor FIFO (meses abiertos) + lectura de la póliza de cierre (meses cerrados); también aplicado a Indicadores.
 - [ ] **Exportación Excel/PDF** de los 5 reportes (`IExportacionService.FinancieroPdfAsync` ya está declarada en la interfaz, falta implementación) — ver 2.1.
 - [ ] **Verificación con BD** de los 5 reportes (ver 7).
 
 ### 1.4b (nuevo) Estado de Resultados vs. asientos contables
 
-- [ ] Unificar la fuente: el Estado de Resultados del servicio calcula desde `Facturas`/`Producto`, mientras el Balance usa `AsientoContable`. Con el cierre de período y asiento de costo de venta (1.3) ambos deberían cuadrar por cuenta.
+- [ ] Unificar la fuente: el Estado de Resultados del servicio calcula desde `Facturas`/`Producto`, mientras el Balance usa `AsientoContable`. **Avance rev.4 (§1.3)**: el costo de ventas ya cuadra con el libro (meses cerrados leen su póliza de cierre; abiertos usan el mismo motor FIFO). Siguen sin unificarse ingresos y gastos (que dependen de que Ventas/Gastos registren póliza automática por transacción).
 
 ---
 
@@ -194,6 +203,7 @@ Tomada de `Situación al 11 de octubre.md` §4 y validaciones CFDI:
 - [ ] Cotizaciones/OV en UI real (expiración al abrir listado, Suspender/Reanudar con motivo) — la prueba dio 5/5, falta smoke manual.
 - [ ] Timbrado real Finkok (ver 6.3).
 - [ ] Reportes financieros §1.4 con BD: cuadre de Balanza (Σdébitos = Σcréditos), Balance cuadrado (Activo = Pasivo + Patrimonio), Estado de Resultados vs. utilidad esperada y cambio de existencias contra kardex real de una sucursal.
+- [ ] Cierre de periodo §1.3 con BD real (PostgreSQL): `PeriodoContablePatch`, cerrar un mes con ventas (póliza 5000↔1200), bloqueo de asientos en el mes cerrado y reapertura Admin (los tests InMemory dieron 10/10).
 
 ## 8. 🟡 Documentación
 
@@ -201,6 +211,8 @@ Tomada de `Situación al 11 de octubre.md` §4 y validaciones CFDI:
 - [ ] `Situación al 11 de octubre.md` y este checklist quedan untracked hasta decidir el commit (working tree actual: A+B+C de Cotizaciones + fix FK `OrdenVenta.CotizacionId` + guards de sucursal + doc, **sin commitear**).
 
 ## 9. ✅ Recién completado — NO re-trabajar
+
+- [x] **Costo de ventas FIFO + cierre de período §1.3 (13/10/2026 rev.4)**: motor FIFO en `AsientoGeneradorService.CostoVenta.cs` (capas reconstruidas del kardex; costo por litro de `CompraDetalle.CostoUnitario`/`FactorConversion`; respaldo `Producto.PrecioCosto`; facturas canceladas/devueltas fuera, misma regla que ingresos) + asiento Costo de Ventas vs. Almacén (evento `"CostoVenta"` / fallback **5000↔1200**) + `ICierreContableService`/`CierreContableService` (`CerrarAsync` Admin/Conta idempotente con póliza fechada al cierre del mes + bandera `periodos_contables` vía `PeriodoContablePatch` e índice único sucursal+año+mes; `ReabrirAsync` **solo Admin** revierte saldos y póliza) + **bloqueo de escritura en periodos cerrados** en `CuentasContablesService.RegistrarAsientoAsync` (`RegistrarAsientoRequest.FechaUtc` opcional) + Estado de Resultados e Indicadores con costo FIFO (meses cerrados leen su póliza, §1.4) + pestaña **"Cierre contable"** en `/reportes` + siembra idempotente del catálogo de cuentas por sucursal en `SeedData` (**incluye la cuenta 5000; antes no se sembraba ninguna cuenta**). Build `OilsMexico.slnx` 0 errores; **10/10 pruebas nuevas** (`CierreContableTests`: FIFO 1600 = 100×10+50×12, póliza/bloqueo, reapertura Admin con reversión, ER cuadra con póliza, REGLA #1, sin ventas, futuro, cancelada, doble cierre) + 10/10 regresión de Exportación.
 
 - [x] **Gastos operativos §1.1 (13/10/2026 rev.2)**: verificación completa contra el código confirma que todos los ítems ya estaban implementados. `Gasto` entity + `GastoConfig` (EF, snake_case) + `GastosPatch` (CREATE TABLE, FK, CHECK categorías/importe) + `IGastoService`/`GastoService` (Crear/Editar/Eliminar/Listar/TotalesPorCategoria, REGLA #1) + póliza automática (`GastoService.Poliza.cs`, evento "Gasto" en `ReglasAsiento`, fallback 6000↔1000) + vinculación `CorteCajaService.Cierre.cs` (`GastosEfectivoTurnoAsync`) + página `/gastos` (Blazor, guard de rol, listado+formulario+reporte) + `NavLink` en Gestión + endpoint `/api/export/gastos/{sucursalId}` Excel. `IGastoService` registrado en `Program.cs`. Build `OilsMexico.slnx` 0 errores.
 - [x] **Exportación Excel/PDF §2.1 (13/10/2026)**: `IExportacionService` + `ExportacionService` (9 Excel ClosedXML + 4 PDF QuestPDF), endpoints `/api/export/*` (Minimal API con guard de token) y botones de descarga en `/reportes`. Licencia QuestPDF Community en `Program.cs`. Build 0 errores. **Pendiente solo refinamiento**: verificación con BD (7), adjuntar PDF del CFDI al correo y botones en las demás páginas.

@@ -6,6 +6,16 @@ namespace OilsMexico.Application.DTOs;
 public sealed record ArchivoExportadoDto(
     string NombreArchivo, string MimeTipo, byte[] Contenido);
 
+// ---------- Costo de ventas FIFO (checklist §1.3) ----------
+
+/// <summary>Renglón de costo de ventas FIFO por producto del periodo.</summary>
+public sealed record CostoVentasRenglonDto(
+    int ProductoId, string Sku, string Nombre, decimal Litros, decimal Costo);
+
+/// <summary>Costo de ventas del periodo calculado con capas FIFO reconstruidas del kardex.</summary>
+public sealed record CostoVentasFifoDto(
+    int SucursalId, DateTime Desde, DateTime Hasta, decimal Total, List<CostoVentasRenglonDto> Renglones);
+
 // ---------- Reportes financieros (checklist §1.4) ----------
 
 /// <summary>Renglón de balanza de comprobación (movimientos del periodo + saldo).</summary>

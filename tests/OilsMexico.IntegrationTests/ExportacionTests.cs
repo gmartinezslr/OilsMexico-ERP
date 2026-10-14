@@ -59,7 +59,7 @@ public class ExportacionTests
 
         var ctx = new SucursalContext();
         ctx.Establecer(1, 1, Roles.Admin);
-        var reportes = new ReportesFinancierosService(db, ctx);
+        var reportes = new ReportesFinancierosService(db, ctx, new AsientoGeneradorService(db, ctx));
         var exp = new ExportacionService(db, ctx, reportes);
         return (db, ctx, exp);
     }
@@ -153,7 +153,7 @@ public class ExportacionTests
         var (db, _, _) = Crear(nameof(REGLA1_noAdmin_solo_ve_su_sucursal));
         var ctx = new SucursalContext();
         ctx.Establecer(2, 1, Roles.Vendedor); // sucursal 2, distinta de la sembrada (1)
-        var exp = new ExportacionService(db, ctx, new ReportesFinancierosService(db, ctx));
+        var exp = new ExportacionService(db, ctx, new ReportesFinancierosService(db, ctx, new AsientoGeneradorService(db, ctx)));
         var a = await exp.InventarioAsync(1); // pide la 1, pero el servicio lo reescribe a la 2
         AssertArchivo(a, Xlsx); // el archivo se genera; el servicio consultó la sucursal 2.
     }

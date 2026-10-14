@@ -11,6 +11,7 @@ namespace OilsMexico.Web.Components.Pages.ERP;
 public partial class Reportes
 {
     [Inject] private IReportesFinancierosService ReportesSvc { get; set; } = default!;
+    [Inject] private ICierreContableService CierreSvc { get; set; } = default!;
     [Inject] private ISucursalContext SucCtx { get; set; } = default!;
     [Inject] private ISesionActual Sesion { get; set; } = default!;
     [Inject] private NavigationManager Nav { get; set; } = default!;
@@ -31,6 +32,14 @@ public partial class Reportes
     private EstadoResultadosDto? _resultados;
     private CambioExistenciasDto? _existencias;
     private List<IndicadoresSucursalDto>? _indicadores;
+
+    // Cierre contable (§1.3).
+    private List<PeriodoContableDto>? _cierres;
+    private List<(string Clave, string Etiqueta, bool Cerrado)> _periodosCandidatos = [];
+    private string _periodoSel = "";
+    private bool _cargandoCierre;
+    private string? _mensajeCierre;
+    private bool _errorCierre;
 
     // Sucursal efectiva para los reportes puntuales cuando se eligió "Todas" (0).
     private int SucEfectiva => _sucursalId == 0 ? SucCtx.SucursalId : _sucursalId;
@@ -72,6 +81,8 @@ public partial class Reportes
         _resultados = null;
         _existencias = null;
         _indicadores = null;
+        _cierres = null;
+        _periodoSel = "";
         await Cargar();
     }
 
@@ -105,6 +116,9 @@ public partial class Reportes
                 case "indicadores":
                     // Con "Todas" (0) un Admin ve todas las sucursales; el resto la suya.
                     _indicadores ??= await ReportesSvc.IndicadoresAsync(_desde, _hasta, _sucursalId == 0 ? null : _sucursalId);
+                    break;
+                case "cierre":
+                    await PrepararPeriodosCierreAsync();
                     break;
             }
         }
@@ -140,4 +154,69 @@ public partial class Reportes
     private string UrlGastosXlsx => $"/api/export/gastos/{SucEfectiva}?desde={_desde:yyyy-MM-dd}&hasta={_hasta:yyyy-MM-dd}&t={Token}";
     private string UrlComisionesXlsx => $"/api/export/comisiones?sucursalId={(_sucursalId == 0 ? "" : _sucursalId.ToString())}&desde={_desde:yyyy-MM-dd}&hasta={_hasta:yyyy-MM-dd}&t={Token}";
     private string UrlListaPreciosXlsx => $"/api/export/lista-precios?t={Token}";
+
+    // ---------- Cierre contable (§1.3) ----------
+
+    /// <summary>La reapertura es exclusiva del Admin (el servicio también la exige, fail-closed).</summary>
+    private bool EsAdmin => Sesion.Sesion?.Rol == Roles.Admin;
+
+    /// <summary>Candidatos a cerrar (últimos 12 meses + actual) mezclados con los ya cerrados.</summary>
+    private async Task PrepararPeriodosCierreAsync()
+    {
+        _cierres ??= await CierreSvc.ListarAsync(SucEfectiva);
+        var cerrados = _cierres.Select(c => (c.Anio, c.Mes)).ToHashSet();
+        var hoy = DateTime.Now;
+        _periodosCandidatos = [];
+        for (var i = 0; i < 13; i++)
+        {
+            var m = new DateTime(hoy.Year, hoy.Month, 1).AddMonths(-i);
+            _periodosCandidatos.Add(($"{m:yyyy-MM}", $"{m:yyyy-MM}", cerrados.Contains((m.Year, m.Month))));
+        }
+        if (!_periodosCandidatos.Any(p => p.Clave == _periodoSel))
+        {
+            var primeroAbierto = _periodosCandidatos.FirstOrDefault(p => !p.Cerrado);
+            _periodoSel = primeroAbierto.Clave ?? _periodosCandidatos.FirstOrDefault().Clave ?? "";
+        }
+    }
+
+    private async Task CerrarPeriodoAsync() => await EjecutarCierreAsync(
+        (anio, mes) => CierreSvc.CerrarAsync(SucEfectiva, anio, mes));
+
+    private async Task ReabrirPeriodoAsync() => await EjecutarCierreAsync(async (anio, mes) =>
+    {
+        await CierreSvc.ReabrirAsync(SucEfectiva, anio, mes);
+        return new CierreContableResultDto(SucEfectiva, anio, mes, null, 0m, false,
+            $"Periodo {anio:0000}-{mes:00} reabierto: ya puede registrarse en él.");
+    });
+
+    private async Task EjecutarCierreAsync(Func<int, int, Task<CierreContableResultDto>> accion)
+    {
+        if (!TryParsePeriodo(out var anio, out var mes)) return;
+        _cargandoCierre = true;
+        _mensajeCierre = null;
+        try
+        {
+            var res = await accion(anio, mes);
+            _errorCierre = false;
+            _mensajeCierre = res.Mensaje;
+            _cierres = null; // recarga con el nuevo estado
+            await PrepararPeriodosCierreAsync();
+        }
+        catch (Exception ex)
+        {
+            _errorCierre = true;
+            _mensajeCierre = ex.Message;
+        }
+        finally { _cargandoCierre = false; }
+    }
+
+    private bool TryParsePeriodo(out int anio, out int mes)
+    {
+        anio = 0; mes = 0;
+        if (_periodoSel is { Length: 7 } s && int.TryParse(s[..4], out anio) && int.TryParse(s[5..], out mes))
+            return true;
+        _errorCierre = true;
+        _mensajeCierre = "Selecciona un periodo válido (AAAA-MM).";
+        return false;
+    }
 }

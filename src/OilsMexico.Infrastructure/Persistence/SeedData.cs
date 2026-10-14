@@ -57,6 +57,10 @@ public static class SeedData
             if (!clavesExistentes.Contains(clave))
                 db.Configuracion.Add(new Configuracion { Clave = clave, Valor = valor });
         await db.SaveChangesAsync();
+        // Catálogo de cuentas contables por sucursal (solo faltantes): sin estas cuentas no hay
+        // dónde registrar pólizas automáticas ni el cierre FIFO (§1.3). Aplica a BDs existentes
+        // (este punto se alcanza antes del return de "ya hay sucursales") y a la semilla nueva.
+        await CuentasContablesService.AsegurarCatalogoAsync(db);
         if (db.Sucursales.Any()) return;
 
         var s1 = new Sucursal
@@ -125,5 +129,8 @@ public static class SeedData
                 db.InventarioSucursal.Add(new InventarioSucursal
                 { SucursalId = s.Id, ProductoId = p.Id, LoteId = p == productos[0] ? lote.Id : null, StockActual = 100, StockMinimo = 5 });
         await db.SaveChangesAsync();
+
+        // En BD nueva las sucursales recién creadas también reciben su catálogo de cuentas.
+        await CuentasContablesService.AsegurarCatalogoAsync(db);
     }
 }
