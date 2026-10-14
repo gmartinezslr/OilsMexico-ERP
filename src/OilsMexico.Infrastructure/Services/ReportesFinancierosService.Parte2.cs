@@ -123,16 +123,35 @@ public sealed partial class ReportesFinancierosService
             Math.Round(ren.Sum(r => r.Traspasos), 2), Math.Round(ren.Sum(r => r.Final), 2));
     }
 
-    /// <summary>Indicadores por sucursal y periodo (margen, rotación, días de inventario).</summary>
+    /// <summary>
+    /// Indicadores por sucursal y periodo (margen, rotación, días de inventario).
+    /// Con <paramref name="sucursalId"/> null: Admin ve todas las sucursales activas;
+    /// el resto solo la suya (REGLA #1).
+    /// </summary>
     public async Task<List<IndicadoresSucursalDto>> IndicadoresAsync(
         DateTime desde, DateTime hasta, int? sucursalId = null, CancellationToken ct = default)
     {
-        var suc = sucursalId.HasValue ? ctx.ResolverSucursalAutorizada(sucursalId.Value) : ctx.SucursalId;
+        List<int> sucursales;
+        if (sucursalId.HasValue)
+            sucursales = [ctx.ResolverSucursalAutorizada(sucursalId.Value)];
+        else if (ctx.EsAdmin)
+            sucursales = await db.Sucursales.AsNoTracking()
+                .Where(s => s.Activa).OrderBy(s => s.Id).Select(s => s.Id).ToListAsync(ct);
+        else
+            sucursales = [ctx.SucursalId];
+
+        var lista = new List<IndicadoresSucursalDto>(sucursales.Count);
+        foreach (var suc in sucursales)
+            lista.Add(await IndicadoresDeSucursalAsync(suc, desde, hasta, ct));
+        return lista;
+    }
+
+    private async Task<IndicadoresSucursalDto> IndicadoresDeSucursalAsync(
+        int suc, DateTime desde, DateTime hasta, CancellationToken ct = default)
+    {
         var (ini, fin) = Rango(desde, hasta);
-        var sucursalNombre = sucursalId.HasValue
-            ? (await db.Sucursales.AsNoTracking()
-                .Where(s => s.Id == suc).Select(s => s.Nombre).FirstOrDefaultAsync(ct) ?? "")
-            : "";
+        var sucursalNombre = await db.Sucursales.AsNoTracking()
+            .Where(s => s.Id == suc).Select(s => s.Nombre).FirstOrDefaultAsync(ct) ?? "";
 
         var res = await db.Facturas.AsNoTracking()
             .Where(f => f.SucursalId == suc
@@ -178,11 +197,9 @@ public sealed partial class ReportesFinancierosService
         var diasInv = invProm > 0 && ventasNetas > 0 ? Math.Round(invProm / (ventasNetas / 30m), 2) : 0m;
         var ticket = unidadesVendidas > 0 ? Math.Round(ventasNetas / unidadesVendidas, 2) : 0m;
 
-        return new List<IndicadoresSucursalDto>
-        {
-            new(suc, sucursalNombre, desde.Date, hasta.Date,
-                ventasNetas, utilidadBruta, margen,
-                rotacion, diasInv, ticket, numVentas, Math.Round(invProm, 2))
-        };
+        return new IndicadoresSucursalDto(
+            suc, sucursalNombre, desde.Date, hasta.Date,
+            ventasNetas, utilidadBruta, margen,
+            rotacion, diasInv, ticket, numVentas, Math.Round(invProm, 2));
     }
 }

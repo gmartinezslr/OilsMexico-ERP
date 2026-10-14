@@ -6,8 +6,8 @@
 <PageTitle>Reportes Financieros</PageTitle>
 
 <div class="card">
-    <div class="card-header">
-        <h3>Reportes Financieros</h3>
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h3 class="mb-0">Reportes Financieros</h3>
     </div>
     <div class="card-body">
         <div class="row mb-3">
@@ -15,9 +15,12 @@
                 <label class="form-label">Sucursal</label>
                 <select class="form-select" @bind="@_sucursalId" @bind:after="@OnSucursalChange">
                     <option value="0">Todas</option>
-                    @foreach (var s in _sucursales)
+                    @if (_sucursales != null)
                     {
-                        <option value="@s.Id" selected="@(_sucursalId == s.Id)">@s.Nombre</option>
+                        @foreach (var s in _sucursales)
+                        {
+                            <option value="@s.Id" selected="@(_sucursalId == s.Id)">@s.Nombre</option>
+                        }
                     }
                 </select>
             </div>
@@ -29,8 +32,9 @@
                 <label class="form-label">Hasta</label>
                 <input class="form-control" type="date" @bind="@_hasta" @bind:after="@Cargar" />
             </div>
-            <div class="col-md-3 d-flex align-items-end">
-                <button class="btn btn-primary w-100" @onclick="@Cargar"><span class="bi bi-search"></span> Generar</button>
+            <div class="col-md-3">
+                <label class="form-label">Corte (Balance)</label>
+                <input class="form-control" type="date" @bind="@_corte" @bind:after="@Cargar" />
             </div>
         </div>
 
@@ -44,34 +48,177 @@
         }
         else
         {
-            <div class="table-responsive">
-                <table class="table table-bordered table-hover">
-                    <thead>
-                        <tr><th>Tipo de reporte</th><th>Total Debites</th><th>Total Créditos</th><th>Saldo Deudor</th><th>Saldo Acreedor</th></tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td><a href="@($"/api/reportes/balanza?sucursalId={_sucursalId}&desde={_desde:yyyy-MM-dd}&hasta={_hasta:yyyy-MM-dd}")" class="btn btn-sm btn-info">Balanza de Comprobación</a></td>
-                            <td colspan="4">Ver detalle de la tabla</td>
-                        </tr>
-                        <tr>
-                            <td><a href="@($"/api/reportes/balance?sucursalId={_sucursalId}&corte={_corte:yyyy-MM-dd}")" class="btn btn-sm btn-success">Balance General</a></td>
-                            <td colspan="4">Ver estado de cuenta del corte</td>
-                        </tr>
-                        <tr>
-                            <td><a href="@($"/api/reportes/resultados?sucursalId={_sucursalId}&desde={_desde:yyyy-MM-dd}&hasta={_hasta:yyyy-MM-dd}")" class="btn btn-sm btn-warning">Estado de Resultados</a></td>
-                            <td colspan="4">Ingresos, gastos, utilidad</td>
-                        </tr>
-                        <tr>
-                            <td><a href="@($"/api/reportes/existencias?sucursalId={_sucursalId}&desde={_desde:yyyy-MM-dd}&hasta={_hasta:yyyy-MM-dd}")" class="btn btn-sm btn-secondary">Cambio de Existencias</a></td>
-                            <td colspan="4">Inicial + Compras - Ventas ± Ajustes ± Traspasos</td>
-                        </tr>
-                        <tr>
-                            <td><a href="@($"/api/reportes/indicadores?desde={_desde:yyyy-MM-dd}&hasta={_hasta:yyyy-MM-dd}&sucursalId={(_sucursalId == 0 ? "" : _sucursalId.ToString())}")" class="btn btn-sm btn-primary">Indicadores</a></td>
-                            <td colspan="4">Margen, rotación, días de inventario</td>
-                        </tr>
-                    </tbody>
-                </table>
+            <ul class="nav nav-tabs" role="tablist">
+                <li class="nav-item">
+                    <button class="nav-link @(_tab == "balanza" ? "active" : "")" @onclick='() => SeleccionarTab("balanza")'>Balanza</button>
+                </li>
+                <li class="nav-item">
+                    <button class="nav-link @(_tab == "balance" ? "active" : "")" @onclick='() => SeleccionarTab("balance")'>Balance</button>
+                </li>
+                <li class="nav-item">
+                    <button class="nav-link @(_tab == "resultados" ? "active" : "")" @onclick='() => SeleccionarTab("resultados")'>Resultados</button>
+                </li>
+                <li class="nav-item">
+                    <button class="nav-link @(_tab == "existencias" ? "active" : "")" @onclick='() => SeleccionarTab("existencias")'>Existencias</button>
+                </li>
+                <li class="nav-item">
+                    <button class="nav-link @(_tab == "indicadores" ? "active" : "")" @onclick='() => SeleccionarTab("indicadores")'>Indicadores</button>
+                </li>
+            </ul>
+
+            <div class="tab-content pt-3">
+@* ---------- BALANZA DE COMPROBACIÓN ---------- *@
+                @if (_tab == "balanza" && _balanza != null)
+                {
+                    <p class="text-muted">Periodo @_balanza.Desde.ToString("dd/MM/yyyy") — @_balanza.Hasta.ToString("dd/MM/yyyy")</p>
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-sm table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Código</th><th>Cuenta</th>
+                                    <th class="text-end">Débitos</th><th class="text-end">Créditos</th>
+                                    <th class="text-end">Saldo Deudor</th><th class="text-end">Saldo Acreedor</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var r in _balanza.Renglones)
+                                {
+                                    <tr>
+                                        <td>@r.Codigo</td>
+                                        <td>@r.Nombre</td>
+                                        <td class="text-end">@r.Debitos.ToString("N2")</td>
+                                        <td class="text-end">@r.Creditos.ToString("N2")</td>
+                                        <td class="text-end">@r.SaldoDeudor.ToString("N2")</td>
+                                        <td class="text-end">@r.SaldoAcreedor.ToString("N2")</td>
+                                    </tr>
+                                }
+                            </tbody>
+                            <tfoot class="fw-bold">
+                                <tr>
+                                    <td colspan="2">Totales</td>
+                                    <td class="text-end">@_balanza.TotalDebitos.ToString("N2")</td>
+                                    <td class="text-end">@_balanza.TotalCreditos.ToString("N2")</td>
+                                    <td class="text-end">@_balanza.TotalDeudor.ToString("N2")</td>
+                                    <td class="text-end">@_balanza.TotalAcreedor.ToString("N2")</td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                }
+
+                @* ---------- BALANCE GENERAL ---------- *@
+                @if (_tab == "balance" && _balance != null)
+                {
+                    <p class="text-muted">Corte al @_balance.Corte.ToString("dd/MM/yyyy")</p>
+                    <div class="row">
+                        @foreach (var sec in new[] { _balance.Activo, _balance.Pasivo, _balance.Patrimonio })
+                        {
+                            <div class="col-md-4">
+                                <h6 class="fw-bold">@sec.Titulo</h6>
+                                <table class="table table-bordered table-sm">
+                                    <tbody>
+                                        @foreach (var c in sec.Cuentas)
+                                        {
+                                            <tr><td>@c.Codigo</td><td>@c.Nombre</td><td class="text-end">@c.Saldo.ToString("N2")</td></tr>
+                                        }
+                                    </tbody>
+                                    <tfoot class="fw-bold">
+                                        <tr><td colspan="2">Total</td><td class="text-end">@sec.Total.ToString("N2")</td></tr>
+                                    </tfoot>
+                                </table>
+                            </div>
+                        }
+                    </div>
+                    <div class="alert @(_balance.Cuadrado ? "alert-success" : "alert-danger")">
+                        Activo: <strong>@_balance.TotalActivo.ToString("N2")</strong> ·
+                        Pasivo + Patrimonio: <strong>@_balance.TotalPasivoPatrimonio.ToString("N2")</strong> ·
+                        @(_balance.Cuadrado ? "✓ Cuadrado" : "✗ Descuadrado")
+                    </div>
+                }
+
+                @* ---------- ESTADO DE RESULTADOS ---------- *@
+                @if (_tab == "resultados" && _resultados != null)
+                {
+                    <p class="text-muted">Periodo @_resultados.Desde.ToString("dd/MM/yyyy") — @_resultados.Hasta.ToString("dd/MM/yyyy")</p>
+                    <table class="table table-bordered" style="max-width:520px">
+                        <tbody>
+                            <tr><td>Ventas netas</td><td class="text-end">@_resultados.VentasNetas.ToString("N2")</td></tr>
+                            <tr><td>Costo de ventas</td><td class="text-end">@_resultados.CostoVentas.ToString("N2")</td></tr>
+                            <tr class="fw-bold"><td>Utilidad bruta</td><td class="text-end">@_resultados.UtilidadBruta.ToString("N2")</td></tr>
+                            <tr><td>Gastos operativos</td><td class="text-end">@_resultados.GastosOperativos.ToString("N2")</td></tr>
+                            <tr><td>IVA trasladado</td><td class="text-end">@_resultados.IvaTrasladado.ToString("N2")</td></tr>
+                            <tr class="fw-bold table-light"><td>Utilidad neta</td><td class="text-end">@_resultados.UtilidadNeta.ToString("N2")</td></tr>
+                            <tr><td>Margen bruto</td><td class="text-end">@_resultados.MargenBrutoPct.ToString("N2") %</td></tr>
+                            <tr><td>Margen neto</td><td class="text-end">@_resultados.MargenNetoPct.ToString("N2") %</td></tr>
+                        </tbody>
+                    </table>
+                }
+@* ---------- CAMBIO DE EXISTENCIAS ---------- *@
+                @if (_tab == "existencias" && _existencias != null)
+                {
+                    <p class="text-muted">Periodo @_existencias.Desde.ToString("dd/MM/yyyy") — @_existencias.Hasta.ToString("dd/MM/yyyy")</p>
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-sm table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>SKU</th><th>Producto</th>
+                                    <th class="text-end">Inicial</th><th class="text-end">Compras</th>
+                                    <th class="text-end">Ventas</th><th class="text-end">Ajustes</th>
+                                    <th class="text-end">Traspasos</th><th class="text-end">Final</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var r in _existencias.Renglones)
+                                {
+                                    <tr>
+                                        <td>@r.Sku</td>
+                                        <td>@r.Nombre</td>
+                                        <td class="text-end">@r.Inicial.ToString("N2")</td>
+                                        <td class="text-end">@r.Compras.ToString("N2")</td>
+                                        <td class="text-end">@r.Ventas.ToString("N2")</td>
+                                        <td class="text-end">@r.Ajustes.ToString("N2")</td>
+                                        <td class="text-end">@r.Traspasos.ToString("N2")</td>
+                                        <td class="text-end">@r.Final.ToString("N2")</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+
+                @* ---------- INDICADORES ---------- *@
+                @if (_tab == "indicadores" && _indicadores != null)
+                {
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-sm table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Sucursal</th>
+                                    <th class="text-end">Ventas netas</th><th class="text-end">Utilidad bruta</th>
+                                    <th class="text-end">Margen %</th><th class="text-end">Rotación</th>
+                                    <th class="text-end">Días inv.</th><th class="text-end">Ticket prom.</th>
+                                    <th class="text-end"># Ventas</th><th class="text-end">Inv. promedio</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var r in _indicadores)
+                                {
+                                    <tr>
+                                        <td>@r.Sucursal</td>
+                                        <td class="text-end">@r.VentasNetas.ToString("N2")</td>
+                                        <td class="text-end">@r.UtilidadBruta.ToString("N2")</td>
+                                        <td class="text-end">@r.MargenPct.ToString("N2")</td>
+                                        <td class="text-end">@r.RotacionInventario.ToString("N2")</td>
+                                        <td class="text-end">@r.DiasInventario.ToString("N2")</td>
+                                        <td class="text-end">@r.TicketPromedio.ToString("N2")</td>
+                                        <td class="text-end">@r.NumVentas</td>
+                                        <td class="text-end">@r.InventarioPromedio.ToString("N2")</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
             </div>
         }
     </div>

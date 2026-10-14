@@ -22,7 +22,18 @@ public partial class Reportes
     private DateTime _corte = DateTime.Today;
     private bool _cargando;
     private string? _errores;
+    private string _tab = "balanza";
     private List<(int Id, string Nombre)>? _sucursales;
+
+    // Resultados de cada reporte (null = aún no generados).
+    private BalanzaComprobacionDto? _balanza;
+    private BalanceGeneralDto? _balance;
+    private EstadoResultadosDto? _resultados;
+    private CambioExistenciasDto? _existencias;
+    private List<IndicadoresSucursalDto>? _indicadores;
+
+    // Sucursal efectiva para los reportes puntuales cuando se eligió "Todas" (0).
+    private int SucEfectiva => _sucursalId == 0 ? SucCtx.SucursalId : _sucursalId;
 
     protected override async Task OnParametersSetAsync()
     {
@@ -56,25 +67,46 @@ public partial class Reportes
 
     private async Task OnSucursalChange()
     {
+        _balanza = null;
+        _balance = null;
+        _resultados = null;
+        _existencias = null;
+        _indicadores = null;
         await Cargar();
     }
 
     private async Task Cargar()
     {
-        if (_sucursalId == 0) _sucursalId = SucCtx.SucursalId;
+        // Verificar permisos: solo Admin/Conta pueden ver reportes financieros.
+        if (Sesion.Sesion?.Rol is not (Roles.Admin or Roles.Conta))
+        {
+            _errores = "No tienes permisos para ver los reportes financieros.";
+            return;
+        }
+
         _cargando = true;
+        _errores = null;
         try
         {
-            // Verificar permisos: solo Admin/Conta pueden ver reportes financieros
-            if (Sesion.Sesion?.Rol is not (Roles.Admin or Roles.Conta))
-            {
-                _errores = "No tienes permisos para ver los reportes financieros.";
-                return;
-            }
+            // Balanza (siempre necesaria para el primer tab).
+            _balanza ??= await ReportesSvc.BalanzaAsync(SucEfectiva, _desde, _hasta);
 
-            // Aquí se podrían hacer las llamadas al servicio si fuera necesario
-            // _balanza = await ReportesSvc.BalanzaAsync(_sucursalId, _desde, _hasta);
-            // _balance = await ReportesSvc.BalanceAsync(_sucursalId, _corte);
+            switch (_tab)
+            {
+                case "balance":
+                    _balance ??= await ReportesSvc.BalanceAsync(SucEfectiva, _corte);
+                    break;
+                case "resultados":
+                    _resultados ??= await ReportesSvc.ResultadosAsync(SucEfectiva, _desde, _hasta);
+                    break;
+                case "existencias":
+                    _existencias ??= await ReportesSvc.ExistenciasAsync(SucEfectiva, _desde, _hasta);
+                    break;
+                case "indicadores":
+                    // Con "Todas" (0) un Admin ve todas las sucursales; el resto la suya.
+                    _indicadores ??= await ReportesSvc.IndicadoresAsync(_desde, _hasta, _sucursalId == 0 ? null : _sucursalId);
+                    break;
+            }
         }
         catch (Exception ex)
         {
@@ -84,5 +116,12 @@ public partial class Reportes
         {
             _cargando = false;
         }
+    }
+
+    // Cambio de pestaña: garantiza que el reporte esté cargado (carga perezosa).
+    private async Task SeleccionarTab(string tab)
+    {
+        _tab = tab;
+        await Cargar();
     }
 }

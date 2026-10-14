@@ -1,7 +1,7 @@
-# Checklist de completitud del ERP — 12 de octubre de 2026
+# Checklist de completitud del ERP — 13 de octubre de 2026
 
 > Lista maestra de **cada función que falta o necesita modificación/mejora** para que OilsMexico ERP quede completo.
-> Cada ítem fue **verificado contra el código al 12/10/2026** (build `OilsMexico.slnx` 0 errores; Cotizaciones Capa A+B+C probadas 5/5 en PostgreSQL desechable).
+> Cada ítem fue **verificado contra el código** (build `OilsMexico.slnx` 0 errores; Cotizaciones Capa A+B+C probadas 5/5 en PostgreSQL desechable). Última actualización **13/10/2026**: servicio de reportes financieros §1.4 implementado (build 0 errores).
 > Leyenda: 🔴 alta prioridad · 🟡 media · 🟢 baja · `- [ ]` pendiente · `- [x]` hecho (sección 9, no re-trabajar).
 
 **Fuentes:** roadmap v11 (`Situación al 11 de octubre.md`), auditoría Gemini (`Gemini sugerencias sobre el estado y mejoras.md`), revisión hardcode/SOLID (`hardcode movible a tablas y mejoras SOLID.md`), auditoría SOLID de Cotizaciones (sesión 12/10) y verificación directa sobre el código hoy.
@@ -39,10 +39,23 @@ Hoy **no existe** la entidad `Gasto` (verificado en `Domain/Entities`).
 
 ### 1.4 Reportes financieros — roadmap #7
 
-- [ ] **Balance General**, **Estado de Resultados por sucursal**, **Balanza de Comprobación** sobre `CuentasContables` / `AsientoContable` existentes.
-- [ ] **Informe de cambio de existencias** (inicial + compras − ventas ± ajustes ± traspasos).
-- [ ] **Indicadores por sucursal y periodo** (margen, rotación, días de inventario) → extender `DashboardService`/`GestionService`.
-- [ ] `NavLink` en menú Gestión (junto a `ventas-gestion`).
+**Servicio + UI implementados al 13/10/2026** (`IReportesFinancierosService` + `ReportesFinancierosService` parcial `.cs`/`.Parte2.cs` + página `/reportes` con tabs, build 0 errores, registrado en `Program.cs`). Fuente: `CuentasContables` / `AsientoContable` / `DetalleAsiento` / `Facturas` / kardex (`Movimientos`) existentes. Todo respeta REGLA #1 vía `ResolverSucursalAutorizada`.
+
+- [x] **Balanza de Comprobación** por periodo y sucursal (débitos/créditos + saldo deudor/acreedor por cuenta).
+- [x] **Balance General** al corte (Activo = Pasivo + Patrimonio, con corte UTC correcto + indicador "cuadrado/descuadrado").
+- [x] **Estado de Resultados por sucursal y periodo** (ventas netas, costo de ventas por `Producto.PrecioCosto`, utilidad bruta, IVA trasladado, márgenes).
+- [x] **Informe de cambio de existencias** (inicial derivado + compras − ventas ± ajustes ± traspasos/devoluciones, por producto).
+- [x] **Indicadores por sucursal y periodo** (margen, rotación de inventario, días de inventario, ticket promedio, nº ventas, inventario promedio). Con "Todas" (null) un Admin ve todas las sucursales activas; el resto la suya (REGLA #1).
+- [x] **Página `/reportes` consumiendo el servicio** (carga perezosa por pestaña, `??=` para no recalcular): 5 pestañas (Balanza/Balance/Resultados/Existencias/Indicadores) con tablas Bootstrap + `NavLink` "Reportes Financieros" en menú Gestión; filtros sucursal/desde/hasta/corte y guard de rol `Admin`/`Conta`.
+
+**Pendiente (refinamiento):**
+- [ ] **Costo de ventas FIFO real** en Estado de Resultados (hoy usa `Producto.PrecioCosto` del catálogo, no el costo del lote salido) — depende de 1.3.
+- [ ] **Exportación Excel/PDF** de los 5 reportes (`IExportacionService.FinancieroPdfAsync` ya está declarada en la interfaz, falta implementación) — ver 2.1.
+- [ ] **Verificación con BD** de los 5 reportes (ver 7).
+
+### 1.4b (nuevo) Estado de Resultados vs. asientos contables
+
+- [ ] Unificar la fuente: el Estado de Resultados del servicio calcula desde `Facturas`/`Producto`, mientras el Balance usa `AsientoContable`. Con el cierre de período y asiento de costo de venta (1.3) ambos deberían cuadrar por cuenta.
 
 ---
 
@@ -170,6 +183,7 @@ Tomada de `Situación al 11 de octubre.md` §4 y validaciones CFDI:
 - [ ] Conciliación bancaria en UI (la prueba de integración dio 15/15; falta recorrido manual).
 - [ ] Cotizaciones/OV en UI real (expiración al abrir listado, Suspender/Reanudar con motivo) — la prueba dio 5/5, falta smoke manual.
 - [ ] Timbrado real Finkok (ver 6.3).
+- [ ] Reportes financieros §1.4 con BD: cuadre de Balanza (Σdébitos = Σcréditos), Balance cuadrado (Activo = Pasivo + Patrimonio), Estado de Resultados vs. utilidad esperada y cambio de existencias contra kardex real de una sucursal.
 
 ## 8. 🟡 Documentación
 
@@ -178,6 +192,7 @@ Tomada de `Situación al 11 de octubre.md` §4 y validaciones CFDI:
 
 ## 9. ✅ Recién completado — NO re-trabajar
 
+- [x] **Reportes financieros §1.4 (servicio + UI, 13/10/2026)**: `IReportesFinancierosService` + `ReportesFinancierosService` (parcial: balanza, balance, estado de resultados, cambio de existencias, indicadores) y **página `/reportes` con 5 pestañas que consumen el servicio** (carga perezosa `??=`), registrado en `Program.cs`. Build `OilsMexico.slnx` 0 errores. Corrige el esquema real del dominio (kardex `Tipo` string, `InventarioSucursal.StockActual`, `Producto` sin `SucursalId`); `IndicadoresAsync(null)` muestra todas las sucursales para Admin. `NavLink` en Gestión. **Pendiente solo refinamiento**: exportación Excel/PDF (2.1), costo FIFO real (1.3) y verificación con BD (7).
 - [x] Cotizaciones Capa A+B+C: pipeline cotización → OV → factura, expiración al cargar listado (`ExpirarCotizacionesAsync`), Suspender/Reanudar con guards estrictos y motivo en `Notas`.
 - [x] Fix FK: `OrdenVenta.CotizacionId` `int` → `int?` (manual = null) + `CotizacionesPatch` idempotente.
 - [x] REGLA #1 (guard de sucursal) en las 4 transiciones: `ConfirmarOrdenVentaAsync`, `SuspenderOrdenVentaAsync`, `ReanudarOrdenVentaAsync` (`Ordenes.cs`) y `CancelarOrdenVentaAsync` (`Convertir.cs`).
