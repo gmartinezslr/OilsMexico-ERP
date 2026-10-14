@@ -123,6 +123,7 @@
                                             @if (sel.TieneXml)
                                             {
                                                 <a class="btn btn-sm btn-success" href="/api/facturas/@sel.FacturaId/xml?t=@Sesion.Sesion?.SesionToken">⬇ Descargar XML</a>
+                                                <a class="btn btn-sm btn-outline-danger" href="/api/export/factura/@sel.FacturaId/pdf?t=@Sesion.Sesion?.SesionToken" target="_blank">⬇ PDF (QR)</a>
                                             }
                                             @if (sel.Estado == EstadoFactura.Pendiente)
                                             {

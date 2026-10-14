@@ -22,7 +22,8 @@ namespace OilsMexico.Infrastructure.Services;
 /// </summary>
 public sealed partial class EmailService(
     ErpDbContext db, IConfiguration cfg, ISucursalContext ctx,
-    IEstadoCuentasService estadoCuentas, IBusquedaGlobalService plantillas) : IEmailService
+    IEstadoCuentasService estadoCuentas, IBusquedaGlobalService plantillas,
+    IExportacionService exportacion) : IEmailService
 {
     // Claves de la tabla configuracion (mismo patrón que ConfiguracionService: constantes públicas).
     public const string ClaveHabilitado = "correo_habilitado";

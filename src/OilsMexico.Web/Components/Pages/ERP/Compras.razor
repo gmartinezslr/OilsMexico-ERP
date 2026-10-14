@@ -13,6 +13,7 @@
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h3 class="fw-bold mb-0">Compras <span class="badge bg-secondary">Suc @SucCtx.SucursalId</span></h3>
         <div class="d-flex gap-2">
+            <a class="btn btn-outline-success" href="/api/export/cxp/@SucCtx.SucursalId?t=@Sesion.Sesion?.SesionToken">⬇ CxP (Excel)</a>
             <button class="btn btn-outline-primary" @onclick="VerCxP">Cuentas por pagar (@cxp.Count)</button>
             <button class="btn btn-primary" @onclick="NuevaOrden">+ Nueva orden</button>
         </div>

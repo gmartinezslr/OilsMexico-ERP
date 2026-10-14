@@ -2,6 +2,7 @@ using System.Net;
 using System.Text;
 using Microsoft.EntityFrameworkCore;
 using OilsMexico.Application.DTOs;
+using OilsMexico.Application.Interfaces;
 using OilsMexico.Domain.Enums;
 
 namespace OilsMexico.Infrastructure.Services;
@@ -87,13 +88,28 @@ public sealed partial class EmailService
             }]))
             .Append("<p style=\"font-size:12px;color:#6c757d;\">El archivo .xml adjunto es su comprobante fiscal electrónico.</p>");
 
+        // Adjuntos: XML (comprobante fiscal) + PDF (representación impresa con QR SAT).
+        // El PDF se genera con IExportacionService; si falla su generación NO rompe el envío
+        // del XML (mismo criterio defensivo que el hook automático): se envía solo el XML.
+        var adjuntos = new List<EmailAdjuntoDto>
+        {
+            new($"{f.FolioInterno}.xml", Encoding.UTF8.GetBytes(f.XmlSellado), "application/xml")
+        };
+        try
+        {
+            var pdf = await exportacion.FacturaCfdiPdfAsync(facturaId, ct);
+            adjuntos.Add(new EmailAdjuntoDto(pdf.NombreArchivo, pdf.Contenido, pdf.MimeTipo));
+        }
+        catch { /* el PDF es un extra; si falla, igual se envía el XML */ }
+
         var mensaje = new EmailMensajeDto(destino,
             $"CFDI {f.FolioInterno} — {empresa}",
             PlantillaHtml($"CFDI {f.FolioInterno}", cuerpo.ToString()),
             f.Cliente?.Nombre,
-            [new EmailAdjuntoDto($"{f.FolioInterno}.xml", Encoding.UTF8.GetBytes(f.XmlSellado), "application/xml")]);
+            adjuntos);
         await EnviarAsync(mensaje, ct);
-        return new EnvioCorreoResult(true, $"CFDI {f.FolioInterno} enviado a {destino} (XML adjunto).");
+        var conPdf = adjuntos.Count > 1 ? " (XML + PDF adjuntos)" : " (XML adjunto)";
+        return new EnvioCorreoResult(true, $"CFDI {f.FolioInterno} enviado a {destino}{conPdf}.");
     }
 
     public async Task<EnvioCorreoResult?> EnviarCfdiAutomaticoAsync(int facturaId, CancellationToken ct = default)

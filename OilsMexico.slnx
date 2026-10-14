@@ -5,4 +5,7 @@
     <Project Path="src/OilsMexico.Infrastructure/OilsMexico.Infrastructure.csproj" />
     <Project Path="src/OilsMexico.Web/OilsMexico.Web.csproj" />
   </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/OilsMexico.IntegrationTests/OilsMexico.IntegrationTests.csproj" />
+  </Folder>
 </Solution>

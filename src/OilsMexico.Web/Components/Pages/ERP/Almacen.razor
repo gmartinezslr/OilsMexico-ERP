@@ -10,7 +10,10 @@
 <div class="container-fluid py-3">
 <div class="d-flex justify-content-between align-items-center mb-3">
 <h3 class="fw-bold mb-0">Almacen <span class="badge bg-secondary">Suc @SucCtx.SucursalId</span></h3>
+<div class="d-flex gap-2 align-items-center">
+<a class="btn btn-sm btn-outline-success" href="/api/export/inventario/@SucCtx.SucursalId?t=@Sesion.Sesion?.SesionToken">⬇ Inventario (Excel)</a>
 <span class="text-muted small">@(Sesion.Sesion?.Nombre ?? "") (@(Sesion.Sesion?.Rol ?? ""))</span>
+</div>
 </div>
 @if(!Sesion.Autenticado){<div class="alert alert-warning">Inicia sesion primero. <a href="/login">Ir al login</a></div>}
 @if(!string.IsNullOrEmpty(msg)){<div class="alert @(err?"alert-danger":"alert-success")">@msg</div>}
@@ -33,7 +36,9 @@
 </tr>}
 </tbody></table></div></div></div>
 @if(kardex.Count>0){
-<div class="card shadow-sm mt-3"><div class="card-header">Kardex (30 dias) <button class="btn btn-sm btn-link" @onclick="()=>kardex.Clear()">cerrar</button></div>
+<div class="card shadow-sm mt-3"><div class="card-header d-flex justify-content-between align-items-center">Kardex (30 dias)
+<div><a class="btn btn-sm btn-outline-success" href="/api/export/kardex/@SucCtx.SucursalId/@prodId?t=@Sesion.Sesion?.SesionToken">⬇ Excel</a>
+<button class="btn btn-sm btn-link" @onclick="()=>kardex.Clear()">cerrar</button></div></div>
 <div class="card-body table-responsive"><table class="table table-sm">
 <thead><tr><th>Fecha</th><th>Tipo</th><th class="text-end">Litros</th><th>Motivo</th><th>Usuario</th></tr></thead>
 <tbody>@foreach(var k in kardex){<tr><td><small>@k.Fecha.ToLocalTime().ToString("dd/MM HH:mm")</small></td>

@@ -74,10 +74,12 @@ Hoy **no existe** la entidad `Gasto` (verificado en `Domain/Entities`).
 - [x] **Endpoints de descarga** `/api/export/*` (Minimal API, con guard de token de sesión, igual que la descarga de XML).
 - [x] **Botones de exportación** en `/reportes` (barra Excel general + botón PDF por pestaña), con token `?t=` de sesión.
 
-**Pendiente (refinamiento):**
-- [ ] **Verificación con BD** (generar cada Excel/PDF y validar contenido) — ver 7.
-- [ ] **Adjuntar PDF del CFDI** al correo automático (hoy solo XML; falta conectar `FacturaCfdiPdfAsync` con `EmailService.Documentos.cs`).
-- [ ] Botones de exportación/PDF en las demás páginas (Facturación, Cotizaciones, Compras, Almacén) — hoy solo en `/reportes`; el endpoint existe, falta el `<a>` en cada vista.
+- [x] **Verificación con BD** — proyecto `tests/OilsMexico.IntegrationTests` (xUnit + EF InMemory): 10/10 pruebas passing validan que cada Excel empieza con "PK" y cada PDF con "%PDF", cubren los 4 financieros (§1.4), cotización/orden y REGLA #1. Detectó y corrigió un desborde de tabla en PDFs anchos (existencias).
+- [x] **Adjuntar PDF del CFDI al correo** — `EnviarCfdiAsync` ahora adjunta XML **+ PDF** (vía `IExportacionService.FacturaCfdiPdfAsync`, inyectado en `EmailService`); si falla el PDF se envía igual el XML (defensivo, no rompe el timbrado). Aplica también al envío automático al timbrar.
+- [x] **Botones de exportación/PDF en las demás páginas** — Facturación (PDF con QR), CotizacionDetalle (PDF), Compras (CxP Excel), Almacén (Inventario + Kardex Excel). Todos con token `?t=` de sesión.
+
+**Pendiente (refinamiento menor):**
+- [ ] Verificación manual con SMTP real (adjunto PDF llega correctamente) y con PostgreSQL productivo (los tests usan EF InMemory).
 
 ### 2.2 Envío automático de CFDI por correo ✅ HECHO (13/10/2026)
 

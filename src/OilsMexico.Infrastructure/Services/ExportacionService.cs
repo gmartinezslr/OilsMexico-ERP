@@ -371,18 +371,20 @@ public sealed partial class ExportacionService(
         col.Item().Text(titulo).Bold().FontSize(14);
         col.Item().PaddingTop(6).Table(t =>
         {
+            // Columnas relativas (proporcionales): se ajustan al ancho de página sin desbordarse,
+            // lo que evita DocumentLayoutException en tablas anchas (existencias = 8 columnas).
             t.ColumnsDefinition(c =>
             {
-                for (int i = 0; i < encabezados.Length; i++) c.ConstantColumn(encabezados[i].Length > 12 ? 110 : 70);
+                for (int i = 0; i < encabezados.Length; i++) c.RelativeColumn();
             });
             t.Header(h =>
             {
-                foreach (var e in encabezados) h.Cell().Background("#E9ECEF").Padding(3).Text(e).Bold().FontSize(9);
+                foreach (var e in encabezados) h.Cell().Background("#E9ECEF").Padding(3).Text(e).Bold().FontSize(8);
             });
             foreach (var f in filas)
             {
                 for (int i = 0; i < f.Length; i++)
-                    t.Cell().BorderBottom(0.5f).Padding(3).Text(f[i]).FontSize(9);
+                    t.Cell().BorderBottom(0.5f).Padding(3).Text(f[i]).FontSize(8);
             }
         });
     }
