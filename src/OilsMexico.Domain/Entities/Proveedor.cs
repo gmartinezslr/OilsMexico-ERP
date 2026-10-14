@@ -25,6 +25,8 @@ public sealed class Proveedor
     /// <summary>Dirección legacy de texto libre (compatibilidad).</summary>
     public string? Direccion { get; set; }
     public bool Activo { get; set; } = true;
+    /// <summary>Términos de pago habituales del proveedor.</summary>
+    public int DiasCredito { get; set; } = 30;
 
     public SituacionFiscal SituacionFiscal { get; set; } = SituacionFiscal.Actual; // Estado de Situación Fiscal declarado ante el SAT.
 }

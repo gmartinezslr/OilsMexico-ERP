@@ -14,6 +14,8 @@ public sealed class Compra
     /// <summary>Folio/factura del proveedor (para conciliar CxP).</summary>
     public string? FolioProveedor { get; set; }
     public DateTime FechaEmision { get; set; } = DateTime.UtcNow;
+    /// <summary>Vencimiento comprometido para liquidar esta factura de proveedor.</summary>
+    public DateTime? FechaVencimiento { get; set; }
     public decimal Subtotal { get; set; }
     public decimal Iva { get; set; }
     public decimal Total { get; set; }

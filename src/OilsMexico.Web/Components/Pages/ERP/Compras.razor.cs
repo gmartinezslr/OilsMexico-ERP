@@ -11,6 +11,7 @@ public partial class Compras : ComponentBase
     private EstadoCompra? estado;
     private string texto = "", msg = "";
     private string folioProv = "", notas = "", busq = "";
+    private DateTime? fechaVencimiento;
     private string motivoCancel = "", pagoForma = "03", pagoRef = "";
     private bool err, cargando, guardando, recibiendo, pagando, cancelando, creando, mostrarCxP;
     private List<CompraListadoDto> lista = [];
@@ -24,6 +25,10 @@ public partial class Compras : ComponentBase
     private decimal pagoMonto;
     private string correoDestinoProv = "";
     private bool enviandoCorreoProv;
+    private OilsMexico.Application.DTOs.AntiguedadSaldosCxpDto? antiguedadCxp;
+    private bool cargandoAntiguedadCxp;
+
+    [Inject] private OilsMexico.Application.Interfaces.IAvisos Avisos { get; set; } = default!;
 
     private readonly Dictionary<int, string> cantRec = new();
     private readonly Dictionary<int, string> loteRec = new();
@@ -83,6 +88,19 @@ public partial class Compras : ComponentBase
     private async Task AlEscribir(ChangeEventArgs e) { texto = e.Value?.ToString() ?? ""; await Cargar(); }
     private void VerCxP() => mostrarCxP = !mostrarCxP;
 
+    private async Task VerAntiguedadCxP()
+    {
+        cargandoAntiguedadCxp = true;
+        try
+        {
+            antiguedadCxp = await ComprasSvc.AntiguedadSaldosCxpAsync(SucCtx.SucursalId);
+            var critico = antiguedadCxp.TotalRango31_60 + antiguedadCxp.TotalRango60Mas;
+            if (critico > 0) Avisos.Agregar("Pagos CxP vencidos > 30 días", $"${critico:N2} pendientes con proveedores.", "aviso");
+        }
+        catch (Exception ex) { msg = "Error al calcular antigüedad CxP: " + ex.Message; err = true; }
+        finally { cargandoAntiguedadCxp = false; }
+    }
+
     private async Task Expandir(int id)
     {
         sel = lista.FirstOrDefault(c => c.CompraId == id);
@@ -101,7 +119,7 @@ public partial class Compras : ComponentBase
     {
         creando = true; sel = null; detalle = null;
         carrito = []; busq = ""; busqProds = [];
-        folioProv = ""; notas = ""; msg = "";
+        folioProv = ""; notas = ""; fechaVencimiento = null; msg = "";
     }
 
     private async Task BuscarProd(ChangeEventArgs e)
@@ -135,7 +153,7 @@ public partial class Compras : ComponentBase
         {
             var req = new CrearCompraRequest(SucCtx.SucursalId, provId, folioProv, notas,
                 carrito.Select(r => new CompraRenglonDto(
-                    r.ProductoId, r.UnidadId, r.UnidadNombre, r.Factor, r.Cantidad, r.Costo)).ToList());
+                    r.ProductoId, r.UnidadId, r.UnidadNombre, r.Factor, r.Cantidad, r.Costo)).ToList(), fechaVencimiento);
             var res = await ComprasSvc.CrearOrdenAsync(req);
             msg = $"Orden {res.FolioInterno} creada. Total ${res.Total:N2}."; err = false;
             creando = false;

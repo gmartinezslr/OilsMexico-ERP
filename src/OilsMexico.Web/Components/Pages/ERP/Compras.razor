@@ -14,10 +14,22 @@
         <h3 class="fw-bold mb-0">Compras <span class="badge bg-secondary">Suc @SucCtx.SucursalId</span></h3>
         <div class="d-flex gap-2">
             <a class="btn btn-outline-success" href="/api/export/cxp/@SucCtx.SucursalId?t=@Sesion.Sesion?.SesionToken">⬇ CxP (Excel)</a>
+            <button class="btn btn-outline-warning" @onclick="VerAntiguedadCxP">Antigüedad CxP</button>
             <button class="btn btn-outline-primary" @onclick="VerCxP">Cuentas por pagar (@cxp.Count)</button>
             <button class="btn btn-primary" @onclick="NuevaOrden">+ Nueva orden</button>
         </div>
+
     </div>
+    @if (cargandoAntiguedadCxp) { <div class="alert alert-info">Calculando antigüedad CxP…</div> }
+    else if (antiguedadCxp is not null)
+    {
+        <div class="card shadow-sm mb-3"><div class="card-header d-flex justify-content-between"><strong>Antigüedad CxP por proveedor</strong><span>Total saldo $@antiguedadCxp.TotalSaldo.ToString("N2") · interés $@antiguedadCxp.TotalInteres.ToString("N2")</span></div>
+            <div class="card-body table-responsive"><table class="table table-sm table-striped"><thead><tr><th>Proveedor</th><th class="text-end">0-15</th><th class="text-end">16-30</th><th class="text-end">31-60</th><th class="text-end">+60</th><th class="text-end">Interés</th></tr></thead><tbody>
+                @foreach (var p in antiguedadCxp.Proveedores) { <tr><td>@p.Proveedor</td><td class="text-end">$@p.Rango0_15.ToString("N2")</td><td class="text-end">$@p.Rango16_30.ToString("N2")</td><td class="text-end">$@p.Rango31_60.ToString("N2")</td><td class="text-end">$@p.Rango60Mas.ToString("N2")</td><td class="text-end">$@p.TotalInteres.ToString("N2")</td></tr> }
+            </tbody></table>
+                @foreach (var p in antiguedadCxp.Proveedores) { <details class="mb-2"><summary>@p.Proveedor · @p.Compras.Count documentos</summary><ul class="mb-0">@foreach (var c in p.Compras) { <li>@c.FolioInterno — vence @c.FechaVencimiento.ToLocalTime().ToString("dd/MM/yyyy"), @c.DiasVencida días, saldo $@c.Saldo.ToString("N2")</li> }</ul></details> }
+            </div></div>
+    }
     @if (!Sesion.Autenticado)
     {
         <div class="alert alert-warning">Inicia sesion primero. <a href="/login">Ir al login</a></div>
@@ -117,6 +129,8 @@
                             </select></div>
                         <div class="col-md-6"><label class="form-label small">Folio del proveedor</label>
                             <input class="form-control" @bind="folioProv" placeholder="Factura/remisión del proveedor" /></div>
+                        <div class="col-md-6"><label class="form-label small">Fecha compromiso de pago</label>
+                            <input type="date" class="form-control" @bind="fechaVencimiento" /></div>
                         <div class="col-12"><label class="form-label small">Notas</label>
                             <input class="form-control" @bind="notas" placeholder="Notas internas" /></div>
                     </div>

@@ -24,6 +24,7 @@ public sealed partial class ComprasService(ErpDbContext db, ISucursalContext ctx
             SucursalId = sucursalId,
             FolioInterno = $"C-{sucursalId}-{DateTime.UtcNow:yyyyMMddHHmmss}",
             ProveedorId = prov.Id,
+            FechaVencimiento = req.FechaVencimiento?.Date ?? DateTime.UtcNow.Date.AddDays(Math.Clamp(prov.DiasCredito, 0, 3650)),
             FolioProveedor = string.IsNullOrWhiteSpace(req.FolioProveedor) ? null : req.FolioProveedor.Trim(),
             Notas = req.Notas, Estado = EstadoCompra.Borrador, EstadoPago = EstadoPagoCompra.Pendiente,
             UsuarioId = ctx.UsuarioId

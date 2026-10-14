@@ -23,7 +23,8 @@ public sealed record CompraRenglonDto(
 
 public sealed record CrearCompraRequest(
     int SucursalId, int ProveedorId, string? FolioProveedor, string? Notas,
-    List<CompraRenglonDto> Renglones);
+    List<CompraRenglonDto> Renglones,
+    DateTime? FechaVencimiento = null);
 
 /// <summary>Resultado de una operación de compra. <c>Estado</c> es texto de UI (mensaje); el estado tipado vive en los DTOs de listado/detalle.</summary>
 public sealed record CompraResult(

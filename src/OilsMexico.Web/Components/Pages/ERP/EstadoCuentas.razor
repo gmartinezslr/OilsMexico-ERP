@@ -1,13 +1,19 @@
 @page "/estado-cuentas"
 @rendermode InteractiveServer
 @inject OilsMexico.Application.Interfaces.IBusquedaGlobalService PlantillasSvc
+@inject OilsMexico.Application.Interfaces.IEstadoCuentasService EstadoCuentasSvc
+@inject OilsMexico.Application.Interfaces.ISucursalContext SucCtx
+@inject OilsMexico.Application.Interfaces.ISesionActual Sesion
+@inject OilsMexico.Application.Interfaces.IAvisos Avisos
+@inject NavigationManager Nav
+@using OilsMexico.Application.DTOs
 @{
     var saldoInsoluto = _estados is null ? 0m : _estados.Sum(x => x.SaldoPendiente);
 }
 <PageTitle>Cuentas por Cobrar | OilsMexico ERP</PageTitle>
 <div class="container-fluid py-3">
     <div class="d-flex flex-wrap gap-2 align-items-center mb-3">
-        <h3 class="fw-bold mb-0">Cuentas por Cobrar <span class="badge bg-secondary">Saldo insoluto @saldoInsoluto:0.00</span>
+        <h3 class="fw-bold mb-0">Cuentas por Cobrar <span class="badge bg-secondary">Saldo insoluto @saldoInsoluto.ToString("0.00")</span>
             <OilsMexico.Web.Components.Shared.AyudaContextual Titulo="Cobranza en 3 pasos"
                 Texto="1) Revisa el saldo por cliente. 2) Elige al cliente con saldo y genera el mensaje de cobro abajo. 3) Copia el texto y envíalo por WhatsApp o correo. El pago se registra en Complementos de pago." />
         </h3>
@@ -17,58 +23,206 @@
     {
         <div class="alert @(_err ? "alert-danger" : "alert-success") py-2">@_msg</div>
     }
-    <div class="d-flex flex-wrap gap-2 align-items-end mb-3">
-        <div style="max-width:280px">
-            <label class="form-label small mb-1">Correo destino (vacio = cliente)</label>
-            <input class="form-control form-control-sm" @bind="_correoDestino" disabled="@_enviando" />
-        </div>
-        <button class="btn btn-sm btn-outline-primary" @onclick="EnviarRecordatorios" disabled="@_enviando">
-            @(_enviando ? "Enviando…" : "Enviar recordatorios de saldo")
-        </button>
-        <small class="text-muted">Envia desde el remitente de Configuración → Correo saliente.</small>
-    </div>
 
-    @if (_cargando)
+    <!-- Pestañas: Saldos / Antigüedad -->
+    <ul class="nav nav-tabs mb-3">
+        <li class="nav-item">
+            <button class="nav-link @(_tab == "saldos" ? "active" : "")" @onclick='() => _tab = "saldos"'>Saldos pendientes</button>
+        </li>
+        <li class="nav-item">
+            <button class="nav-link @(_tab == "antiguedad" ? "active" : "")" @onclick="VerAntiguedad">
+                Antigüedad de saldos
+                @if (_antiguedad is not null && _antiguedad.TotalRango60Mas > 0)
+                {
+                    <span class="badge bg-danger ms-1">+60d</span>
+                }
+            </button>
+        </li>
+    </ul>
+
+    @if (_tab == "saldos")
     {
-        <div class="alert alert-light">Cargando…</div>
-    }
-    else if (_estados is null || _estados.Count == 0)
-    {
-        <div class="alert alert-success">No hay saldos insolutos en esta sucursal.</div>
+        <div class="d-flex flex-wrap gap-2 align-items-end mb-3">
+            <div style="max-width:280px">
+                <label class="form-label small mb-1">Correo destino (vacío = cliente)</label>
+                <input class="form-control form-control-sm" @bind="_correoDestino" disabled="@_enviando" />
+            </div>
+            <button class="btn btn-sm btn-outline-primary" @onclick="EnviarRecordatorios" disabled="@_enviando">
+                @(_enviando ? "Enviando…" : "Enviar recordatorios de saldo")
+            </button>
+            <small class="text-muted">Envía desde el remitente de Configuración → Correo saliente.</small>
+        </div>
+
+        @if (_cargando)
+        {
+            <div class="alert alert-light">Cargando…</div>
+        }
+        else if (_estados is null || _estados.Count == 0)
+        {
+            <div class="alert alert-success">No hay saldos insolutos en esta sucursal.</div>
+        }
+        else
+        {
+            <div class="card shadow-sm"><div class="card-body p-0">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-dark"><tr><th>Cliente</th><th>RFC</th><th>Total abiertas</th><th class="text-end">Pagos aplicados</th><th class="text-end">Saldo pendiente</th><th></th></tr></thead>
+                    <tbody>
+                    @foreach (var e in _estados!)
+                    {
+                        var cls = e.SaldoPendiente > 0m ? "table-danger" : "table-success";
+                        <tr class="@cls">
+                            <td>@e.Nombre</td>
+                            <td>@e.RFC</td>
+                            <td class="text-end">@e.TotalFacturasAbiertas.ToString("0.00")</td>
+                            <td class="text-end">@e.TotalPagosAplicados.ToString("0.00")</td>
+                            <td class="text-end fw-bold">@e.SaldoPendiente.ToString("0.00")</td>
+                            <td class="text-end">
+                                @if (e.SaldoPendiente > 0m)
+                                {
+                                    <button class="btn btn-sm btn-outline-primary" @onclick="() => EnviarEstadoCuenta(e.ClienteId)" disabled="@_enviando">Enviar</button>
+                                }
+                            </td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div></div>
+        }
+        @if (_estados is not null && _estados.Count > 0)
+        {
+            <div class="mt-3">
+                <OilsMexico.Web.Components.Shared.PlantillasMensaje Clientes="_clientesPlantilla"
+                    FolioInicial="" NombreInicial="@(_clienteSel ?? "")" TotalInicial="_saldoSel" />
+            </div>
+        }
     }
     else
     {
-        <div class="card shadow-sm"><div class="card-body p-0">
-            <table class="table table-hover align-middle mb-0">
-                <thead class="table-dark"><tr><th>Cliente</th><th>RFC</th><th>Facturas abiertas</th><th class="text-end">Total abiertas</th><th class="text-end">Pagos aplicados</th><th class="text-end">Saldo pendiente</th><th></th></tr></thead>
-                <tbody>
-                @foreach (var e in _estados!)
-                {
-                    var cls = e.SaldoPendiente > 0m ? "table-danger" : "table-success";
-                    <tr class="@cls">
-                        <td>@e.Nombre</td>
-                        <td>@e.RFC</td>
-                        <td>—</td>
-                        <td class="text-end">@e.TotalFacturasAbiertas.ToString("0.00")</td>
-                        <td class="text-end">@e.TotalPagosAplicados.ToString("0.00")</td>
-                        <td class="text-end fw-bold">@e.SaldoPendiente.ToString("0.00")</td>
-                        <td class="text-end">
-                            @if (e.SaldoPendiente > 0m)
+        <!-- Antigüedad de saldos CxC -->
+        @if (_cargandoAntiguedad)
+        {
+            <div class="alert alert-light">Calculando antigüedad…</div>
+        }
+        else if (_antiguedad is null)
+        {
+            <div class="alert alert-info">Haz clic en "Antigüedad de saldos" para cargar.</div>
+        }
+        else if (_antiguedad.Clientes.Count == 0)
+        {
+            <div class="alert alert-success">Sin saldos vencidos en esta sucursal.</div>
+        }
+        else
+        {
+            <!-- Resumen por rangos -->
+            <div class="row g-3 mb-4">
+                <div class="col-md-3">
+                    <div class="card border-success">
+                        <div class="card-body text-center">
+                            <div class="small text-muted">0 – 15 días</div>
+                            <div class="fw-bold fs-5 text-success">$@_antiguedad.TotalRango0_15.ToString("N2")</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card border-warning">
+                        <div class="card-body text-center">
+                            <div class="small text-muted">16 – 30 días</div>
+                            <div class="fw-bold fs-5 text-warning">$@_antiguedad.TotalRango16_30.ToString("N2")</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card border-danger">
+                        <div class="card-body text-center">
+                            <div class="small text-muted">31 – 60 días</div>
+                            <div class="fw-bold fs-5 text-danger">$@_antiguedad.TotalRango31_60.ToString("N2")</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-danger text-white">
+                        <div class="card-body text-center">
+                            <div class="small">+ 60 días</div>
+                            <div class="fw-bold fs-5">$@_antiguedad.TotalRango60Mas.ToString("N2")</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            @if (_antiguedad.TotalInteres > 0)
+            {
+                <div class="alert alert-warning py-2 mb-3">
+                    <strong>Intereses moratorios totales:</strong> $@_antiguedad.TotalInteres.ToString("N2")
+                    <small class="ms-2 text-muted">(tasa configurable en Configuración → <em>cxc_tasa_moratoria_diaria</em>)</small>
+                </div>
+            }
+            <!-- Tabla detallada por cliente -->
+            <div class="card shadow-sm"><div class="card-body p-0">
+                <table class="table table-sm align-middle mb-0">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>Cliente</th>
+                            <th class="text-end">0-15d</th>
+                            <th class="text-end">16-30d</th>
+                            <th class="text-end">31-60d</th>
+                            <th class="text-end">+60d</th>
+                            <th class="text-end">Total</th>
+                            <th class="text-end">Interés</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var cl in _antiguedad.Clientes)
+                    {
+                        var rowCls = cl.Rango60Mas > 0 ? "table-danger" : cl.Rango31_60 > 0 ? "table-warning" : "";
+                        <tr class="@rowCls">
+                            <td>
+                                <strong>@cl.Nombre</strong><br />
+                                <small class="text-muted">@cl.RFC</small>
+                            </td>
+                            <td class="text-end">@(cl.Rango0_15 > 0 ? "$" + cl.Rango0_15.ToString("N2") : "—")</td>
+                            <td class="text-end">@(cl.Rango16_30 > 0 ? "$" + cl.Rango16_30.ToString("N2") : "—")</td>
+                            <td class="text-end text-warning fw-bold">@(cl.Rango31_60 > 0 ? "$" + cl.Rango31_60.ToString("N2") : "—")</td>
+                            <td class="text-end text-danger fw-bold">@(cl.Rango60Mas > 0 ? "$" + cl.Rango60Mas.ToString("N2") : "—")</td>
+                            <td class="text-end fw-bold">$@cl.TotalSaldo.ToString("N2")</td>
+                            <td class="text-end text-danger">@(cl.TotalInteres > 0 ? "$" + cl.TotalInteres.ToString("N2") : "—")</td>
+                            <td>
+                                <button class="btn btn-sm btn-outline-secondary" @onclick="() => ToggleDetalle(cl.ClienteId)">
+                                    @(_detalleAbierto == cl.ClienteId ? "▲" : "▼")
+                                </button>
+                            </td>
+                        </tr>
+                        @if (_detalleAbierto == cl.ClienteId)
+                        {
+                            foreach (var f in cl.Facturas)
                             {
-                                <button class="btn btn-sm btn-outline-primary" @onclick="() => EnviarEstadoCuenta(e.ClienteId)" disabled="@_enviando">Enviar</button>
+                                <tr class="table-light">
+                                    <td class="ps-4"><small>@f.FolioInterno</small></td>
+                                    <td class="text-center" colspan="4"><small>Vto: @f.FechaVencimiento.ToLocalTime().ToString("dd/MM/yyyy") · @f.DiasVencida días</small></td>
+                                    <td class="text-end"><small>$@f.SaldoPendiente.ToString("N2")</small></td>
+                                    <td class="text-end text-danger"><small>@(f.InteresCalculado > 0 ? "$" + f.InteresCalculado.ToString("N2") : "—")</small></td>
+                                    <td></td>
+                                </tr>
                             }
-                        </td>
-                    </tr>
-                }
-                </tbody>
-            </table>
-        </div></div>
-    }
-    @if (_estados is not null && _estados.Count > 0)
-    {
-        <div class="mt-3">
-            <OilsMexico.Web.Components.Shared.PlantillasMensaje Clientes="_clientesPlantilla"
-                FolioInicial="" NombreInicial="@(_clienteSel ?? "")" TotalInicial="_saldoSel" />
-        </div>
+                        }
+                    }
+                    </tbody>
+                    <tfoot class="table-dark">
+                        <tr>
+                            <td><strong>TOTALES</strong></td>
+                            <td class="text-end fw-bold">$@_antiguedad.TotalRango0_15.ToString("N2")</td>
+                            <td class="text-end fw-bold">$@_antiguedad.TotalRango16_30.ToString("N2")</td>
+                            <td class="text-end fw-bold">$@_antiguedad.TotalRango31_60.ToString("N2")</td>
+                            <td class="text-end fw-bold">$@_antiguedad.TotalRango60Mas.ToString("N2")</td>
+                            <td class="text-end fw-bold">$@_antiguedad.TotalSaldo.ToString("N2")</td>
+                            <td class="text-end text-danger fw-bold">@(_antiguedad.TotalInteres > 0 ? "$" + _antiguedad.TotalInteres.ToString("N2") : "—")</td>
+                            <td></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div></div>
+        }
     }
 </div>
+@code {
+    // Las inyecciones se declararon arriba con @inject.
+}

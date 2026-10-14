@@ -112,6 +112,15 @@ public interface IComprasService
     Task<List<CompraListadoDto>> ListarAsync(int sucursalId, EstadoCompra? estado, string? texto, CancellationToken ct = default);
     Task<CompraDetalleDto?> DetalleAsync(int compraId, CancellationToken ct = default);
     Task<List<CuentasPorPagarDto>> CuentasPorPagarAsync(int sucursalId, string? texto, CancellationToken ct = default);
+
+    /// <summary>
+    /// Antigüedad de saldos CxP: compras pendientes de pago agrupadas en rangos
+    /// 0-15 / 16-30 / 31-60 / +60 días por proveedor.
+    /// La fecha de vencimiento = FechaEmision + DiasCredito del proveedor (default 30 días si no aplica).
+    /// Los intereses moratorios usan la tasa diaria configurada en <c>cxp_tasa_moratoria_diaria</c>.
+    /// Default 0 = sin intereses. REGLA #1: sucursal resuelta con ResolverSucursalAutorizada.
+    /// </summary>
+    Task<AntiguedadSaldosCxpDto> AntiguedadSaldosCxpAsync(int sucursalId, CancellationToken ct = default);
 }
 
 /// <summary>
@@ -235,6 +244,15 @@ public interface IEstadoCuentasService
 {
     Task<List<EstadoCuentaClienteDto>> ListarEstadosCuentasAsync(int sucursalId, CancellationToken ct = default);
     Task<ClienteEstadoCuentaDto?> ObtenerEstadoCuentaAsync(int clienteId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Antigüedad de saldos CxC: facturas vencidas agrupadas en rangos 0-15 / 16-30 / 31-60 / +60 días.
+    /// La fecha de vencimiento se calcula como FechaEmision + DiasCredito del cliente (o 0 si es contado).
+    /// Los intereses moratorios usan la tasa diaria configurada en <c>cxc_tasa_moratoria_diaria</c>
+    /// (patrón igual que <c>password_policy_*</c>). Default 0 = sin intereses.
+    /// REGLA #1: sucursal resuelta con ResolverSucursalAutorizada.
+    /// </summary>
+    Task<AntiguedadSaldosCxcDto> AntiguedadSaldosAsync(int sucursalId, CancellationToken ct = default);
 }
 
 /// <summary>Reportes de gestión (dashboard, margen/utilidad, rotación ABC, cortes por sucursal).</summary>

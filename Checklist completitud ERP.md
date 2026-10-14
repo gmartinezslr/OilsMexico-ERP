@@ -1,7 +1,7 @@
 # Checklist de completitud del ERP — 13 de octubre de 2026
 
 > Lista maestra de **cada función que falta o necesita modificación/mejora** para que OilsMexico ERP quede completo.
-> Cada ítem fue **verificado contra el código** (build `OilsMexico.slnx` 0 errores; Cotizaciones Capa A+B+C probadas 5/5 en PostgreSQL desechable). Última actualización **13/10/2026**: servicio de reportes financieros §1.4 implementado (build 0 errores).
+> Cada ítem fue **verificado contra el código** (build `OilsMexico.slnx` 0 errores; Cotizaciones Capa A+B+C probadas 5/5 en PostgreSQL desechable). Última actualización **13/10/2026** (rev. 3): §1.2 implementado y compilado; quedan pendientes pruebas integrales de BD/SMTP y bloqueo de crédito (depende de completar UI/política de crédito en §4.1).
 > Leyenda: 🔴 alta prioridad · 🟡 media · 🟢 baja · `- [ ]` pendiente · `- [x]` hecho (sección 9, no re-trabajar).
 
 **Fuentes:** roadmap v11 (`Situación al 11 de octubre.md`), auditoría Gemini (`Gemini sugerencias sobre el estado y mejoras.md`), revisión hardcode/SOLID (`hardcode movible a tablas y mejoras SOLID.md`), auditoría SOLID de Cotizaciones (sesión 12/10) y verificación directa sobre el código hoy.
@@ -12,24 +12,25 @@
 
 ## 1. 🔴 Funcionalidades nuevas — bloqueantes
 
-### 1.1 Gastos operativos (`/gastos`) — roadmap #2
+### 1.1 Gastos operativos (`/gastos`) — roadmap #2 ✅ HECHO (13/10/2026)
 
-Hoy **no existe** la entidad `Gasto` (verificado en `Domain/Entities`).
+**Verificado contra código — todos los ítems ya estaban implementados (build 0 errores).**
 
-- [ ] **Entidad `Gasto`** en `src/OilsMexico.Domain/Entities/` (fecha, categoría, importe, forma de pago SAT, sucursal, usuario, comprobante, `CorteCajaId?`, notas) + `GastoConfig` (snake_case) + tabla `gastos` en patch (CHECK de categorías vía `Enum.GetNames`).
-- [ ] **`IGastoService` + `GastoService`**: `CrearAsync`, `EditarAsync`, `EliminarAsync` (con guard de sucursal REGLA #1, patrón de las transiciones de OV), `ListarAsync(fechas, categoría)`, `TotalesPorCategoriaAsync`.
-- [ ] **Página `/gastos`** (`.razor` + `.razor.cs`) + `NavLink` en `NavMenu.razor` (grupo Gestión) + mapeo en `ActualizarGrupoPorUrl`.
-- [ ] **Vinculación con `CorteCajaService.Cierre.cs`**: los gastos en efectivo entran al cuadre como egresos (hoy solo entran ventas/cobros).
-- [ ] **Asiento contable automático** en `AsientoGeneradorService` (gasto vs. banco/efectivo) apoyándose en `ReglasAsiento`.
-- [ ] Reporte de gastos por período / sucursal / categoría.
+- [x] **Entidad `Gasto`** en `Domain/Entities/Gasto.cs` (fecha, categoría, importe, forma de pago SAT, sucursal, usuario, comprobante, `CorteCajaId?`, notas) + `GastoConfig` (snake_case, tabla `gastos`, índices por sucursal/fecha y categoría) + `GastosPatch` idempotente con CREATE TABLE, FK a `cortes_caja` ON DELETE SET NULL, CHECK de categorías derivado de `Enum.GetNames<CategoriaGasto>()` y CHECK importe > 0.
+- [x] **`IGastoService` + `GastoService`**: `CrearAsync`, `EditarAsync`, `EliminarAsync` (guard REGLA #1 via `ResolverSucursalAutorizada` + guard de sucursal en edición/borrado), `ListarAsync(fechas, categoría)`, `TotalesPorCategoriaAsync`. Registrado en `Program.cs` (`AddScoped<IGastoService, GastoService>()`).
+- [x] **Página `/gastos`** (`Gastos.razor` + `Gastos.razor.cs`): listado con filtros fecha/categoría, formulario alta/edición en línea, tabla de totales por categoría, guard de rol (Admin/Conta/Vendedor), carga perezosa. `NavLink` en `NavMenu.razor` grupo Gestión + mapeo `ActualizarGrupoPorUrl`.
+- [x] **Vinculación con `CorteCajaService.Cierre.cs`**: `GastosEfectivoTurnoAsync` descuenta del cuadre los gastos en efectivo (forma `01`) del turno abierto; la `Diferencia` del corte ya refleja los egresos de caja.
+- [x] **Asiento contable automático** (`GastoService.Poliza.cs`): `RegistrarPolizaAsync` genera póliza con `ReglasAsiento` evento `"Gasto"` vía `ICuentasContablesService.RegistrarAsientoAsync`; fallback a cuentas 6000↔1000/1100 si no hay reglas sembradas. `IAsientoGeneradorService.GenerarAsientosDeGastoAsync` también disponible.
+- [x] **Reporte de gastos por período / sucursal / categoría** — en la página `/gastos` (tabla inferior) y endpoint de exportación Excel `/api/export/gastos/{sucursalId}` (vía `IExportacionService.GastosAsync`, ClosedXML).
 
-### 1.2 CxC y CxP con vencimientos — roadmap #3
+### 1.2 CxC y CxP con vencimientos — roadmap #3 ✅ IMPLEMENTADO (13/10/2026)
 
-- [ ] **Antigüedad de saldos** en `EstadoCuentasService` (CxC) y `ComprasService.Cxp.cs` (CxP): rangos 0-15 / 16-30 / 31-60 / +60 días por cliente y proveedor.
-- [ ] **Intereses moratorios**: tasa configurable en tabla `configuracion` (patrón `password_policy_*`) + cálculo por día de atraso.
-- [ ] **Calendario de cobros/pagos**: fecha comprometida por factura/orden de compra + recordatorios.
-- [ ] **UI**: reporte en `EstadoCuentas.razor` y `Compras.razor` con saldos vencidos + aviso en `AvisosService` (campana).
-- [ ] **Bloqueo por morosidad** en POS/Facturación (depende de 4.1 `LimiteCredito`).
+- [x] **Antigüedad de saldos**: CxC en `EstadoCuentasService.Antiguedad.cs` y CxP en `ComprasService.Antiguedad.cs`, rangos 0-15 / 16-30 / 31-60 / +60 días por cliente/proveedor, saldos parciales netos de pagos y sucursal autorizada. CxC respeta PUE como contado y usa `Cliente.DiasCredito`; CxP usa la fecha específica de compra.
+- [x] **Intereses moratorios configurables**: claves `cxc_tasa_moratoria_diaria` y `cxp_tasa_moratoria_diaria`, persistidas en `configuracion`, ambas editables por Admin en Configuración y cálculo simple por días de atraso. Tasa inicial 0 (desactivada).
+- [x] **Fechas compromiso**: CxP guarda `Compra.FechaVencimiento`, capturable al crear orden; si no se indica aplica `Proveedor.DiasCredito` (default 30). `SchemaPatch` agrega columnas de forma idempotente y backfillea compras existentes. El cliente tiene `DiasCredito` (default 0); la fecha CxC se deriva de emisión + plazo del cliente.
+- [x] **UI y avisos**: reporte detallado en `EstadoCuentas.razor` y antigüedad CxP en `Compras.razor`; al consultar, la campana `AvisosService` muestra total en mora mayor a 30 días.
+- [ ] **Bloqueo por morosidad** en POS/Facturación cuando el saldo vencido supere el límite — depende de configurar y administrar `Cliente.LimiteCredito` desde UI en §4.1.
+- [ ] **Verificación con BD**: build verificado; pendiente prueba integral de CxC/CxP con PostgreSQL para backfill de esquema, vencimientos, pagos parciales y cálculo de tasas.
 
 ### 1.3 Costo de ventas FIFO + cierre de período — roadmap #4
 
@@ -201,6 +202,7 @@ Tomada de `Situación al 11 de octubre.md` §4 y validaciones CFDI:
 
 ## 9. ✅ Recién completado — NO re-trabajar
 
+- [x] **Gastos operativos §1.1 (13/10/2026 rev.2)**: verificación completa contra el código confirma que todos los ítems ya estaban implementados. `Gasto` entity + `GastoConfig` (EF, snake_case) + `GastosPatch` (CREATE TABLE, FK, CHECK categorías/importe) + `IGastoService`/`GastoService` (Crear/Editar/Eliminar/Listar/TotalesPorCategoria, REGLA #1) + póliza automática (`GastoService.Poliza.cs`, evento "Gasto" en `ReglasAsiento`, fallback 6000↔1000) + vinculación `CorteCajaService.Cierre.cs` (`GastosEfectivoTurnoAsync`) + página `/gastos` (Blazor, guard de rol, listado+formulario+reporte) + `NavLink` en Gestión + endpoint `/api/export/gastos/{sucursalId}` Excel. `IGastoService` registrado en `Program.cs`. Build `OilsMexico.slnx` 0 errores.
 - [x] **Exportación Excel/PDF §2.1 (13/10/2026)**: `IExportacionService` + `ExportacionService` (9 Excel ClosedXML + 4 PDF QuestPDF), endpoints `/api/export/*` (Minimal API con guard de token) y botones de descarga en `/reportes`. Licencia QuestPDF Community en `Program.cs`. Build 0 errores. **Pendiente solo refinamiento**: verificación con BD (7), adjuntar PDF del CFDI al correo y botones en las demás páginas.
 - [x] **Reportes financieros §1.4 (servicio + UI, 13/10/2026)**: `IReportesFinancierosService` + `ReportesFinancierosService` (parcial: balanza, balance, estado de resultados, cambio de existencias, indicadores) y **página `/reportes` con 5 pestañas que consumen el servicio** (carga perezosa `??=`), registrado en `Program.cs`. Build `OilsMexico.slnx` 0 errores. Corrige el esquema real del dominio (kardex `Tipo` string, `InventarioSucursal.StockActual`, `Producto` sin `SucursalId`); `IndicadoresAsync(null)` muestra todas las sucursales para Admin. `NavLink` en Gestión. **Pendiente solo refinamiento**: exportación Excel/PDF (2.1 ✅ hecho), costo FIFO real (1.3) y verificación con BD (7).
 - [x] Cotizaciones Capa A+B+C: pipeline cotización → OV → factura, expiración al cargar listado (`ExpirarCotizacionesAsync`), Suspender/Reanudar con guards estrictos y motivo en `Notas`.

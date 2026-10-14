@@ -38,6 +38,8 @@ public static class SeedData
             // Umbrales de rotación ABC (fracciones del ingreso acumulado; editar desde Configuración).
             (ConfiguracionService.ClaveAbcUmbralA, "0.30"),
             (ConfiguracionService.ClaveAbcUmbralB, "0.70"),
+            (EstadoCuentasService.ClaveTasaMoratoriaCxc, "0"),
+            (ComprasService.ClaveTasaMoratoriaCxp, "0"),
             // Correo saliente SMTP (remitente y servidor configurables en Configuración;
             // el respaldo por defecto vive en appsettings sección "Correo").
             (EmailService.ClaveHabilitado, "0"),

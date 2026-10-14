@@ -21,6 +21,9 @@ public sealed class Cliente
     public string? Ciudad { get; set; }
     public string Pais { get; set; } = "México";
     public bool Activo { get; set; } = true;
+    /// <summary>Días de crédito acordados; cero significa contado.</summary>
+    public int DiasCredito { get; set; }
+    public decimal LimiteCredito { get; set; }
     public string TipoPrecio { get; set; } = "menudeo"; // menudeo | mayoreo
     public string RegimenFiscal { get; set; } = "616";  // Sin obligaciones fiscales (default público general)
     public string CodigoPostal { get; set; } = "06600";

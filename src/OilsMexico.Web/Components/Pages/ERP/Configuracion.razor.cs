@@ -19,6 +19,8 @@ public partial class Configuracion : ComponentBase
     // Política de bloqueo por intentos de login (antes hardcodeada en AuthService).
     private int bloqIntentos = 3, bloqMinutos = 30, bloqDefinitivo = 2;
     private bool guardandoBloqueo;
+    private decimal tasaCxc, tasaCxp;
+    private bool guardandoMora;
 
     [Inject] private IConfiguracionService Config { get; set; } = default!;
     [Inject] private IAuthService Auth { get; set; } = default!;
@@ -32,6 +34,7 @@ public partial class Configuracion : ComponentBase
             minutos = await Config.ObtenerMinutosTimeoutAsync();
             await CargarPwd();
             await CargarBloqueo();
+            await CargarMora();
         }
     }
 
@@ -44,6 +47,7 @@ public partial class Configuracion : ComponentBase
         minutos = await Config.ObtenerMinutosTimeoutAsync();
         await CargarPwd();
         await CargarBloqueo();
+        await CargarMora();
         StateHasChanged();
     }
 
@@ -61,6 +65,25 @@ public partial class Configuracion : ComponentBase
         bloqIntentos = p.MaxIntentos;
         bloqMinutos = p.MinutosBloqueo;
         bloqDefinitivo = p.BloqueosParaDefinitivo;
+    }
+
+    private async Task CargarMora()
+    {
+        tasaCxc = await Config.ObtenerDecimalAsync(OilsMexico.Infrastructure.Services.EstadoCuentasService.ClaveTasaMoratoriaCxc, 0m, 0m, 1m);
+        tasaCxp = await Config.ObtenerDecimalAsync(OilsMexico.Infrastructure.Services.ComprasService.ClaveTasaMoratoriaCxp, 0m, 0m, 1m);
+    }
+
+    private async Task GuardarMora()
+    {
+        if (!esAdmin) return;
+        guardandoMora = true;
+        tasaCxc = Math.Clamp(tasaCxc, 0m, 1m);
+        tasaCxp = Math.Clamp(tasaCxp, 0m, 1m);
+        await Config.GuardarAsync(OilsMexico.Infrastructure.Services.EstadoCuentasService.ClaveTasaMoratoriaCxc, tasaCxc.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        await Config.GuardarAsync(OilsMexico.Infrastructure.Services.ComprasService.ClaveTasaMoratoriaCxp, tasaCxp.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        guardandoMora = false;
+        msg = "Tasas moratorias guardadas como proporción diaria (0.0005 = 0.05% diario).";
+        err = false;
     }
 
     private async Task Guardar()

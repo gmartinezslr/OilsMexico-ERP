@@ -15,6 +15,7 @@ public sealed class CompraConfig : IEntityTypeConfiguration<Compra>
         e.Property(x => x.ProveedorId).HasColumnName("proveedor_id");
         e.Property(x => x.FolioProveedor).HasColumnName("folio_proveedor").HasMaxLength(50);
         e.Property(x => x.FechaEmision).HasColumnName("fecha_emision");
+        e.Property(x => x.FechaVencimiento).HasColumnName("fecha_vencimiento");
         e.Property(x => x.Subtotal).HasColumnName("subtotal").HasPrecision(12, 2);
         e.Property(x => x.Iva).HasColumnName("iva").HasPrecision(12, 2);
         e.Property(x => x.Total).HasColumnName("total").HasPrecision(12, 2);

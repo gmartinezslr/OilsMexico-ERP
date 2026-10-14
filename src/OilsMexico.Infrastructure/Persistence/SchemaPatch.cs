@@ -182,6 +182,8 @@ public static class SchemaPatch
         // Columnas nuevas de dirección en clientes (si la BD es anterior a SEPOMEX).
         await db.Database.ExecuteSqlRawAsync("""
             ALTER TABLE clientes ADD COLUMN IF NOT EXISTS codigo_postal varchar(10);
+            ALTER TABLE clientes ADD COLUMN IF NOT EXISTS dias_credito integer NOT NULL DEFAULT 0;
+            ALTER TABLE clientes ADD COLUMN IF NOT EXISTS limite_credito numeric(12,2) NOT NULL DEFAULT 0;
             ALTER TABLE clientes ADD COLUMN IF NOT EXISTS calle varchar(150);
             ALTER TABLE clientes ADD COLUMN IF NOT EXISTS numero_exterior varchar(20);
             ALTER TABLE clientes ADD COLUMN IF NOT EXISTS numero_interior varchar(20);
@@ -192,6 +194,15 @@ public static class SchemaPatch
             ALTER TABLE clientes ADD COLUMN IF NOT EXISTS pais varchar(60) DEFAULT 'México';
             ALTER TABLE clientes ADD COLUMN IF NOT EXISTS activo boolean DEFAULT true;
             CREATE INDEX IF NOT EXISTS ix_clientes_cp ON clientes (codigo_postal);
+            """);
+
+        await db.Database.ExecuteSqlRawAsync("""
+            ALTER TABLE proveedores ADD COLUMN IF NOT EXISTS dias_credito integer NOT NULL DEFAULT 30;
+            ALTER TABLE compras ADD COLUMN IF NOT EXISTS fecha_vencimiento timestamptz;
+            """);
+        await db.Database.ExecuteSqlRawAsync("""
+            UPDATE compras c SET fecha_vencimiento = c.fecha_emision + make_interval(days => COALESCE(p.dias_credito, 30))
+              FROM proveedores p WHERE p.id = c.proveedor_id AND c.fecha_vencimiento IS NULL;
             """);
 
         // Contabilidad básica: catálogo de cuentas, pólizas y detalles (tablas nuevas).
@@ -366,6 +377,19 @@ public static class SchemaPatch
             ('abc_umbral_b', '0.70')
             ON CONFLICT (clave) DO NOTHING;
             """);
+
+        // -----------------------------------------------------------------------
+        // §1.2 Tasas moratorias diarias CxC y CxP. Default 0 = sin intereses.
+        // Ejemplo: 0.0005 = 0.05% diario ≈ 18% anual.
+        // El administrador puede editarlas vía Configuración sin tocar código.
+        // -----------------------------------------------------------------------
+        await db.Database.ExecuteSqlRawAsync("""
+            INSERT INTO configuracion (clave, valor) VALUES
+            ('cxc_tasa_moratoria_diaria', '0'),
+            ('cxp_tasa_moratoria_diaria', '0')
+            ON CONFLICT (clave) DO NOTHING;
+            """);
+
         // -----------------------------------------------------------------------
         // RBAC (PUNTO 4) + catálogos posteriores.
         // En una BD creada desde cero, EnsureCreatedAsync ya construye estas

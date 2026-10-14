@@ -82,6 +82,8 @@ public sealed class ClienteConfig : IEntityTypeConfiguration<Cliente>
         e.Property(x => x.Ciudad).HasColumnName("ciudad").HasMaxLength(150);
         e.Property(x => x.Pais).HasColumnName("pais").HasMaxLength(60).HasDefaultValue("México");
         e.Property(x => x.Activo).HasColumnName("activo").HasDefaultValue(true);
+        e.Property(x => x.DiasCredito).HasColumnName("dias_credito").HasDefaultValue(0);
+        e.Property(x => x.LimiteCredito).HasColumnName("limite_credito").HasPrecision(12, 2).HasDefaultValue(0m);
         // Situación fiscal declarada ante el SAT (valor por defecto: Actual = 1).
         e.Property(x => x.SituacionFiscal).HasColumnName("situacion_fiscal")
             .HasDefaultValue(OilsMexico.Domain.Enums.SituacionFiscal.Actual);

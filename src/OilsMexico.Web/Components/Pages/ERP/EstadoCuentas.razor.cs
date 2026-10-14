@@ -7,19 +7,18 @@ namespace OilsMexico.Web.Components.Pages.ERP;
 
 public partial class EstadoCuentas
 {
-    [Inject] private IEstadoCuentasService EstadoCuentasSvc { get; set; } = default!;
-    [Inject] private ISucursalContext SucCtx { get; set; } = default!;
-    [Inject] private ISesionActual Sesion { get; set; } = default!;
-    [Inject] private NavigationManager Nav { get; set; } = default!;
     [Inject] private IEmailService CorreoSvc { get; set; } = default!;
 
     private List<EstadoCuentaClienteDto>? _estados;
-    private bool _cargando, _enviando;
+    private AntiguedadSaldosCxcDto? _antiguedad;
+    private bool _cargando, _enviando, _cargandoAntiguedad;
     private string _msg = "", _correoDestino = "";
     private bool _err;
     private List<(int Id, string Nombre)> _clientesPlantilla = [];
     private string? _clienteSel;
     private decimal? _saldoSel;
+    private string _tab = "saldos";
+    private int? _detalleAbierto;
 
     protected override async Task OnParametersSetAsync()
     {
@@ -57,6 +56,34 @@ public partial class EstadoCuentas
             _cargando = false;
         }
     }
+
+    private async Task VerAntiguedad()
+    {
+        _tab = "antiguedad";
+        if (_antiguedad is not null) return;   // ya cargada (lazy)
+        _cargandoAntiguedad = true;
+        try
+        {
+            _antiguedad = await EstadoCuentasSvc.AntiguedadSaldosAsync(SucCtx.SucursalId);
+
+            // Avisos en campana si hay saldos en rango crítico (+31 días).
+            var vencidos31 = _antiguedad.TotalRango31_60 + _antiguedad.TotalRango60Mas;
+            if (vencidos31 > 0)
+                Avisos.Agregar(
+                    "Saldos CxC vencidos > 30 días",
+                    $"${vencidos31:N2} con más de 30 días sin cobrar en la sucursal.",
+                    "aviso");
+        }
+        catch (Exception ex)
+        {
+            _msg = "Error al calcular antigüedad: " + ex.Message;
+            _err = true;
+        }
+        finally { _cargandoAntiguedad = false; }
+    }
+
+    private void ToggleDetalle(int clienteId) =>
+        _detalleAbierto = _detalleAbierto == clienteId ? null : clienteId;
 
     private async Task EnviarEstadoCuenta(int clienteId)
     {
