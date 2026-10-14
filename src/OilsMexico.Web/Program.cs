@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using OilsMexico.Application.DTOs;
 using OilsMexico.Application.Interfaces;
 using OilsMexico.Application.Services;
 using OilsMexico.Infrastructure.Persistence;
@@ -6,8 +7,14 @@ using OilsMexico.Infrastructure.Services;
 using OilsMexico.Web.Components;
 using OilsMexico.Web.Hubs;
 using OilsMexico.Web.Services;
+using QuestPDF;
+using QuestPDF.Infrastructure;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// QuestPDF 2025.x requiere declarar la licencia una sola vez al arrancar.
+// Community: gratuita para empresas con <1M USD de facturación anual (ver licencia del paquete).
+QuestPDF.Settings.License = LicenseType.Community;
 
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
@@ -48,6 +55,7 @@ builder.Services.AddScoped<INotaCreditoService, NotaCreditoService>();
 builder.Services.AddScoped<IComplementoPagoService, ComplementoPagoService>();
 builder.Services.AddScoped<ICorteCajaService, CorteCajaService>();
     builder.Services.AddScoped<IReportesFinancierosService, ReportesFinancierosService>();
+    builder.Services.AddScoped<IExportacionService, ExportacionService>();
 
 builder.Services.AddScoped<IComprasService, ComprasService>();
     builder.Services.AddScoped<ICuentasContablesService, CuentasContablesService>();
@@ -146,6 +154,62 @@ app.MapGet("/api/reps/{id:int}/xml", async (int id, ErpDbContext db, HttpContext
     return Results.File(System.Text.Encoding.UTF8.GetBytes(r.XmlSellado),
         "application/xml", $"{r.FolioInterno}.xml");
 });
+
+// ============================================================================
+// Exportación Excel/PDF (checklist §2.1). Descarga directa de archivos generados
+// en memoria por IExportacionService. Exigen token de sesión vigente (?t=...),
+// igual que la descarga de XML. REGLA #1 la aplica el servicio vía ISucursalContext.
+// ============================================================================
+
+// Helper local: valida token, ejecuta la exportación y devuelve el archivo.
+async Task<IResult> DescargarAsync(HttpContext ctx, Func<Task<ArchivoExportadoDto>> generar, ErpDbContext? db = null)
+{
+    if (!await TokenSesionValidoAsync(ctx.RequestServices.GetRequiredService<ErpDbContext>(), ctx))
+        return Results.Unauthorized();
+    var archivo = await generar();
+    return Results.File(archivo.Contenido, archivo.MimeTipo, archivo.NombreArchivo);
+}
+
+app.MapGet("/api/export/estado-cuenta/{clienteId:int}", async (int clienteId, IExportacionService exp, HttpContext ctx) =>
+    await DescargarAsync(ctx, () => exp.EstadoCuentaClienteAsync(clienteId)));
+
+app.MapGet("/api/export/cxc/{sucursalId:int}", async (int sucursalId, IExportacionService exp, HttpContext ctx) =>
+    await DescargarAsync(ctx, () => exp.CxPendientesAsync(sucursalId)));
+
+app.MapGet("/api/export/cxp/{sucursalId:int}", async (int sucursalId, IExportacionService exp, HttpContext ctx) =>
+    await DescargarAsync(ctx, () => exp.CxPPendientesAsync(sucursalId)));
+
+app.MapGet("/api/export/inventario/{sucursalId:int}", async (int sucursalId, string? filtro, IExportacionService exp, HttpContext ctx) =>
+    await DescargarAsync(ctx, () => exp.InventarioAsync(sucursalId, filtro)));
+
+app.MapGet("/api/export/kardex/{sucursalId:int}/{productoId:int}", async (int sucursalId, int productoId, int? dias, IExportacionService exp, HttpContext ctx) =>
+    await DescargarAsync(ctx, () => exp.KardexAsync(sucursalId, productoId, dias ?? 30)));
+
+app.MapGet("/api/export/ventas/{sucursalId:int}", async (int sucursalId, DateTime desde, DateTime hasta, IExportacionService exp, HttpContext ctx) =>
+    await DescargarAsync(ctx, () => exp.VentasAsync(sucursalId, desde, hasta)));
+
+app.MapGet("/api/export/comisiones", async (int? sucursalId, DateTime desde, DateTime hasta, IExportacionService exp, HttpContext ctx) =>
+    await DescargarAsync(ctx, () => exp.ComisionesAsync(sucursalId, desde, hasta)));
+
+app.MapGet("/api/export/gastos/{sucursalId:int}", async (int sucursalId, DateTime desde, DateTime hasta, IExportacionService exp, HttpContext ctx) =>
+    await DescargarAsync(ctx, () => exp.GastosAsync(sucursalId, desde, hasta)));
+
+app.MapGet("/api/export/lista-precios", async (IExportacionService exp, HttpContext ctx) =>
+    await DescargarAsync(ctx, () => exp.ListaPreciosAsync()));
+
+// PDFs de documentos
+app.MapGet("/api/export/factura/{facturaId:int}/pdf", async (int facturaId, IExportacionService exp, HttpContext ctx) =>
+    await DescargarAsync(ctx, () => exp.FacturaCfdiPdfAsync(facturaId)));
+
+app.MapGet("/api/export/cotizacion/{cotizacionId:int}/pdf", async (int cotizacionId, IExportacionService exp, HttpContext ctx) =>
+    await DescargarAsync(ctx, () => exp.CotizacionPdfAsync(cotizacionId)));
+
+app.MapGet("/api/export/orden/{ordenId:int}/pdf", async (int ordenId, IExportacionService exp, HttpContext ctx) =>
+    await DescargarAsync(ctx, () => exp.OrdenVentaPdfAsync(ordenId)));
+
+// PDF de un estado financiero (§1.4): reporte = balanza | balance | resultados | existencias
+app.MapGet("/api/export/financiero/{reporte}/{sucursalId:int}", async (string reporte, int sucursalId, DateTime desde, DateTime hasta, IExportacionService exp, HttpContext ctx) =>
+    await DescargarAsync(ctx, () => exp.FinancieroPdfAsync(reporte, sucursalId, desde, hasta)));
 
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();

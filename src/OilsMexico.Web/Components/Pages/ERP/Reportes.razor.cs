@@ -124,4 +124,20 @@ public partial class Reportes
         _tab = tab;
         await Cargar();
     }
+
+    // Token de sesión para los enlaces de descarga (?t=...), igual que la descarga de XML.
+    private string Token => Sesion.Sesion?.SesionToken ?? "";
+
+    // URLs de exportación (§2.1). Cada una apunta a un endpoint /api/export/* que genera el archivo.
+    private string UrlBalanzaPdf => $"/api/export/financiero/balanza/{SucEfectiva}?desde={_desde:yyyy-MM-dd}&hasta={_hasta:yyyy-MM-dd}&t={Token}";
+    private string UrlBalancePdf => $"/api/export/financiero/balance/{SucEfectiva}?desde={_desde:yyyy-MM-dd}&hasta={_corte:yyyy-MM-dd}&t={Token}";
+    private string UrlResultadosPdf => $"/api/export/financiero/resultados/{SucEfectiva}?desde={_desde:yyyy-MM-dd}&hasta={_hasta:yyyy-MM-dd}&t={Token}";
+    private string UrlExistenciasPdf => $"/api/export/financiero/existencias/{SucEfectiva}?desde={_desde:yyyy-MM-dd}&hasta={_hasta:yyyy-MM-dd}&t={Token}";
+    private string UrlVentasXlsx => $"/api/export/ventas/{SucEfectiva}?desde={_desde:yyyy-MM-dd}&hasta={_hasta:yyyy-MM-dd}&t={Token}";
+    private string UrlCxcXlsx => $"/api/export/cxc/{SucEfectiva}?t={Token}";
+    private string UrlCxpXlsx => $"/api/export/cxp/{SucEfectiva}?t={Token}";
+    private string UrlInventarioXlsx => $"/api/export/inventario/{SucEfectiva}?t={Token}";
+    private string UrlGastosXlsx => $"/api/export/gastos/{SucEfectiva}?desde={_desde:yyyy-MM-dd}&hasta={_hasta:yyyy-MM-dd}&t={Token}";
+    private string UrlComisionesXlsx => $"/api/export/comisiones?sucursalId={(_sucursalId == 0 ? "" : _sucursalId.ToString())}&desde={_desde:yyyy-MM-dd}&hasta={_hasta:yyyy-MM-dd}&t={Token}";
+    private string UrlListaPreciosXlsx => $"/api/export/lista-precios?t={Token}";
 }

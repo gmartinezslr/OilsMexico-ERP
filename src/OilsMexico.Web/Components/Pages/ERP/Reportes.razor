@@ -38,6 +38,18 @@
             </div>
         </div>
 
+        @* Barra de exportaciones Excel/PDF (§2.1) — descarga directa vía /api/export/* *@
+        <div class="d-flex flex-wrap gap-2 mb-3">
+            <span class="align-self-center text-muted me-1">Exportar:</span>
+            <a class="btn btn-sm btn-outline-success" href="@UrlVentasXlsx">⬇ Ventas (Excel)</a>
+            <a class="btn btn-sm btn-outline-success" href="@UrlInventarioXlsx">⬇ Inventario (Excel)</a>
+            <a class="btn btn-sm btn-outline-success" href="@UrlCxcXlsx">⬇ CxC (Excel)</a>
+            <a class="btn btn-sm btn-outline-success" href="@UrlCxpXlsx">⬇ CxP (Excel)</a>
+            <a class="btn btn-sm btn-outline-success" href="@UrlGastosXlsx">⬇ Gastos (Excel)</a>
+            <a class="btn btn-sm btn-outline-success" href="@UrlComisionesXlsx">⬇ Comisiones (Excel)</a>
+            <a class="btn btn-sm btn-outline-success" href="@UrlListaPreciosXlsx">⬇ Lista de precios (Excel)</a>
+        </div>
+
         @if (_cargando)
         {
             <div class="alert alert-secondary">Cargando...</div>
@@ -70,7 +82,10 @@
 @* ---------- BALANZA DE COMPROBACIÓN ---------- *@
                 @if (_tab == "balanza" && _balanza != null)
                 {
-                    <p class="text-muted">Periodo @_balanza.Desde.ToString("dd/MM/yyyy") — @_balanza.Hasta.ToString("dd/MM/yyyy")</p>
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="text-muted">Periodo @_balanza.Desde.ToString("dd/MM/yyyy") — @_balanza.Hasta.ToString("dd/MM/yyyy")</span>
+                        <a class="btn btn-sm btn-outline-danger" href="@UrlBalanzaPdf">⬇ PDF</a>
+                    </div>
                     <div class="table-responsive">
                         <table class="table table-bordered table-sm table-hover">
                             <thead class="table-light">
@@ -109,7 +124,10 @@
                 @* ---------- BALANCE GENERAL ---------- *@
                 @if (_tab == "balance" && _balance != null)
                 {
-                    <p class="text-muted">Corte al @_balance.Corte.ToString("dd/MM/yyyy")</p>
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="text-muted">Corte al @_balance.Corte.ToString("dd/MM/yyyy")</span>
+                        <a class="btn btn-sm btn-outline-danger" href="@UrlBalancePdf">⬇ PDF</a>
+                    </div>
                     <div class="row">
                         @foreach (var sec in new[] { _balance.Activo, _balance.Pasivo, _balance.Patrimonio })
                         {
@@ -139,7 +157,10 @@
                 @* ---------- ESTADO DE RESULTADOS ---------- *@
                 @if (_tab == "resultados" && _resultados != null)
                 {
-                    <p class="text-muted">Periodo @_resultados.Desde.ToString("dd/MM/yyyy") — @_resultados.Hasta.ToString("dd/MM/yyyy")</p>
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="text-muted">Periodo @_resultados.Desde.ToString("dd/MM/yyyy") — @_resultados.Hasta.ToString("dd/MM/yyyy")</span>
+                        <a class="btn btn-sm btn-outline-danger" href="@UrlResultadosPdf">⬇ PDF</a>
+                    </div>
                     <table class="table table-bordered" style="max-width:520px">
                         <tbody>
                             <tr><td>Ventas netas</td><td class="text-end">@_resultados.VentasNetas.ToString("N2")</td></tr>
@@ -156,7 +177,10 @@
 @* ---------- CAMBIO DE EXISTENCIAS ---------- *@
                 @if (_tab == "existencias" && _existencias != null)
                 {
-                    <p class="text-muted">Periodo @_existencias.Desde.ToString("dd/MM/yyyy") — @_existencias.Hasta.ToString("dd/MM/yyyy")</p>
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="text-muted">Periodo @_existencias.Desde.ToString("dd/MM/yyyy") — @_existencias.Hasta.ToString("dd/MM/yyyy")</span>
+                        <a class="btn btn-sm btn-outline-danger" href="@UrlExistenciasPdf">⬇ PDF</a>
+                    </div>
                     <div class="table-responsive">
                         <table class="table table-bordered table-sm table-hover">
                             <thead class="table-light">

@@ -62,15 +62,22 @@ Hoy **no existe** la entidad `Gasto` (verificado en `Domain/Entities`).
 
 ## 2. 🟡 Exportación y documentos
 
-### 2.1 Exportación Excel/PDF — roadmap #8
+### 2.1 Exportación Excel/PDF — roadmap #8 ✅ HECHO (13/10/2026)
 
-Hoy **no hay librería de exportación** en ningún `.csproj` (verificado: solo `ExcelDataReader` de lectura; `window.print` en ticket).
+`IExportacionService` + `ExportacionService` (parcial, en `OilsMexico.Infrastructure`) con **12 métodos**: 9 Excel (ClosedXML) + 4 PDF (QuestPDF). Todo respeta REGLA #1 vía `ResolverSucursalAutorizada`. Build `OilsMexico.slnx` 0 errores. Paquetes `ClosedXML 0.105.1` + `QuestPDF 2025.7.1` (licencia Community configurada en `Program.cs`).
 
-- [ ] Agregar paquetes: `MiniExcel` o `ClosedXML` (Excel) + `QuestPDF` (PDF).
-- [ ] **`IExportacionService` + `ExportacionService`**: `EstadoCuentaClienteAsync` (para WhatsApp/correo), `CxPendientesAsync`, `InventarioAsync`, `KardexAsync`, `VentasAsync`, `ComisionesAsync`, `ListaPreciosAsync`.
-- [ ] **PDF de factura CFDI con QR SAT** (`QRCoder` ya referenciado) — representación impresa formal.
-- [ ] **PDF/impresión de cotización y orden de venta** (`CotizacionDetalle` y `OrdenesVentaDetalle` hoy solo en pantalla).
-- [ ] Botones de exportación en las páginas correspondientes.
+- [x] Paquetes `ClosedXML` (Excel) + `QuestPDF` (PDF) referenciados.
+- [x] **`ExportacionService`**: `EstadoCuentaClienteAsync`, `CxPendientesAsync`, `CxPPendientesAsync`, `InventarioAsync`, `KardexAsync`, `VentasAsync`, `ComisionesAsync`, `ListaPreciosAsync`, `GastosAsync` (Excel).
+- [x] **PDF de factura CFDI con QR SAT** (`QRCoder`, URL de verificación SAT) — representación impresa formal.
+- [x] **PDF de cotización y orden de venta** (renglones + totales + vigencia).
+- [x] **`FinancieroPdfAsync`**: PDF de balanza / balance / resultados / existencias (§1.4).
+- [x] **Endpoints de descarga** `/api/export/*` (Minimal API, con guard de token de sesión, igual que la descarga de XML).
+- [x] **Botones de exportación** en `/reportes` (barra Excel general + botón PDF por pestaña), con token `?t=` de sesión.
+
+**Pendiente (refinamiento):**
+- [ ] **Verificación con BD** (generar cada Excel/PDF y validar contenido) — ver 7.
+- [ ] **Adjuntar PDF del CFDI** al correo automático (hoy solo XML; falta conectar `FacturaCfdiPdfAsync` con `EmailService.Documentos.cs`).
+- [ ] Botones de exportación/PDF en las demás páginas (Facturación, Cotizaciones, Compras, Almacén) — hoy solo en `/reportes`; el endpoint existe, falta el `<a>` en cada vista.
 
 ### 2.2 Envío automático de CFDI por correo ✅ HECHO (13/10/2026)
 
@@ -192,7 +199,8 @@ Tomada de `Situación al 11 de octubre.md` §4 y validaciones CFDI:
 
 ## 9. ✅ Recién completado — NO re-trabajar
 
-- [x] **Reportes financieros §1.4 (servicio + UI, 13/10/2026)**: `IReportesFinancierosService` + `ReportesFinancierosService` (parcial: balanza, balance, estado de resultados, cambio de existencias, indicadores) y **página `/reportes` con 5 pestañas que consumen el servicio** (carga perezosa `??=`), registrado en `Program.cs`. Build `OilsMexico.slnx` 0 errores. Corrige el esquema real del dominio (kardex `Tipo` string, `InventarioSucursal.StockActual`, `Producto` sin `SucursalId`); `IndicadoresAsync(null)` muestra todas las sucursales para Admin. `NavLink` en Gestión. **Pendiente solo refinamiento**: exportación Excel/PDF (2.1), costo FIFO real (1.3) y verificación con BD (7).
+- [x] **Exportación Excel/PDF §2.1 (13/10/2026)**: `IExportacionService` + `ExportacionService` (9 Excel ClosedXML + 4 PDF QuestPDF), endpoints `/api/export/*` (Minimal API con guard de token) y botones de descarga en `/reportes`. Licencia QuestPDF Community en `Program.cs`. Build 0 errores. **Pendiente solo refinamiento**: verificación con BD (7), adjuntar PDF del CFDI al correo y botones en las demás páginas.
+- [x] **Reportes financieros §1.4 (servicio + UI, 13/10/2026)**: `IReportesFinancierosService` + `ReportesFinancierosService` (parcial: balanza, balance, estado de resultados, cambio de existencias, indicadores) y **página `/reportes` con 5 pestañas que consumen el servicio** (carga perezosa `??=`), registrado en `Program.cs`. Build `OilsMexico.slnx` 0 errores. Corrige el esquema real del dominio (kardex `Tipo` string, `InventarioSucursal.StockActual`, `Producto` sin `SucursalId`); `IndicadoresAsync(null)` muestra todas las sucursales para Admin. `NavLink` en Gestión. **Pendiente solo refinamiento**: exportación Excel/PDF (2.1 ✅ hecho), costo FIFO real (1.3) y verificación con BD (7).
 - [x] Cotizaciones Capa A+B+C: pipeline cotización → OV → factura, expiración al cargar listado (`ExpirarCotizacionesAsync`), Suspender/Reanudar con guards estrictos y motivo en `Notas`.
 - [x] Fix FK: `OrdenVenta.CotizacionId` `int` → `int?` (manual = null) + `CotizacionesPatch` idempotente.
 - [x] REGLA #1 (guard de sucursal) en las 4 transiciones: `ConfirmarOrdenVentaAsync`, `SuspenderOrdenVentaAsync`, `ReanudarOrdenVentaAsync` (`Ordenes.cs`) y `CancelarOrdenVentaAsync` (`Convertir.cs`).
