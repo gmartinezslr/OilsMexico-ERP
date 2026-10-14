@@ -13,6 +13,7 @@ namespace OilsMexico.Web.Components.Pages.ERP;
 /// </summary>
 public partial class Bancos : ComponentBase
 {
+    [Inject] private IAutorizacionService Autorizacion { get; set; } = default!;
     private List<CuentaBancariaDto> cuentas = [];
     private int cuentaSel;
     private EstadoConciliacion? filtroEstado;
@@ -42,7 +43,7 @@ public partial class Bancos : ComponentBase
     {
         if (!first) return;
         if (!Sesion.Autenticado && !await Sesion.RestaurarAsync()) { Nav.NavigateTo("/login"); return; }
-        if (Sesion.Sesion?.Rol is not (Roles.Admin or Roles.Conta)) { Nav.NavigateTo("/"); return; }
+        if (!await Autorizacion.TienePermisoAsync(PermisosPaginas.Nombre("bancos"))) { Nav.NavigateTo("/"); return; }
         await CargarCuentas();
         StateHasChanged();
     }

@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Components;
 using Microsoft.EntityFrameworkCore;
 using OilsMexico.Application.DTOs;
+using OilsMexico.Application.Interfaces;
 using OilsMexico.Domain.Entities;
 using OilsMexico.Domain.Services;
 
@@ -8,26 +9,21 @@ namespace OilsMexico.Web.Components.Pages.ERP;
 
 public partial class DatosSucursal : ComponentBase
 {
+    [Inject] private IAutorizacionService Autorizacion { get; set; } = default!;
     private string msg = "";
     private bool err, guardando, esAdmin;
     private List<Sucursal> lista = [];
     private Sucursal edit = new();
     private CatalogosSatDto catalogos = new([], [], [], []);
 
-    protected override async Task OnInitializedAsync()
-    {
-        if (!Sesion.Autenticado) return;
-        catalogos = Sat.Obtener();
-        esAdmin = Sesion.Sesion?.Rol == Roles.Admin;
-        await Cargar();
-    }
-
     protected override async Task OnAfterRenderAsync(bool first)
     {
         if (!first) return;
         if (!Sesion.Autenticado && !await Sesion.RestaurarAsync()) { Nav.NavigateTo("/login"); return; }
-        if (Sesion.Sesion?.Rol is not (Roles.Admin)) { Nav.NavigateTo("/"); return; }
+        if (!await Autorizacion.TienePermisoAsync(PermisosPaginas.Nombre("sucursal"))) { Nav.NavigateTo("/"); return; }
+        catalogos = Sat.Obtener();
         esAdmin = Sesion.Sesion?.Rol == Roles.Admin;
+        await Cargar();
         StateHasChanged();
     }
 
@@ -82,6 +78,7 @@ public partial class DatosSucursal : ComponentBase
             await Db.SaveChangesAsync();
             msg = $"Sucursal '{edit.Nombre}' guardada."; err = false;
             var id = edit.Id;
+            if (!await Autorizacion.TienePermisoAsync(PermisosPaginas.Nombre("sucursal"))) { Nav.NavigateTo("/"); return; }
             await Cargar();
             edit = Clonar((await Db.Sucursales.FindAsync(id))!);
         }

@@ -1,5 +1,6 @@
 @page "/ticket/{FacturaId:int}"
 @rendermode InteractiveServer
+@inject IAutorizacionService Autorizacion
 @inject OilsMexico.Infrastructure.Services.ITicketService Tickets
 @inject OilsMexico.Application.Interfaces.ISesionActual Sesion
 @inject NavigationManager Nav
@@ -41,7 +42,7 @@ else{
 OilsMexico.Application.DTOs.TicketVentaDto? t;
 protected override async Task OnInitializedAsync(){
     if (!Sesion.Autenticado && !await Sesion.RestaurarAsync()) { Nav.NavigateTo("/login"); return; }
-    if (Sesion.Sesion?.Rol is not (Roles.Admin or Roles.Vendedor or Roles.Conta)) { Nav.NavigateTo("/"); return; }
+    if (!await Autorizacion.TienePermisoAsync(PermisosPaginas.Nombre("ticket"))) { Nav.NavigateTo("/"); return; }
     t=await Tickets.ObtenerTicketAsync(FacturaId);
 }
 }

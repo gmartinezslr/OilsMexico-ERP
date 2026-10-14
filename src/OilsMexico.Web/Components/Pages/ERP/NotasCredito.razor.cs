@@ -8,6 +8,8 @@ namespace OilsMexico.Web.Components.Pages.ERP;
 // Inyecciones: ver @inject en NotasCredito.razor. Acepta ?origen={facturaId} para precargar el preview.
 public partial class NotasCredito : ComponentBase
 {
+    [Microsoft.AspNetCore.Components.Inject]
+    private OilsMexico.Application.Interfaces.IAutorizacionService Autorizacion { get; set; } = default!;
     private List<NotaCreditoListadoDto> lista = [];
     private NotaCreditoPreviewDto? preview;
     private EstadoNotaCredito? estado;
@@ -32,7 +34,7 @@ public partial class NotasCredito : ComponentBase
     {
         if (!first) return;
         if (!Sesion.Autenticado && !await Sesion.RestaurarAsync()) { Nav.NavigateTo("/login"); return; }
-        if (Sesion.Sesion?.Rol is not (Roles.Admin or Roles.Vendedor or Roles.Conta)) { Nav.NavigateTo("/"); return; }
+        if (!await Autorizacion.TienePermisoAsync(PermisosPaginas.Nombre("notas-credito"))) { Nav.NavigateTo("/"); return; }
         puedeCancelar = Sesion.Sesion?.Rol is Roles.Admin or Roles.Conta;
         if (Origen is not null && Origen != origenQuery)
         {

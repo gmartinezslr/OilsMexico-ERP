@@ -7,20 +7,17 @@ namespace OilsMexico.Web.Components.Pages.ERP;
 // Inyecciones: ver @inject en Viscosidad.razor.
 public partial class Viscosidad : ComponentBase
 {
+    [Microsoft.AspNetCore.Components.Inject]
+    private OilsMexico.Application.Interfaces.IAutorizacionService Autorizacion { get; set; } = default!;
     private List<ViscosidadProductoDto> todos = [];
     private string texto = "", visc = "", msg = "";
     private bool err, cargando;
-
-    protected override async Task OnInitializedAsync()
-    {
-        if (Sesion.Autenticado) await Cargar();
-    }
 
     protected override async Task OnAfterRenderAsync(bool first)
     {
         if (!first) return;
         if (!Sesion.Autenticado && !await Sesion.RestaurarAsync()) { Nav.NavigateTo("/login"); return; }
-        if (Sesion.Sesion?.Rol is not (Roles.Admin or Roles.Almacen)) { Nav.NavigateTo("/"); return; }
+        if (!await Autorizacion.TienePermisoAsync(PermisosPaginas.Nombre("viscosidad"))) { Nav.NavigateTo("/"); return; }
         await Cargar();
         StateHasChanged();
     }

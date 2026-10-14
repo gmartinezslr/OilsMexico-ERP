@@ -1,12 +1,14 @@
 using Microsoft.AspNetCore.Components;
 using OilsMexico.Application.DTOs;
 using OilsMexico.Application.Interfaces;
+using OilsMexico.Domain.Services;
 using OilsMexico.Domain.Enums;
 
 namespace OilsMexico.Web.Components.Pages.ERP;
 
 public partial class OrdenesVenta : ComponentBase
 {
+    [Inject] private IAutorizacionService Autorizacion { get; set; } = default!;
     private List<OrdenVentaListadoDto> lista = [];
     private string filtroTexto = "";
     private EstadoOrdenVenta? filtroEstado;
@@ -14,10 +16,21 @@ public partial class OrdenesVenta : ComponentBase
     private string msg = "";
     private bool err;
 
-    protected override async Task OnInitializedAsync()
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (!Sesion.Autenticado) return;
+        if (!firstRender) return;
+        if (!Sesion.Autenticado && !await Sesion.RestaurarAsync())
+        {
+            Nav.NavigateTo("/login");
+            return;
+        }
+        if (!await Autorizacion.TienePermisoAsync(PermisosPaginas.Nombre("cotizaciones")))
+        {
+            Nav.NavigateTo("/");
+            return;
+        }
         await Cargar();
+        StateHasChanged();
     }
 
     private async Task Cargar()

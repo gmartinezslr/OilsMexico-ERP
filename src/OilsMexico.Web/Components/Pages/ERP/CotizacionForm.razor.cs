@@ -2,8 +2,8 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.EntityFrameworkCore;
 using OilsMexico.Application.DTOs;
 using OilsMexico.Application.Interfaces;
-using OilsMexico.Domain.Enums;
 using OilsMexico.Domain.Services;
+using OilsMexico.Domain.Enums;
 
 namespace OilsMexico.Web.Components.Pages.ERP;
 
@@ -46,13 +46,24 @@ public partial class CotizacionForm : ComponentBase
     private decimal Total => Math.Round(Subtotal + Iva, 2);
 
     [Inject] public ICotizacionesService CotizSvc { get; set; } = default!;
+    [Inject] public IAutorizacionService Autorizacion { get; set; } = default!;
     [Inject] public ISucursalContext SucCtx { get; set; } = default!;
     [Inject] public ISesionActual Sesion { get; set; } = default!;
     [Inject] public NavigationManager Nav { get; set; } = default!;
 
-    protected override async Task OnInitializedAsync()
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (!Sesion.Autenticado) return;
+        if (!firstRender) return;
+        if (!Sesion.Autenticado && !await Sesion.RestaurarAsync())
+        {
+            Nav.NavigateTo("/login");
+            return;
+        }
+        if (!await Autorizacion.TienePermisoAsync(PermisosPaginas.Nombre("cotizaciones")))
+        {
+            Nav.NavigateTo("/");
+            return;
+        }
         if (Id > 0)
         {
             cargando = true;
@@ -94,6 +105,7 @@ public partial class CotizacionForm : ComponentBase
         productos = await CotizSvc.ListarProductosAsync(SucCtx.SucursalId);
         await CargarClientes();
         await CargarVendedores();
+        StateHasChanged();
     }
 
     private string GuardandoTexto => guardando ? "Guardando…" : (Id > 0 ? "Guardar cambios" : "Crear cotización");
@@ -185,4 +197,3 @@ public partial class CotizacionForm : ComponentBase
         if (prod.PrecioVenta > 0) r.Precio = prod.PrecioVenta;
     }
 }
-

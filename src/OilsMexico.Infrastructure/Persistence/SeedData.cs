@@ -57,6 +57,7 @@ public static class SeedData
             if (!clavesExistentes.Contains(clave))
                 db.Configuracion.Add(new Configuracion { Clave = clave, Valor = valor });
         await db.SaveChangesAsync();
+        await PermisosSeed.AsegurarAsync(db);
         // Catálogo de cuentas contables por sucursal (solo faltantes): sin estas cuentas no hay
         // dónde registrar pólizas automáticas ni el cierre FIFO (§1.3). Aplica a BDs existentes
         // (este punto se alcanza antes del return de "ya hay sucursales") y a la semilla nueva.

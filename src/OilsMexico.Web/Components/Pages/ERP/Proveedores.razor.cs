@@ -8,6 +8,8 @@ namespace OilsMexico.Web.Components.Pages.ERP;
 
 public partial class Proveedores : ComponentBase
 {
+    [Microsoft.AspNetCore.Components.Inject]
+    private OilsMexico.Application.Interfaces.IAutorizacionService Autorizacion { get; set; } = default!;
     private string filtro = "", msg = "";
     private bool err, guardando;
     private int paso = 1;
@@ -20,13 +22,11 @@ public partial class Proveedores : ComponentBase
     [Microsoft.AspNetCore.Components.Inject]
     private OilsMexico.Application.Interfaces.IAuthService Auth { get; set; } = default!;
 
-    protected override async Task OnInitializedAsync() { if (Sesion.Autenticado) await Cargar(); }
-
     protected override async Task OnAfterRenderAsync(bool first)
     {
         if (!first) return;
         if (!Sesion.Autenticado && !await Sesion.RestaurarAsync()) { Nav.NavigateTo("/login"); return; }
-        if (Sesion.Sesion?.Rol is not (Roles.Admin or Roles.Vendedor)) { Nav.NavigateTo("/"); return; }
+        if (!await Autorizacion.TienePermisoAsync(PermisosPaginas.Nombre("proveedores"))) { Nav.NavigateTo("/"); return; }
         StateHasChanged();
     }
 

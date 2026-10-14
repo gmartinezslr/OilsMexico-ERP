@@ -8,6 +8,8 @@ namespace OilsMexico.Web.Components.Pages.ERP;
 // Inyecciones: ver @inject en HistorialVentas.razor (mismo patrón que Clientes/Almacen).
 public partial class HistorialVentas : ComponentBase
 {
+    [Microsoft.AspNetCore.Components.Inject]
+    private OilsMexico.Application.Interfaces.IAutorizacionService Autorizacion { get; set; } = default!;
     private DateTime desde = DateTime.Today.AddDays(-30);
     private DateTime hasta = DateTime.Today;
     private string texto = "", msg = "";
@@ -19,13 +21,11 @@ public partial class HistorialVentas : ComponentBase
     private HistorialDetalleDto? detalle;
     private int? detalleId;
 
-    protected override async Task OnInitializedAsync() { if (Sesion.Autenticado) await Cargar(); }
-
     protected override async Task OnAfterRenderAsync(bool first)
     {
         if (!first) return;
         if (!Sesion.Autenticado && !await Sesion.RestaurarAsync()) { Nav.NavigateTo("/login"); return; }
-        if (Sesion.Sesion?.Rol is not (Roles.Admin or Roles.Vendedor or Roles.Conta)) { Nav.NavigateTo("/"); return; }
+        if (!await Autorizacion.TienePermisoAsync(PermisosPaginas.Nombre("historial-ventas"))) { Nav.NavigateTo("/"); return; }
         await Cargar();
         StateHasChanged();
     }

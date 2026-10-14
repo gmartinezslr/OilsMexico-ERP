@@ -10,6 +10,8 @@ namespace OilsMexico.Web.Components.Pages.ERP;
 
 public partial class Productos : ComponentBase
 {
+    [Microsoft.AspNetCore.Components.Inject]
+    private OilsMexico.Application.Interfaces.IAutorizacionService Autorizacion { get; set; } = default!;
     [Inject] private IImportacionProductosService Importador { get; set; } = default!;
 
     private string filtro = "", msg = "";
@@ -34,13 +36,11 @@ public partial class Productos : ComponentBase
 
     private sealed record StockRow(string Sucursal, decimal Stock, decimal Minimo, bool BajoMinimo);
 
-    protected override async Task OnInitializedAsync() { if (Sesion.Autenticado) await Cargar(); }
-
     protected override async Task OnAfterRenderAsync(bool first)
     {
         if (!first) return;
         if (!Sesion.Autenticado && !await Sesion.RestaurarAsync()) { Nav.NavigateTo("/login"); return; }
-        if (Sesion.Sesion?.Rol is not (Roles.Admin or Roles.Almacen)) { Nav.NavigateTo("/"); return; }
+        if (!await Autorizacion.TienePermisoAsync(PermisosPaginas.Nombre("productos"))) { Nav.NavigateTo("/"); return; }
         await Cargar();
         StateHasChanged();
     }

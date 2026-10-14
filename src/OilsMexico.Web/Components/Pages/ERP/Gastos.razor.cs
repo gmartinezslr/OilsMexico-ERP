@@ -7,6 +7,8 @@ namespace OilsMexico.Web.Components.Pages.ERP;
 // Inyecciones: ver @inject en Gastos.razor.
 public partial class Gastos : ComponentBase
 {
+    [Microsoft.AspNetCore.Components.Inject]
+    private OilsMexico.Application.Interfaces.IAutorizacionService Autorizacion { get; set; } = default!;
     private DateTime desde = DateTime.Today.AddDays(-30);
     private DateTime hasta = DateTime.Today;
     private string categoria = "";
@@ -23,16 +25,11 @@ public partial class Gastos : ComponentBase
     private string msg = "";
     private bool err, cargando, guardando;
 
-    protected override async Task OnInitializedAsync()
-    {
-        if (Sesion.Autenticado) await Cargar();
-    }
-
     protected override async Task OnAfterRenderAsync(bool first)
     {
         if (!first) return;
         if (!Sesion.Autenticado && !await Sesion.RestaurarAsync()) { Nav.NavigateTo("/login"); return; }
-        if (Sesion.Sesion?.Rol is not (Roles.Admin or Roles.Conta or Roles.Vendedor)) { Nav.NavigateTo("/"); return; }
+        if (!await Autorizacion.TienePermisoAsync(PermisosPaginas.Nombre("gastos"))) { Nav.NavigateTo("/"); return; }
         await Cargar();
         StateHasChanged();
     }

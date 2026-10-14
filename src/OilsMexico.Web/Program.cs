@@ -32,6 +32,7 @@ builder.Services.AddScoped<IAvisos, AvisosService>();
 builder.Services.AddScoped<ITimeoutSesion, TimeoutSesion>();
 builder.Services.AddScoped<IConfiguracionService, ConfiguracionService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IAutorizacionService, AutorizacionService>();
 builder.Services.AddScoped<ICatalogosSatService, CatalogosSatService>();
 builder.Services.AddScoped<IPoliticaPassword, PoliticaPasswordService>();
 builder.Services.AddSingleton<IReloj, RelojSistema>();

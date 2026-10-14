@@ -14,6 +14,7 @@ namespace OilsMexico.Web.Components.Pages.ERP;
 
 public partial class VentasPOS : ComponentBase
 {
+    [Inject] public IAutorizacionService Autorizacion { get; set; } = default!;
     [Inject] public IVentasService Ventas { get; set; } = default!;
     [Inject] public ICatalogosSatService Sat { get; set; } = default!;
     [Inject] public ISucursalContext SucursalCtx { get; set; } = default!;
@@ -65,7 +66,7 @@ public partial class VentasPOS : ComponentBase
     {
         if (!firstRender) return;
         if (!Sesion.Autenticado && !await Sesion.RestaurarAsync()) { Nav.NavigateTo("/login", forceLoad: true); return; }
-        if (Sesion.Sesion?.Rol is not (Roles.Admin or Roles.Vendedor)) { Nav.NavigateTo("/"); return; }
+        if (!await Autorizacion.TienePermisoAsync(PermisosPaginas.Nombre("ventas-pos"))) { Nav.NavigateTo("/"); return; }
         try
         {
             sucursales = await Escopos.ListarAsync(db => db.Sucursales

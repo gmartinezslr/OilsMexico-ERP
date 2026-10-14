@@ -115,8 +115,8 @@ nombre del remitente y bandera de envío automático. Build `OilsMexico.slnx` 0 
 
 ## 3. 🟡 Auditoría y permisos granulares (roadmap #9 — parcial)
 
-- [ ] **UI de matriz permisos × roles**: las tablas `Roles`/`Permisos`/`RolPermisos` ya existen en `SchemaPatch`, pero **no hay interfaz** ni consumo.
-- [ ] **`IAutorizacionService.TienePermiso(recurso, accion)`** aplicado en `NavMenu.razor` (hoy solo ~15 filtros de rol duro) y en páginas críticas.
+- [x] **UI de matriz permisos × roles**: `/permisos`, exclusiva de Admin; cambios persistidos en `RolPermisos`, con permisos de Admin fijos y seed inicial compatible con relaciones previas.
+- [x] **Autorización por página**: `IAutorizacionService` aplicada al menú y a páginas ERP críticas; bloquea acceso directo y comprueba el permiso antes de cargar datos. La matriz define el acceso inicial equivalente a los roles actuales.
 - [ ] **Auditoría de acciones de UI**: ampliar `AuditLog` (hoy: `PasswordChange`, `DosFa*`, `RfcValidated`, `FiscalSituationChanged`, `PasswordPolicyChanged`) a: crear/editar producto y precios, compra, ajuste de almacén, configuración y cierre de caja. **Implementado:** transiciones de OV (confirmar, suspender, reanudar, cancelar y facturar) registran actor, motivo y estado anterior/nuevo.
 - [x] **"Quién aprueba qué"** en transiciones de OV: `AuditLog` registra `usuario_id`, motivo y estados anterior/nuevo para confirmación, suspensión, reanudación, cancelación y facturación.
 - [x] **Pantalla de consulta de auditoría** (`/auditoria`, solo Admin; filtros por fecha, usuario y acción, paginación).

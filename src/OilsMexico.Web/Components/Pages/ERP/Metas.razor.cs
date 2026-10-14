@@ -20,6 +20,7 @@ namespace OilsMexico.Web.Components.Pages.ERP;
 /// </summary>
 public partial class Metas : ComponentBase
 {
+    [Inject] private IAutorizacionService Autorizacion { get; set; } = default!;
     [Inject] private IComisionesService Comisiones { get; set; } = default!;
     // DIP: el componente no conoce ErpDbContext; las lecturas pasan por la fábrica de ámbitos.
     [Inject] private OilsMexico.Web.Services.IVentaEscopoFactory Escopos { get; set; } = default!;
@@ -55,27 +56,15 @@ public partial class Metas : ComponentBase
     private int VendedorActual => EsAdmin ? (vendSel?.Id ?? 0) : (Sesion.Sesion?.UsuarioId ?? 0);
     private string Periodo => $"{anio}-{mes:D2}";
 
-    protected override async Task OnInitializedAsync()
-    {
-        if (!Sesion.Autenticado) return;
-        await CargarVendedores();
-        await CargarTabulador();
-        if (VendedorActual > 0) await CargarTodo();
-    }
-
     protected override async Task OnAfterRenderAsync(bool first)
     {
         if (!first) return;
         if (!Sesion.Autenticado && !await Sesion.RestaurarAsync()) { Nav.NavigateTo("/login"); return; }
-        if (Sesion.Sesion?.Rol is not (Roles.Admin or Roles.Vendedor)) { Nav.NavigateTo("/"); return; }
-        // En el prerrender la sesión aún no existe: si no se cargó nada, cargar ahora.
-        if (vendedores.Count == 0)
-        {
-            await CargarVendedores();
-            await CargarTabulador();
-            if (VendedorActual > 0) await CargarTodo();
-            StateHasChanged();
-        }
+        if (!await Autorizacion.TienePermisoAsync(PermisosPaginas.Nombre("metas"))) { Nav.NavigateTo("/"); return; }
+        await CargarVendedores();
+        await CargarTabulador();
+        if (VendedorActual > 0) await CargarTodo();
+        StateHasChanged();
     }
 
     private async Task CargarVendedores()
@@ -320,4 +309,3 @@ public partial class Metas : ComponentBase
     private void CambioChkDinero(ChangeEventArgs e) => chkDinero = (bool)e.Value! ? "true" : "";
     private void CambioChkLitros(ChangeEventArgs e) => chkLitros = (bool)e.Value! ? "true" : "";
 }
-

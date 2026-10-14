@@ -10,6 +10,7 @@ namespace OilsMexico.Web.Components.Pages.ERP;
 
 public partial class Reportes
 {
+    [Inject] private IAutorizacionService Autorizacion { get; set; } = default!;
     [Inject] private IReportesFinancierosService ReportesSvc { get; set; } = default!;
     [Inject] private ICierreContableService CierreSvc { get; set; } = default!;
     [Inject] private ISucursalContext SucCtx { get; set; } = default!;
@@ -54,7 +55,7 @@ public partial class Reportes
     {
         if (!first) return;
         if (!Sesion.Autenticado && !await Sesion.RestaurarAsync()) { Nav.NavigateTo("/login"); return; }
-        if (Sesion.Sesion?.Rol is not (Roles.Admin or Roles.Conta)) { Nav.NavigateTo("/"); return; }
+        if (!await Autorizacion.TienePermisoAsync(PermisosPaginas.Nombre("reportes"))) { Nav.NavigateTo("/"); return; }
         if (_sucursales is null || _sucursales.Count == 0) { await CargarSucursales(); StateHasChanged(); }
         if (_desde == default) _desde = DateTime.Today.AddMonths(-1);
         if (_hasta == default) _hasta = DateTime.Today;
@@ -89,7 +90,7 @@ public partial class Reportes
     private async Task Cargar()
     {
         // Verificar permisos: solo Admin/Conta pueden ver reportes financieros.
-        if (Sesion.Sesion?.Rol is not (Roles.Admin or Roles.Conta))
+        if (!await Autorizacion.TienePermisoAsync(PermisosPaginas.Nombre("reportes")))
         {
             _errores = "No tienes permisos para ver los reportes financieros.";
             return;

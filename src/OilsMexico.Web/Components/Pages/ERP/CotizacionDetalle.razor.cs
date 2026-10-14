@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.EntityFrameworkCore;
 using OilsMexico.Application.DTOs;
 using OilsMexico.Application.Interfaces;
+using OilsMexico.Domain.Services;
 using OilsMexico.Domain.Enums;
 
 namespace OilsMexico.Web.Components.Pages.ERP;
@@ -22,6 +23,7 @@ public partial class CotizacionDetalle : ComponentBase
     private bool err;
 
     [Inject] public ICotizacionesService CotizSvc { get; set; } = default!;
+    [Inject] public IAutorizacionService Autorizacion { get; set; } = default!;
     [Inject] public ISucursalContext SucCtx { get; set; } = default!;
     [Inject] public ISesionActual Sesion { get; set; } = default!;
     [Inject] public NavigationManager Nav { get; set; } = default!;
@@ -30,15 +32,26 @@ public partial class CotizacionDetalle : ComponentBase
     private string correoDestino = "";
     private bool enviandoCorreo;
 
-    protected override async Task OnInitializedAsync()
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (!Sesion.Autenticado) return;
+        if (!firstRender) return;
+        if (!Sesion.Autenticado && !await Sesion.RestaurarAsync())
+        {
+            Nav.NavigateTo("/login");
+            return;
+        }
+        if (!await Autorizacion.TienePermisoAsync(PermisosPaginas.Nombre("cotizaciones")))
+        {
+            Nav.NavigateTo("/");
+            return;
+        }
 
         // Parse ?accion=... from the query string (parte tras '?').
         var q = Nav.Uri.Contains('?') ? Nav.Uri[(Nav.Uri.IndexOf('?') + 1)..] : string.Empty;
         Accion = System.Web.HttpUtility.ParseQueryString(q)["accion"];
 
         await Cargar();
+        StateHasChanged();
     }
 
     private async Task Cargar()

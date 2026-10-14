@@ -8,6 +8,7 @@ namespace OilsMexico.Web.Components.Pages.ERP;
 /// <summary>Pantalla de configuración del sistema (solo Admin): parámetros generales del ERP.</summary>
 public partial class Configuracion : ComponentBase
 {
+    [Inject] private IAutorizacionService Autorizacion { get; set; } = default!;
     private string msg = "";
     private bool err, guardando, esAdmin;
     private int minutos = 5;
@@ -42,7 +43,7 @@ public partial class Configuracion : ComponentBase
     {
         if (!first) return;
         if (!Sesion.Autenticado && !await Sesion.RestaurarAsync()) { Nav.NavigateTo("/login"); return; }
-        if (Sesion.Sesion?.Rol is not (Roles.Admin)) { Nav.NavigateTo("/"); return; }
+        if (!await Autorizacion.TienePermisoAsync(PermisosPaginas.Nombre("configuracion"))) { Nav.NavigateTo("/"); return; }
         esAdmin = true;
         minutos = await Config.ObtenerMinutosTimeoutAsync();
         await CargarPwd();

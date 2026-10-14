@@ -9,6 +9,8 @@ namespace OilsMexico.Web.Components.Pages.ERP;
 
 public partial class Clientes : ComponentBase
 {
+    [Microsoft.AspNetCore.Components.Inject]
+    private OilsMexico.Application.Interfaces.IAutorizacionService Autorizacion { get; set; } = default!;
     private string filtro = "", msg = "";
     private string vendedorSel = "";
     private bool err, guardando;
@@ -26,16 +28,15 @@ public partial class Clientes : ComponentBase
 
     protected override async Task OnInitializedAsync()
     {
-        if (!Sesion.Autenticado) return;
         catalogos = Sat.Obtener();
-        await Cargar();
     }
 
     protected override async Task OnAfterRenderAsync(bool first)
     {
         if (!first) return;
         if (!Sesion.Autenticado && !await Sesion.RestaurarAsync()) { Nav.NavigateTo("/login"); return; }
-        if (Sesion.Sesion?.Rol is not (Roles.Admin or Roles.Vendedor)) { Nav.NavigateTo("/"); return; }
+        if (!await Autorizacion.TienePermisoAsync(PermisosPaginas.Nombre("clientes"))) { Nav.NavigateTo("/"); return; }
+        await Cargar();
         StateHasChanged();
     }
 

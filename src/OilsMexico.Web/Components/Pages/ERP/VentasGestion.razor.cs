@@ -7,6 +7,8 @@ namespace OilsMexico.Web.Components.Pages.ERP;
 
 public partial class VentasGestion
 {
+    [Microsoft.AspNetCore.Components.Inject]
+    private OilsMexico.Application.Interfaces.IAutorizacionService Autorizacion { get; set; } = default!;
     [Inject] private IGestionService Gestion { get; set; } = default!;
     [Inject] private IEstadoCuentasService EstadoCuentas { get; set; } = default!;
     [Inject] private ISucursalContext SucCtx { get; set; } = default!;
@@ -36,7 +38,7 @@ public partial class VentasGestion
     {
         if (!first) return;
         if (!Sesion.Autenticado && !await Sesion.RestaurarAsync()) { Nav.NavigateTo("/login"); return; }
-        if (Sesion.Sesion?.Rol is not (Roles.Admin or Roles.Conta)) { Nav.NavigateTo("/"); return; }
+        if (!await Autorizacion.TienePermisoAsync(PermisosPaginas.Nombre("ventas-gestion"))) { Nav.NavigateTo("/"); return; }
         if (_dashboard is null) { await Cargar(); StateHasChanged(); }
     }
 

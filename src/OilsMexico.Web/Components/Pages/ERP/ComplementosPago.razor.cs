@@ -7,6 +7,8 @@ namespace OilsMexico.Web.Components.Pages.ERP;
 // Inyecciones: ver @inject en ComplementosPago.razor.
 public partial class ComplementosPago : ComponentBase
 {
+    [Microsoft.AspNetCore.Components.Inject]
+    private OilsMexico.Application.Interfaces.IAutorizacionService Autorizacion { get; set; } = default!;
     private List<VentaPpdPendienteDto> pendientes = [];
     private List<RepListadoDto> reps = [];
     private RepDetalleDto? detalle;
@@ -16,17 +18,12 @@ public partial class ComplementosPago : ComponentBase
     private string forma = "01", referencia = "", msg = "";
     private bool err, cargando;
 
-    protected override async Task OnInitializedAsync()
-    {
-        formas = Sat.Obtener().FormasPago;
-        await Cargar();
-    }
-
     protected override async Task OnAfterRenderAsync(bool first)
     {
         if (!first) return;
         if (!Sesion.Autenticado && !await Sesion.RestaurarAsync()) { Nav.NavigateTo("/login"); return; }
-        if (Sesion.Sesion?.Rol is not (Roles.Admin or Roles.Conta)) { Nav.NavigateTo("/"); return; }
+        if (!await Autorizacion.TienePermisoAsync(PermisosPaginas.Nombre("complementos-pago"))) { Nav.NavigateTo("/"); return; }
+        formas = Sat.Obtener().FormasPago;
         await Cargar();
         StateHasChanged();
     }

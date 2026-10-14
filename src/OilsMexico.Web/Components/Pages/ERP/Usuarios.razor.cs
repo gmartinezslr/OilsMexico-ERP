@@ -7,6 +7,8 @@ namespace OilsMexico.Web.Components.Pages.ERP;
 
 public partial class Usuarios : ComponentBase
 {
+    [Microsoft.AspNetCore.Components.Inject]
+    private OilsMexico.Application.Interfaces.IAutorizacionService Autorizacion { get; set; } = default!;
     private static readonly string[] RolesValidos = Roles.Todos;
 
     private string filtro = "", msg = "", pin1 = "", pin2 = "";
@@ -44,7 +46,7 @@ public partial class Usuarios : ComponentBase
     {
         if (!first) return;
         if (!Sesion.Autenticado && !await Sesion.RestaurarAsync()) { Nav.NavigateTo("/login"); return; }
-        if (Sesion.Sesion?.Rol != Roles.Admin) { Nav.NavigateTo("/"); return; }
+        if (!await Autorizacion.TienePermisoAsync(PermisosPaginas.Nombre("usuarios"))) { Nav.NavigateTo("/"); return; }
         esAdmin = Sesion.Sesion?.Rol == Roles.Admin;
         miId = Sesion.Sesion?.UsuarioId ?? 0;
         StateHasChanged();

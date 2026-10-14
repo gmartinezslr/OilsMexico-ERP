@@ -8,6 +8,7 @@ namespace OilsMexico.Web.Components.Pages.ERP;
 public partial class EstadoCuentas
 {
     [Inject] private IEmailService CorreoSvc { get; set; } = default!;
+    [Inject] private IAutorizacionService Autorizacion { get; set; } = default!;
 
     private List<EstadoCuentaClienteDto>? _estados;
     private AntiguedadSaldosCxcDto? _antiguedad;
@@ -31,7 +32,7 @@ public partial class EstadoCuentas
     {
         if (!first) return;
         if (!Sesion.Autenticado && !await Sesion.RestaurarAsync()) { Nav.NavigateTo("/login"); return; }
-        if (Sesion.Sesion?.Rol is not (Roles.Admin or Roles.Conta)) { Nav.NavigateTo("/"); return; }
+        if (!await Autorizacion.TienePermisoAsync(PermisosPaginas.Nombre("estado-cuentas"))) { Nav.NavigateTo("/"); return; }
         if (_estados is null) { await Cargar(); StateHasChanged(); }
     }
 

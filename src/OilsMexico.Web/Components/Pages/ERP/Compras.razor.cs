@@ -8,6 +8,7 @@ namespace OilsMexico.Web.Components.Pages.ERP;
 
 public partial class Compras : ComponentBase
 {
+    [Inject] private OilsMexico.Application.Interfaces.IAutorizacionService Autorizacion { get; set; } = default!;
     private EstadoCompra? estado;
     private string texto = "", msg = "";
     private string folioProv = "", notas = "", busq = "";
@@ -56,20 +57,17 @@ public partial class Compras : ComponentBase
 
     protected override async Task OnInitializedAsync()
     {
-        if (!Sesion.Autenticado) return;
         catalogosSat = Sat.Obtener();
-        proveedores = await Db.Proveedores.AsNoTracking().Where(p => p.Activo)
-            .OrderBy(p => p.Nombre).Select(p => new ProvRow(p.Id, p.Nombre)).ToListAsync();
-        if (proveedores.Count > 0) provId = proveedores[0].Id;
-        await Cargar();
-        await CargarCxp();
     }
 
     protected override async Task OnAfterRenderAsync(bool first)
     {
         if (!first) return;
         if (!Sesion.Autenticado && !await Sesion.RestaurarAsync()) { Nav.NavigateTo("/login"); return; }
-        if (Sesion.Sesion?.Rol is not (Roles.Admin or Roles.Almacen)) { Nav.NavigateTo("/"); return; }
+        if (!await Autorizacion.TienePermisoAsync(PermisosPaginas.Nombre("compras"))) { Nav.NavigateTo("/"); return; }
+        proveedores = await Db.Proveedores.AsNoTracking().Where(p => p.Activo)
+            .OrderBy(p => p.Nombre).Select(p => new ProvRow(p.Id, p.Nombre)).ToListAsync();
+        if (proveedores.Count > 0) provId = proveedores[0].Id;
         await Cargar();
         await CargarCxp();
         StateHasChanged();

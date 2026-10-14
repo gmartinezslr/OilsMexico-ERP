@@ -1,5 +1,6 @@
 @page "/sepomex"
 @rendermode InteractiveServer
+@inject IAutorizacionService Autorizacion
 @inject OilsMexico.Application.Interfaces.ISepomexService SepomexSvc
 @inject OilsMexico.Application.Interfaces.ISesionActual Sesion
 @inject NavigationManager Nav
@@ -92,7 +93,7 @@
     {
         if (!first) return;
         if (!Sesion.Autenticado && !await Sesion.RestaurarAsync()) { Nav.NavigateTo("/login"); return; }
-        if (Sesion.Sesion?.Rol is not (Roles.Admin)) { Nav.NavigateTo("/"); return; }
+        if (!await Autorizacion.TienePermisoAsync(PermisosPaginas.Nombre("sepomex"))) { Nav.NavigateTo("/"); return; }
         StateHasChanged();
     }
 

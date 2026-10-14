@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Components;
 using OilsMexico.Application.DTOs;
+using OilsMexico.Application.Interfaces;
 using OilsMexico.Domain.Services;
 
 namespace OilsMexico.Web.Components.Pages.ERP;
@@ -7,6 +8,7 @@ namespace OilsMexico.Web.Components.Pages.ERP;
 // Inyecciones: ver @inject en CorteCaja.razor.
 public partial class CorteCaja : ComponentBase
 {
+    [Inject] private IAutorizacionService Autorizacion { get; set; } = default!;
     private CorteAbiertoDto? abierto;
     private CortePreviewDto? foto;
     private List<CorteListadoDto> historial = [];
@@ -14,13 +16,11 @@ public partial class CorteCaja : ComponentBase
     private string obs = "", msg = "";
     private bool err, cargando;
 
-    protected override async Task OnInitializedAsync() { if (Sesion.Autenticado) await Cargar(); }
-
     protected override async Task OnAfterRenderAsync(bool first)
     {
         if (!first) return;
         if (!Sesion.Autenticado && !await Sesion.RestaurarAsync()) { Nav.NavigateTo("/login"); return; }
-        if (Sesion.Sesion?.Rol is not (Roles.Admin or Roles.Vendedor)) { Nav.NavigateTo("/"); return; }
+        if (!await Autorizacion.TienePermisoAsync(PermisosPaginas.Nombre("corte-caja"))) { Nav.NavigateTo("/"); return; }
         await Cargar();
         StateHasChanged();
     }

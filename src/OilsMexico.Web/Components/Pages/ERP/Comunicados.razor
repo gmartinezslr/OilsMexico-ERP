@@ -1,5 +1,6 @@
 @page "/comunicados"
 @rendermode InteractiveServer
+@inject IAutorizacionService Autorizacion
 @inject IEmailService CorreoSvc
 @inject ISesionActual Sesion
 @inject NavigationManager Nav
@@ -55,7 +56,7 @@
     {
         if (!first) return;
         if (!Sesion.Autenticado && !await Sesion.RestaurarAsync()) { Nav.NavigateTo("/login"); return; }
-        if (Sesion.Sesion?.Rol is not (Roles.Admin or Roles.Conta or Roles.Vendedor)) { Nav.NavigateTo("/"); return; }
+        if (!await Autorizacion.TienePermisoAsync(PermisosPaginas.Nombre("comunicados"))) { Nav.NavigateTo("/"); return; }
     }
 
     private async Task Enviar()

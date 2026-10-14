@@ -8,6 +8,8 @@ namespace OilsMexico.Web.Components.Pages.ERP;
 // Inyecciones: ver @inject en Facturacion.razor.
 public partial class Facturacion : ComponentBase
 {
+    [Microsoft.AspNetCore.Components.Inject]
+    private OilsMexico.Application.Interfaces.IAutorizacionService Autorizacion { get; set; } = default!;
     private List<FacturaListadoDto> lista = [];
     private EstadoFactura? estado;
     private string texto = "", msg = "", motivoCancelacion = "02", folioSustitucion = "";
@@ -29,7 +31,7 @@ public partial class Facturacion : ComponentBase
     {
         if (!first) return;
         if (!Sesion.Autenticado && !await Sesion.RestaurarAsync()) { Nav.NavigateTo("/login"); return; }
-        if (Sesion.Sesion?.Rol is not (Roles.Admin or Roles.Vendedor or Roles.Conta)) { Nav.NavigateTo("/"); return; }
+        if (!await Autorizacion.TienePermisoAsync(PermisosPaginas.Nombre("facturacion"))) { Nav.NavigateTo("/"); return; }
         puedeCancelar = Sesion.Sesion?.Rol is Roles.Admin or Roles.Conta;
         if (!_primeraCarga) { _primeraCarga = true; await Cargar(); StateHasChanged(); }
     }
