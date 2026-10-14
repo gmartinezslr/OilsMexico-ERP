@@ -86,10 +86,10 @@
                             <input type="email" class="form-control form-control-lg" style="font-size:1rem;" maxlength="200" @bind="edit.Correo" placeholder="usuario@empresa.com" /></div>
                         <div class="col-md-6"><label class="form-label fw-semibold">Rol *</label>
                             <select class="form-select form-select-lg" style="font-size:1rem;" @bind="edit.Rol">
-                                <option value="Admin">Admin — Administración</option>
-                                <option value="Vendedor">Vendedor — Ventas</option>
-                                <option value="Almacen">Almacen — Almacén</option>
-                                <option value="Conta">Conta — Contabilidad</option>
+                                @foreach (var rol in OilsMexico.Domain.Services.Roles.Todos)
+                                {
+                                    <option value="@rol">@OilsMexico.Domain.Services.Roles.Etiqueta(rol)</option>
+                                }
                             </select></div>
                         <div class="col-md-6"><label class="form-label fw-semibold">Sucursal asignada *</label>
                             <select class="form-select form-select-lg" style="font-size:1rem;" @bind="edit.SucursalId">

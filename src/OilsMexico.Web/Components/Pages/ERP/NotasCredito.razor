@@ -109,10 +109,10 @@
                         <tr><td colspan="8">
                             <div class="input-group input-group-sm">
                                 <select class="form-select" @bind="motivoCancelacion">
-                                    <option value="02">02 - Sin relación</option>
-                                    <option value="01">01 - Con relación (exige sustituto)</option>
-                                    <option value="03">03 - No se llevó a cabo</option>
-                                    <option value="04">04 - Nominativa relacionada</option>
+                                    @foreach (var m in OilsMexico.Domain.Entities.CfdiDefaults.MotivosCancelacion)
+                                    {
+                                        <option value="@m.Codigo">@m.Codigo - @m.Descripcion</option>
+                                    }
                                 </select>
                                 <button class="btn btn-danger" @onclick="() => ConfirmarCancelar(n.NotaId)">Confirmar</button>
                                 <button class="btn btn-outline-secondary" @onclick="() => cancelandoId = null">Cancelar</button>

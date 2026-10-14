@@ -38,8 +38,12 @@ public sealed partial class CotizacionesService
 
     public async Task<CotizacionResponseDto?> ObtenerCotizacionAsync(int id, CancellationToken ct = default)
     {
+        // REGLA #1 en lecturas (§6.2): un rol no-Admin sólo ve cotizaciones de SU sucursal;
+        // el resultado para otra sucursal es null, igual que si no existiera.
         // Se mapea en memoria: los totales (Subtotal/Iva/Total) se calculan en C# y no son traducibles a SQL.
-        var c = await db.Cotizaciones
+        IQueryable<Cotizacion> q = db.Cotizaciones;
+        if (!ctx.EsAdmin) q = q.Where(c => c.SucursalId == ctx.SucursalId);
+        var c = await q
             .Where(c => c.Id == id)
             .Include(c => c.Sucursal)
             .Include(c => c.Cliente)
@@ -95,8 +99,12 @@ public sealed partial class CotizacionesService
 
     public async Task<OrdenVentaDetalleDto?> ObtenerOrdenVentaAsync(int id, CancellationToken ct = default)
     {
+        // REGLA #1 en lecturas (§6.2): un rol no-Admin sólo ve órdenes de SU sucursal;
+        // el resultado para otra sucursal es null, igual que si no existiera.
         // Se mapea en memoria: los totales se calculan en C# (no traducibles a SQL).
-        var o = await db.OrdenesVenta
+        IQueryable<OrdenVenta> q = db.OrdenesVenta;
+        if (!ctx.EsAdmin) q = q.Where(o => o.SucursalId == ctx.SucursalId);
+        var o = await q
             .Where(o => o.Id == id)
             .Include(o => o.Sucursal)
             .Include(o => o.Cliente)
@@ -119,12 +127,19 @@ public sealed partial class CotizacionesService
         new(d.Id, d.ProductoId, d.Producto?.Sku ?? string.Empty, d.Producto?.Nombre ?? string.Empty,
             d.UnidadMedidaId, d.UnidadNombre, d.Cantidad, d.PrecioUnitario, d.Descuento, d.Importe);
 
-    private static CotizacionListadoDto MapearACotizacionListadoDto(Cotizacion c) =>
-        new(c.Id, c.FolioInterno ?? string.Empty, c.FechaEmision, c.Cliente!.Nombre, c.Vendedor?.Nombre, c.Estado, c.Detalles.Count,
-            CalcularTotales(c.Detalles).Subtotal, CalcularTotales(c.Detalles).Iva, CalcularTotales(c.Detalles).Total);
+    private static CotizacionListadoDto MapearACotizacionListadoDto(Cotizacion c)
+    {
+        // Un solo cálculo de totales por fila (§6.2 — DRY: antes se invocaba CalcularTotales 3 veces).
+        var t = CalcularTotales(c.Detalles);
+        return new CotizacionListadoDto(c.Id, c.FolioInterno ?? string.Empty, c.FechaEmision, c.Cliente!.Nombre, c.Vendedor?.Nombre, c.Estado, c.Detalles.Count,
+            t.Subtotal, t.Iva, t.Total);
+    }
 
-    private static OrdenVentaListadoDto MapearAOrdenVentaListadoDto(OrdenVenta o) =>
-        new(o.Id, o.FolioInterno ?? string.Empty, o.FechaEmision, o.Cliente!.Nombre, o.Vendedor?.Nombre, o.Estado, o.Detalles.Count,
-            CalcularTotalesOrden(o.Detalles).Subtotal, CalcularTotalesOrden(o.Detalles).Iva, CalcularTotalesOrden(o.Detalles).Total,
+    private static OrdenVentaListadoDto MapearAOrdenVentaListadoDto(OrdenVenta o)
+    {
+        var t = CalcularTotalesOrden(o.Detalles);
+        return new OrdenVentaListadoDto(o.Id, o.FolioInterno ?? string.Empty, o.FechaEmision, o.Cliente!.Nombre, o.Vendedor?.Nombre, o.Estado, o.Detalles.Count,
+            t.Subtotal, t.Iva, t.Total,
             o.CotizacionId > 0 ? o.CotizacionId : null);
+    }
 }

@@ -1,0 +1,207 @@
+@page "/auditoria"
+@rendermode InteractiveServer
+@inject IAuditoriaService AuditoriaService
+@inject ISesionActual Sesion
+@inject NavigationManager Nav
+<PageTitle>Auditoría | OilsMexico ERP</PageTitle>
+
+<div class="container-fluid py-4 px-4" style="max-width:1500px;">
+    <div class="mb-4">
+        <h3 class="fw-bold mb-1">Auditoría</h3>
+        <div class="text-muted">Consulta de acciones administrativas y cambios de estado.</div>
+    </div>
+
+    @if (!accesoAdmin)
+    {
+        <div class="alert alert-warning">Esta pantalla requiere una sesión Admin.</div>
+    }
+    else
+    {
+        @if (!string.IsNullOrWhiteSpace(error))
+        {
+            <div class="alert alert-danger" role="alert">@error</div>
+        }
+
+        <div class="card shadow-sm mb-3">
+            <div class="card-body">
+                <div class="row g-3 align-items-end">
+                    <div class="col-sm-6 col-lg-2">
+                        <label class="form-label">Desde</label>
+                        <input type="date" class="form-control" @bind="desde" />
+                    </div>
+                    <div class="col-sm-6 col-lg-2">
+                        <label class="form-label">Hasta</label>
+                        <input type="date" class="form-control" @bind="hasta" />
+                    </div>
+                    <div class="col-sm-6 col-lg-3">
+                        <label class="form-label">Usuario</label>
+                        <select class="form-select" @bind="usuarioId">
+                            <option value="">Todos</option>
+                            @foreach (var usuario in usuarios)
+                            {
+                                <option value="@usuario.Id">@usuario.Nombre</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-sm-6 col-lg-3">
+                        <label class="form-label">Acción</label>
+                        <select class="form-select" @bind="tipo">
+                            <option value="">Todas</option>
+                            @foreach (var accion in tipos)
+                            {
+                                <option value="@accion">@accion</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-lg-2">
+                        <button class="btn btn-primary w-100" @onclick="Buscar" disabled="@cargando">
+                            @(cargando ? "Consultando…" : "Buscar")
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card shadow-sm">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <strong>Eventos</strong>
+                <small class="text-muted">@total.ToString("N0") registros · página @pagina</small>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover table-sm align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Usuario</th>
+                            <th>Acción</th>
+                            <th>Detalle</th>
+                            <th>Anterior</th>
+                            <th>Nuevo</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (cargando)
+                        {
+                            <tr><td colspan="6" class="text-center py-4 text-muted">Cargando auditoría…</td></tr>
+                        }
+                        else if (registros.Count == 0)
+                        {
+                            <tr><td colspan="6" class="text-center py-4 text-muted">No hay eventos para esos filtros.</td></tr>
+                        }
+                        else
+                        {
+                            @foreach (var registro in registros)
+                            {
+                                <tr>
+                                    <td class="text-nowrap">@registro.FechaUtc.ToLocalTime().ToString("dd/MM/yyyy HH:mm:ss")</td>
+                                    <td>@registro.Usuario <small class="text-muted">(#@registro.UsuarioId)</small></td>
+                                    <td><span class="badge text-bg-secondary">@registro.Tipo</span></td>
+                                    <td>@(registro.Detalle ?? "—")</td>
+                                    <td>@(registro.Anterior ?? "—")</td>
+                                    <td>@(registro.Nuevo ?? "—")</td>
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                </table>
+            </div>
+            <div class="card-footer d-flex justify-content-between align-items-center">
+                <button class="btn btn-outline-secondary btn-sm" @onclick="Anterior" disabled="@(cargando || pagina <= 1)">Anterior</button>
+                <button class="btn btn-outline-secondary btn-sm" @onclick="Siguiente" disabled="@(cargando || pagina * porPagina >= total)">Siguiente</button>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private readonly int porPagina = 100;
+    private DateTime desde = DateTime.Today.AddDays(-7);
+    private DateTime hasta = DateTime.Today;
+    private int? usuarioId;
+    private string tipo = "";
+    private List<AuditoriaUsuarioDto> usuarios = [];
+    private List<string> tipos = [];
+    private List<AuditLogListadoDto> registros = [];
+    private int pagina = 1;
+    private int total;
+    private bool accesoAdmin;
+    private bool cargando;
+    private string? error;
+    private bool inicializado;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || inicializado) return;
+        if (!Sesion.Autenticado && !await Sesion.RestaurarAsync())
+        {
+            Nav.NavigateTo("/login");
+            return;
+        }
+
+        if (Sesion.Sesion?.Rol != Roles.Admin)
+        {
+            Nav.NavigateTo("/");
+            return;
+        }
+
+        accesoAdmin = true;
+        inicializado = true;
+        try
+        {
+            usuarios = await AuditoriaService.ListarUsuariosAsync();
+            tipos = await AuditoriaService.ListarTiposAsync();
+            await CargarAsync();
+        }
+        catch (Exception ex)
+        {
+            error = $"No se pudo cargar la auditoría: {ex.Message}";
+        }
+        StateHasChanged();
+    }
+
+    private async Task Buscar()
+    {
+        pagina = 1;
+        await CargarAsync();
+    }
+
+    private async Task Anterior()
+    {
+        if (pagina <= 1) return;
+        pagina--;
+        await CargarAsync();
+    }
+
+    private async Task Siguiente()
+    {
+        if (pagina * porPagina >= total) return;
+        pagina++;
+        await CargarAsync();
+    }
+
+    private async Task CargarAsync()
+    {
+        if (!accesoAdmin || cargando) return;
+        cargando = true;
+        error = null;
+        try
+        {
+            var inicioUtc = DateTime.SpecifyKind(desde.Date, DateTimeKind.Local).ToUniversalTime();
+            var finUtc = DateTime.SpecifyKind(hasta.Date.AddDays(1), DateTimeKind.Local).ToUniversalTime();
+            var resultado = await AuditoriaService.BuscarAsync(inicioUtc, finUtc, usuarioId, tipo, pagina, porPagina);
+            registros = resultado.Registros.ToList();
+            total = resultado.Total;
+            pagina = resultado.Pagina;
+        }
+        catch (Exception ex)
+        {
+            error = $"No se pudo consultar la auditoría: {ex.Message}";
+            registros = [];
+            total = 0;
+        }
+        finally
+        {
+            cargando = false;
+        }
+    }
+}

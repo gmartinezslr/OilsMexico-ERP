@@ -166,10 +166,12 @@ public sealed partial class CotizacionesService
             orden.VendedorId = vendId;
         }
 
+        var estadoAnterior = orden.Estado;
         orden.Estado = EstadoOrdenVenta.Confirmada;
         if (!string.IsNullOrWhiteSpace(req.Motivo))
             orden.Notas = orden.Notas + (orden.Notas is null or "" ? "" : Environment.NewLine) + $"Confirmada: {req.Motivo}";
 
+        RegistrarAuditoriaOrdenVenta(orden, estadoAnterior, "OVConfirmada", req.Motivo);
         await db.SaveChangesAsync(ct);
 
         return new OrdenVentaConfirmarResult(orden.Id, orden.FolioInterno!, orden.Estado);
@@ -189,10 +191,12 @@ public sealed partial class CotizacionesService
         if (orden.Estado != EstadoOrdenVenta.Confirmada)
             throw new InvalidOperationException("Solo se pueden suspender órdenes en estado Confirmada.");
 
+        var estadoAnterior = orden.Estado;
         orden.Estado = EstadoOrdenVenta.Suspendida;
         if (!string.IsNullOrWhiteSpace(motivo))
             orden.Notas = orden.Notas + (orden.Notas is null or "" ? "" : Environment.NewLine) + $"Suspendida: {motivo}";
 
+        RegistrarAuditoriaOrdenVenta(orden, estadoAnterior, "OVSuspendida", motivo);
         await db.SaveChangesAsync(ct);
 
         return new OrdenResultado(orden.Id, orden.FolioInterno ?? string.Empty, orden.Estado.ToString(), "orden_venta");
@@ -212,12 +216,29 @@ public sealed partial class CotizacionesService
         if (orden.Estado != EstadoOrdenVenta.Suspendida)
             throw new InvalidOperationException("Solo se pueden reanudar órdenes en estado Suspendida.");
 
+        var estadoAnterior = orden.Estado;
         orden.Estado = EstadoOrdenVenta.Confirmada;
         if (!string.IsNullOrWhiteSpace(motivo))
             orden.Notas = orden.Notas + (orden.Notas is null or "" ? "" : Environment.NewLine) + $"Reanudada: {motivo}";
 
+        RegistrarAuditoriaOrdenVenta(orden, estadoAnterior, "OVReanudada", motivo);
         await db.SaveChangesAsync(ct);
 
         return new OrdenResultado(orden.Id, orden.FolioInterno ?? string.Empty, orden.Estado.ToString(), "orden_venta");
+    }
+
+    private void RegistrarAuditoriaOrdenVenta(
+        OrdenVenta orden, EstadoOrdenVenta estadoAnterior, string tipo, string? motivo)
+    {
+        db.AuditLogs.Add(new AuditLog
+        {
+            UsuarioId = ctx.UsuarioId,
+            Tipo = tipo,
+            Detalle = $"Orden {orden.FolioInterno ?? orden.Id.ToString()}" +
+                (string.IsNullOrWhiteSpace(motivo) ? "" : $". Motivo: {motivo.Trim()}"),
+            Anterior = estadoAnterior.ToString(),
+            Nuevo = orden.Estado.ToString(),
+            FechaUtc = DateTime.UtcNow
+        });
     }
 }

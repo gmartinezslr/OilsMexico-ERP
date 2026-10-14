@@ -2,6 +2,7 @@
 @rendermode InteractiveServer
 @inject OilsMexico.Application.Interfaces.IDashboardService Dash
 @inject OilsMexico.Application.Interfaces.ISesionActual Sesion
+@inject Microsoft.Extensions.Configuration.IConfiguration Config
 @inject NavigationManager Nav
 @using OilsMexico.Application.DTOs
 @using OilsMexico.Domain.Enums
@@ -117,13 +118,13 @@ else
                     <div class="card est-card">
                         <div class="card-header">
                             Ventas vs. estimación
-                            <span class="badge bg-secondary float-end">Módulo futuro</span>
+                            <a class="badge bg-primary float-end text-decoration-none" href="/metas">Metas →</a>
                         </div>
                         <div class="card-body">
                             <div class="est-row"><span>Ventas reales del mes</span><strong class="est-real">$@ventasMes.ToString("N2")</strong></div>
                             <div class="est-row"><span>Estimación / meta del mes</span><strong class="text-muted">Por definir</strong></div>
                             <div class="est-bar"><div class="est-bar-fill" style="width:0%"></div></div>
-                            <small class="text-muted">Próximamente podrás capturar metas por sucursal y vendedor y compararlas aquí.</small>
+                            <small class="text-muted">Captura metas por sucursal y vendedor en la pantalla Metas y compáralas con tus ventas.</small>
                         </div>
                     </div>
                 }
@@ -215,6 +216,8 @@ else
     private decimal ventasMes;
     private string tituloActividad = "Actividad reciente";
     private List<ActItem> actividad = [];
+    /// <summary>Modo real del PAC (clave <c>Cfdi:PacModo</c>): SIMULADO | TEST | PRODUCCION.</summary>
+    private string pacModo = "SIMULADO";
 
     private sealed record Kpi(string Label, string Valor, string Sub, string Ico, string Tono);
     private sealed record StockRow(string Nombre, decimal Stock, decimal Min);
@@ -234,6 +237,7 @@ else
         }
         if (!ok) { Nav.NavigateTo("/login", forceLoad: true); return; }
         sesion = Sesion.Sesion;
+        pacModo = Config["Cfdi:PacModo"] ?? "SIMULADO";
         await CargarDashboard();
         cargando = false;
         StateHasChanged();
@@ -289,7 +293,7 @@ else
         {
             lista.Add(new("Clientes atendidos (mes)", atendidos.ToString("N0"), $"de {totalClientes:N0} activos", "users", "blue"));
             lista.Add(new("Clientes por atender", porAtender.ToString("N0"), "Aún no compran este mes", "clock", "orange"));
-            lista.Add(new("Ventas del mes", $"${ventasMes:N2}", "IVA 16% incluido", "cart", "green"));
+            lista.Add(new("Ventas del mes", $"${ventasMes:N2}", $"IVA {Impuestos.TasaIva * 100:0}% incluido", "cart", "green"));
             if (rol == Roles.Admin)
                 lista.Add(new("Stock bajo mínimo", stockBajo.ToString("N0"), "Productos por reponer", "alert", "red"));
             else
@@ -306,7 +310,7 @@ else
         {
             lista.Add(new("Ventas del mes", $"${ventasMes:N2}", "Base para declaraciones", "cart", "green"));
             lista.Add(new("IVA del mes (estimado)", $"${Impuestos.IvaDeBase(ventasMes):N2}", $"{Impuestos.TasaIva * 100:0}% sobre ventas", "doc", "blue"));
-            lista.Add(new("CFDI por timbrar", "0", "Módulo futuro (PAC)", "doc", "orange"));
+            lista.Add(new("Estado del PAC", pacModo, $"Modo {pacModo} · Finkok CFDI 4.0", "doc", pacModo == "SIMULADO" ? "orange" : "green"));
             lista.Add(new("Clientes activos", totalClientes.ToString("N0"), "Padrón vigente", "users", "slate"));
         }
         else

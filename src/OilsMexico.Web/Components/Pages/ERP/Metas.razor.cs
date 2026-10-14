@@ -21,7 +21,8 @@ namespace OilsMexico.Web.Components.Pages.ERP;
 public partial class Metas : ComponentBase
 {
     [Inject] private IComisionesService Comisiones { get; set; } = default!;
-    [Inject] private ErpDbContext Db { get; set; } = default!;
+    // DIP: el componente no conoce ErpDbContext; las lecturas pasan por la fábrica de ámbitos.
+    [Inject] private OilsMexico.Web.Services.IVentaEscopoFactory Escopos { get; set; } = default!;
     [Inject] private ISesionActual Sesion { get; set; } = default!;
     [Inject] private NavigationManager Nav { get; set; } = default!;
 
@@ -79,11 +80,10 @@ public partial class Metas : ComponentBase
 
     private async Task CargarVendedores()
     {
-        vendedores = await Db.Usuarios.AsNoTracking()
+        vendedores = await Escopos.ListarAsync(db => db.Usuarios
             .Where(u => u.Activo && (u.Rol == Roles.Vendedor || u.Rol == Roles.Admin))
             .OrderBy(u => u.Nombre)
-            .Select(u => new VendedorItem(u.Id, u.Nombre, u.Rol))
-            .ToListAsync();
+            .Select(u => new VendedorItem(u.Id, u.Nombre, u.Rol)));
         vendSel ??= vendedores.FirstOrDefault();
     }
 

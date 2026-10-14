@@ -31,4 +31,16 @@ public static class CfdiDefaults
 
     /// <summary>Tipo de relación CFDI por defecto de una nota de crédito: 01 = Nota de crédito de los documentos relacionados (c_TipoRelacion).</summary>
     public const string TipoRelacionNotaCredito = "01";
+
+    /// <summary>
+    /// Motivos de cancelación SAT (c_MotivoCancelacion) en el orden en que los muestra la UI.
+    /// Fuente única para Facturación y Notas de Crédito (antes duplicados a mano en ambas páginas).
+    /// </summary>
+    public static readonly IReadOnlyList<(string Codigo, string Descripcion, bool ExigeSustituto)> MotivosCancelacion =
+    [
+        ("02", "Sin relación", false),
+        ("01", "Con relación (exige sustituto)", true),
+        ("03", "No se llevó a cabo", false),
+        ("04", "Nominativa relacionada", false)
+    ];
 }

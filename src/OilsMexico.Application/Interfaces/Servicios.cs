@@ -37,19 +37,40 @@ public interface ISucursalContext
     void Establecer(int sucursalId, int usuarioId, string rol);
 }
 
-public interface IVentasService
+/// <summary>
+/// Faceta de POS/búsqueda de ventas (ISP): dependen de ella el POS y las cotizaciones al facturar.
+/// </summary>
+public interface IVentasPosService
 {
     Task<List<ProductoDto>> BuscarProductosAsync(int sucursalId, string? filtro, CancellationToken ct = default);
     Task<VentaPosResult> RegistrarVentaAsync(VentaPosRequest request, CancellationToken ct = default);
+}
+
+/// <summary>Faceta de entrega en almacén (Surtir/Devolver) — Historial la consume para operar.</summary>
+public interface IEntregaAlmacenService
+{
     Task<VentaPosResult> SurtirAsync(int facturaId, CancellationToken ct = default);
     Task<VentaPosResult> DevolverAsync(int facturaId, string motivo, CancellationToken ct = default);
+}
 
+/// <summary>Faceta de consulta del historial de ventas (listado + detalle).</summary>
+public interface IHistorialVentasService
+{
     /// <summary>Historial paginado de ventas por sucursal con filtros de fecha/estado/texto y resumen.</summary>
     Task<HistorialResultadoDto> HistorialAsync(int sucursalId, DateTime desde, DateTime hasta,
         string? texto, EstadoFactura? estado, int pagina, CancellationToken ct = default);
 
     /// <summary>Detalle de una venta (renglones + datos CFDI). null si no existe o es de otra sucursal.</summary>
     Task<HistorialDetalleDto?> HistorialDetalleAsync(int facturaId, CancellationToken ct = default);
+}
+
+/// <summary>
+/// Módulo de ventas completo. Compuesto de las facetas ISP <see cref="IVentasPosService"/>,
+/// <see cref="IEntregaAlmacenService"/> e <see cref="IHistorialVentasService"/>: los consumidores
+/// que sólo necesitan una capacidad deben depender de la faceta correspondiente.
+/// </summary>
+public interface IVentasService : IVentasPosService, IEntregaAlmacenService, IHistorialVentasService
+{
 }
 
 public interface IInventarioService

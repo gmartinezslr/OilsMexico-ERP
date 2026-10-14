@@ -14,4 +14,21 @@ public static class Roles
 
     /// <summary>Roles asignables (orden de UI en Administración &gt; Usuarios).</summary>
     public static readonly string[] Todos = [Admin, Vendedor, Almacen, Conta];
+
+    /// <summary>
+    /// Etiqueta visible de cada rol para la UI (Administración &gt; Usuarios). Sustituye los
+    /// <c>&lt;option&gt;</c> literales del combo de roles: agregar un rol nuevo aquí basta para
+    /// que aparezca en el formulario.
+    /// </summary>
+    public static readonly IReadOnlyDictionary<string, string> Etiquetas =
+        new Dictionary<string, string>
+        {
+            [Admin] = "Admin — Administración",
+            [Vendedor] = "Vendedor — Ventas",
+            [Almacen] = "Almacen — Almacén",
+            [Conta] = "Conta — Contabilidad"
+        };
+
+    /// <summary>Etiqueta visible de un rol (fallback: el nombre tal cual).</summary>
+    public static string Etiqueta(string rol) => Etiquetas.TryGetValue(rol, out var e) ? e : rol;
 }

@@ -9,7 +9,7 @@ using OilsMexico.Infrastructure.Persistence;
 namespace OilsMexico.Infrastructure.Services;
 
 /// <summary>Cotizaciones y órdenes de venta. REGLA INMUTABLE #1: todo se filtra por <see cref="ISucursalContext"/>.</summary>
-public sealed partial class CotizacionesService(ErpDbContext db, ISucursalContext ctx, IVentasService ventas) : ICotizacionesService
+public sealed partial class CotizacionesService(ErpDbContext db, ISucursalContext ctx, IVentasPosService ventas) : ICotizacionesService
 {
     private static decimal CalcularImporte(decimal cantidad, decimal precioUnitario, decimal descuento) =>
         Math.Round((cantidad * precioUnitario) - descuento, 2);

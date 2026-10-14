@@ -54,6 +54,8 @@ public sealed partial class CotizacionesService
         if (req.FechaVencimiento.HasValue && req.FechaVencimiento <= ahora)
             throw new InvalidOperationException("La fecha de vencimiento debe ser posterior a la de emisión.");
 
+        // Un solo cálculo de totales (§6.2 — DRY: antes se invocaba CalcularTotales 3 veces).
+        var totalesNueva = CalcularTotales(detalles);
         var cotizacion = new Cotizacion
         {
             SucursalId = sucursalId,
@@ -65,9 +67,9 @@ public sealed partial class CotizacionesService
             Estado = EstadoCotizacion.Borrador,
             UsuarioId = ctx.UsuarioId,
             Detalles = detalles,
-            Subtotal = CalcularTotales(detalles).Subtotal,
-            Iva = CalcularTotales(detalles).Iva,
-            Total = CalcularTotales(detalles).Total,
+            Subtotal = totalesNueva.Subtotal,
+            Iva = totalesNueva.Iva,
+            Total = totalesNueva.Total,
             FolioInterno = AsignarFolioInterno(sucursalId, ahora)
         };
 

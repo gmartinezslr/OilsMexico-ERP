@@ -4,8 +4,9 @@ namespace OilsMexico.Domain.Entities;
 
 /// <summary>
 /// Registro impreso de auditoría: cada cambio de contraseña, habilitación/deshabilitación de 2FA
-/// (y sus configuraciones por cuenta), además de cambios de RFC/situación fiscal en clientes y
-/// proveedores. No es posible eliminar registros; solo se conservan para trazabilidad legal.
+/// (y sus configuraciones por cuenta), cambios de RFC/situación fiscal en clientes y proveedores,
+/// y transiciones de órdenes de venta. No es posible eliminar registros; solo se conservan para
+/// trazabilidad legal.
 /// </summary>
 public sealed class AuditLog
 {
@@ -16,7 +17,7 @@ public sealed class AuditLog
 
     public string? UsuarioNombre { get; set; }
 
-    /// <summary>Clave del evento. Ejemplos: PasswordChange, PasswordHistoryRejected, DosFaActivate, DosFaDeactivate, DosFaConfig, RfcValidated, FiscalSituationChanged, PasswordPolicyChanged.</summary>
+    /// <summary>Clave del evento. Ejemplos: PasswordChange, DosFaActivate, RfcValidated, FiscalSituationChanged, PasswordPolicyChanged, OVConfirmada, OVSuspendida, OVReanudada y OVCancelada.</summary>
     public string Tipo { get; set; } = string.Empty;
 
     /// <summary>Texto libre de detalle (por ejemplo, el RFC validado o el mensaje de error de política).</summary>

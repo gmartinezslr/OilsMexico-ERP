@@ -78,9 +78,11 @@ public sealed partial class CotizacionesService
             formaPago, metodoPago, usoCfdi, req.RequiereFactura, items,
             CongelarPrecios: true), ct);
 
+        var estadoAnterior = orden.Estado;
         orden.FacturaId = venta.FacturaId;
         orden.Estado = EstadoOrdenVenta.Facturada;
         orden.Notas = orden.Notas + (orden.Notas is null or "" ? "" : Environment.NewLine) + $"Facturada: {venta.FolioInterno}";
+        RegistrarAuditoriaOrdenVenta(orden, estadoAnterior, "OVFacturada", venta.FolioInterno);
         await db.SaveChangesAsync(ct);
 
         return new OrdenVentaFacturarResult(

@@ -117,9 +117,9 @@ nombre del remitente y bandera de envío automático. Build `OilsMexico.slnx` 0 
 
 - [ ] **UI de matriz permisos × roles**: las tablas `Roles`/`Permisos`/`RolPermisos` ya existen en `SchemaPatch`, pero **no hay interfaz** ni consumo.
 - [ ] **`IAutorizacionService.TienePermiso(recurso, accion)`** aplicado en `NavMenu.razor` (hoy solo ~15 filtros de rol duro) y en páginas críticas.
-- [ ] **Auditoría de acciones de UI**: ampliar `AuditLog` (hoy: `PasswordChange`, `DosFa*`, `RfcValidated`, `FiscalSituationChanged`, `PasswordPolicyChanged`) a: crear/editar producto y precios, compra, ajuste de almacén, configuración, cierre de caja, transiciones de Cotizaciones/OV.
-- [ ] **"Quién aprueba qué"** en transiciones de OV: hoy el motivo queda en `Notas`; falta registrar `usuario_id` del que confirma/suspende/reanuda/cancela (columna o `AuditLog`).
-- [ ] **Pantalla de consulta de auditoría** (filtros por fecha/usuario/acción) — no hay UI.
+- [ ] **Auditoría de acciones de UI**: ampliar `AuditLog` (hoy: `PasswordChange`, `DosFa*`, `RfcValidated`, `FiscalSituationChanged`, `PasswordPolicyChanged`) a: crear/editar producto y precios, compra, ajuste de almacén, configuración y cierre de caja. **Implementado:** transiciones de OV (confirmar, suspender, reanudar, cancelar y facturar) registran actor, motivo y estado anterior/nuevo.
+- [x] **"Quién aprueba qué"** en transiciones de OV: `AuditLog` registra `usuario_id`, motivo y estados anterior/nuevo para confirmación, suspensión, reanudación, cancelación y facturación.
+- [x] **Pantalla de consulta de auditoría** (`/auditoria`, solo Admin; filtros por fecha, usuario y acción, paginación).
 
 ---
 
@@ -223,6 +223,7 @@ Tomada de `Situación al 11 de octubre.md` §4 y validaciones CFDI:
 - [x] Conciliación bancaria (`Bancos.razor`, 15/15) · RFC + situación fiscal (`RfcValidador`) · contraseña + 2FA · barras/escaneo · wizard 3 pasos · búsqueda global Ctrl+K · plantillas de mensaje · comisiones ampliadas.
 - [x] Hardcode: `Roles.Admin`, `CfdiDefaults`, `Impuestos`, `ReglasAsiento`, `ImportacionReglas`, umbrales ABC en configuración.
 - [x] Prueba de integración Capa C 5/5 (C1, C2, C2b, C2c) y build 0 errores.
+- [x] Auditoría de transiciones OV + consulta `/auditoria` (§3): actor, motivo y estados en `AuditLog`; pantalla Admin filtrable por fecha/usuario/acción. 3 pruebas de integración cubren filtros, rechazo para rol no Admin y actor/estados en transiciones.
 
 ## 10. ⚪ Fuera de alcance (decisión de diseño)
 

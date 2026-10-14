@@ -97,9 +97,11 @@ public sealed partial class CotizacionesService
         if (orden.Estado is EstadoOrdenVenta.Facturada)
             throw new InvalidOperationException("No se puede cancelar una orden ya facturada; cancela primero la factura.");
 
+        var estadoAnterior = orden.Estado;
         orden.Estado = EstadoOrdenVenta.Cancelada;
         orden.Notas = orden.Notas + (orden.Notas is null or "" ? "" : Environment.NewLine) + $"Cancelada: {motivo}";
 
+        RegistrarAuditoriaOrdenVenta(orden, estadoAnterior, "OVCancelada", motivo);
         await db.SaveChangesAsync(ct);
 
         return new OrdenResultado(orden.Id, orden.FolioInterno ?? string.Empty, orden.Estado.ToString(), "orden_venta");

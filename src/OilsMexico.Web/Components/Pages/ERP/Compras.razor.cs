@@ -30,6 +30,9 @@ public partial class Compras : ComponentBase
 
     [Inject] private OilsMexico.Application.Interfaces.IAvisos Avisos { get; set; } = default!;
 
+    /// <summary>Catálogos SAT (formas de pago) consumidos del servicio — sin literales en markup (§6.1).</summary>
+    private CatalogosSatDto catalogosSat = new([], [], [], []);
+
     private readonly Dictionary<int, string> cantRec = new();
     private readonly Dictionary<int, string> loteRec = new();
     private readonly Dictionary<int, string> cadRec = new();
@@ -54,6 +57,7 @@ public partial class Compras : ComponentBase
     protected override async Task OnInitializedAsync()
     {
         if (!Sesion.Autenticado) return;
+        catalogosSat = Sat.Obtener();
         proveedores = await Db.Proveedores.AsNoTracking().Where(p => p.Activo)
             .OrderBy(p => p.Nombre).Select(p => new ProvRow(p.Id, p.Nombre)).ToListAsync();
         if (proveedores.Count > 0) provId = proveedores[0].Id;

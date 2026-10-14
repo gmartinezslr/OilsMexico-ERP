@@ -36,6 +36,10 @@ builder.Services.AddScoped<ICatalogosSatService, CatalogosSatService>();
 builder.Services.AddScoped<IPoliticaPassword, PoliticaPasswordService>();
 builder.Services.AddSingleton<IReloj, RelojSistema>();
 builder.Services.AddScoped<IVentasService, VentasService>();
+// ISP: facetas de ventas registradas sobre la misma implementación (§6.2).
+builder.Services.AddScoped<IVentasPosService>(sp => sp.GetRequiredService<IVentasService>());
+builder.Services.AddScoped<IEntregaAlmacenService>(sp => sp.GetRequiredService<IVentasService>());
+builder.Services.AddScoped<IHistorialVentasService>(sp => sp.GetRequiredService<IVentasService>());
 builder.Services.AddScoped<IInventarioService, InventarioService>();
 builder.Services.AddScoped<IAlmacenConsulta, AlmacenConsultaService>();
 builder.Services.AddScoped<ICatalogosService, CatalogosService>();
@@ -68,6 +72,10 @@ builder.Services.AddScoped<IComprasService, ComprasService>();
     builder.Services.AddScoped<IAsientoGeneradorService, AsientoGeneradorService>();
     builder.Services.AddScoped<IBancosService, BancosService>();
     builder.Services.AddScoped<ICotizacionesService, CotizacionesService>();
+    // ISP: facetas de cotizaciones sobre la misma implementación (§6.2).
+    builder.Services.AddScoped<ICotizacionesConsulta>(sp => sp.GetRequiredService<ICotizacionesService>());
+    builder.Services.AddScoped<ICotizacionesOperaciones>(sp => sp.GetRequiredService<ICotizacionesService>());
+    builder.Services.AddScoped<IAuditoriaService, AuditoriaService>();
     builder.Services.AddScoped<IGastoService, GastoService>();
     // Correo saliente (SMTP): remitente y servidor configurables en Configuración (tabla configuracion).
     builder.Services.AddScoped<IEmailService, EmailService>();
