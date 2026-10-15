@@ -57,12 +57,21 @@ public sealed partial class ReportesFinancierosService(
             var neto = (m?.Deb ?? 0m) - (m?.Cre ?? 0m);
             return tipo is 1 or 5 ? actual - neto : actual + neto;
         }
+        // SaldoActual guarda signo deudor (débito +, crédito −) en todas las cuentas.
+        // Para el Balance se presenta cada sección en su naturaleza: Activo/Gasto en
+        // deudor, Pasivo/Patrimonio/Ingreso en acreedor.
+        static decimal Normal(int tipo, decimal saldoDeudor) =>
+            tipo is 1 or 5 ? saldoDeudor : -saldoDeudor;
         List<BalanceCuentaDto> Sec(int tipo) => cuentas.Where(c => c.Tipo == tipo)
-            .Select(c => new BalanceCuentaDto(c.Codigo, c.Nombre, Math.Round(AlCorte(c.Id, c.Tipo, c.SaldoActual), 2))).ToList();
+            .Select(c => new BalanceCuentaDto(c.Codigo, c.Nombre, Math.Round(Normal(c.Tipo, AlCorte(c.Id, c.Tipo, c.SaldoActual)), 2))).ToList();
         var act = Sec(1); var pas = Sec(2); var pat = Sec(3);
-        var ing = cuentas.Where(c => c.Tipo == 4).Sum(c => AlCorte(c.Id, 4, c.SaldoActual));
+        // Resultado del ejercicio (utilidad positiva): ingresos − gastos, en naturaleza
+        // acreedora. Las cuentas de ingreso/gasto guardan SaldoActual con signo deudor
+        // (débito suma, crédito resta), así que se invierte el signo para el Balance.
+        var ing = -cuentas.Where(c => c.Tipo == 4).Sum(c => AlCorte(c.Id, 4, c.SaldoActual));
+        // Los gastos son de naturaleza deudora: su SaldoActual ya es positivo.
         var gas = cuentas.Where(c => c.Tipo == 5).Sum(c => AlCorte(c.Id, 5, c.SaldoActual));
-        var resultado = Math.Round(gas - ing, 2);
+        var resultado = Math.Round(ing - gas, 2);
         var totalAct = Math.Round(act.Sum(c => c.Saldo), 2);
         var totalPas = Math.Round(pas.Sum(c => c.Saldo), 2);
         var totalPat = Math.Round(pat.Sum(c => c.Saldo) + resultado, 2);

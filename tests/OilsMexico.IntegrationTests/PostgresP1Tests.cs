@@ -313,6 +313,138 @@ public sealed class PostgresP1Tests(PgFixture fixture)
         }
     }
 
+    [Fact]
+    public async Task PostgreSQL_conciliacion_cierre_balance_resultados_y_existencias()
+    {
+        // P0 #3 + #4 (15-oct): compra → venta con polizas → cierre FIFO 500 →
+        // Balance cuadra → ER concilia utilidad → existencias concilian kardex.
+        var (db, _) = await fixture.NuevaDbAsync();
+        await using (db)
+        {
+            var ahora = DateTime.Now;
+            var mes = new DateTime(ahora.Year, ahora.Month, 1);
+            var sucursal = NuevaSucursal();
+            db.Sucursales.Add(sucursal);
+            var cliente = new Cliente { Nombre = "Cliente concilia", DiasCredito = 0 };
+            var vendedor = new Usuario { Nombre = "Vendedor concilia", SucursalId = 0 };
+            var producto = new Producto
+            {
+                Sku = $"CC-{Guid.NewGuid():N}"[..18], Nombre = "Aceite concilia",
+                Marca = "CC", Viscosidad = "5W-30", TipoBase = "Mineral",
+                PrecioCosto = 10m, Activo = true
+            };
+            var proveedor = new Proveedor { Nombre = "Prov concilia", CodigoPostal = "06600" };
+            db.AddRange(cliente, producto, proveedor);
+            await db.SaveChangesAsync();
+            vendedor.SucursalId = sucursal.Id;
+            db.Add(vendedor);
+            await db.SaveChangesAsync();
+
+            await CuentasContablesService.AsegurarCatalogoAsync(db, sucursal.Id);
+            var cuentas = await db.CuentasContables
+                .Where(c => c.SucursalId == sucursal.Id).ToDictionaryAsync(c => c.Codigo);
+            var ctx = new SucursalContext();
+            ctx.Establecer(sucursal.Id, vendedor.Id, Roles.Admin);
+            var cuentasSvc = new CuentasContablesService(db, ctx);
+            var generador = new AsientoGeneradorService(db, ctx);
+            var cierre = new CierreContableService(db, ctx, generador, cuentasSvc);
+            var reportes = new ReportesFinancierosService(db, ctx, generador);
+            var ini = mes;
+            var fin = mes.AddMonths(1).AddDays(-1);
+            DateTime C(int dia, int hora) => DateTime.SpecifyKind(
+                mes.AddDays(dia - 1).AddHours(hora), DateTimeKind.Local).ToUniversalTime();
+
+            var compra = new Compra
+            {
+                SucursalId = sucursal.Id, ProveedorId = proveedor.Id,
+                FolioInterno = $"C-{Guid.NewGuid():N}"[..18],
+                Estado = EstadoCompra.Recibida, EstadoPago = EstadoPagoCompra.Pendiente,
+                FechaEmision = C(1, 10), Total = 1000m, UsuarioId = vendedor.Id,
+                Detalles = [new CompraDetalle
+                    { ProductoId = producto.Id, Cantidad = 100m,
+                      FactorConversion = 1m, CostoUnitario = 10m, UnidadNombre = "Litro" }]
+            };
+            db.Compras.Add(compra);
+            await db.SaveChangesAsync();
+            db.Movimientos.Add(new MovimientoInventario
+            {
+                SucursalId = sucursal.Id, ProductoId = producto.Id, CantidadLitros = 100m,
+                Tipo = "COMPRA", ReferenciaId = compra.Id, UsuarioId = vendedor.Id, FechaUtc = C(1, 10)
+            });
+            db.InventarioSucursal.Add(new InventarioSucursal
+                { SucursalId = sucursal.Id, ProductoId = producto.Id, StockActual = 100m });
+            await db.SaveChangesAsync();
+            await cuentasSvc.RegistrarAsientoAsync(new RegistrarAsientoRequest(
+                sucursal.Id, vendedor.Id, "Operativo", "Compra concilia",
+                [new RegistrarDetalleAsientoRequest(cuentas["1200"].Id, MovimientoTipo.Debito, 1000m, null),
+                 new RegistrarDetalleAsientoRequest(cuentas["2000"].Id, MovimientoTipo.Credito, 1000m, null)],
+                C(1, 10)));
+
+            var factura = new Factura
+            {
+                SucursalId = sucursal.Id, ClienteId = cliente.Id, VendedorId = vendedor.Id,
+                FolioInterno = $"F-{Guid.NewGuid():N}"[..18], FechaEmision = C(5, 12),
+                Subtotal = 1000m, Iva = 160m, Total = 1160m,
+                MetodoPagoSat = "PUE", Estado = EstadoFactura.Timbrada,
+                Detalles = [new FacturaDetalle
+                    { ProductoId = producto.Id, Cantidad = 50m, LitrosDescontados = 50m,
+                      PrecioUnitario = 20m, Importe = 1000m, UnidadNombre = "Litro" }]
+            };
+            db.Facturas.Add(factura);
+            await db.SaveChangesAsync();
+            db.Movimientos.Add(new MovimientoInventario
+            {
+                SucursalId = sucursal.Id, ProductoId = producto.Id, CantidadLitros = -50m,
+                Tipo = "VENTA", ReferenciaId = factura.Id, UsuarioId = vendedor.Id, FechaUtc = C(5, 12)
+            });
+            (await db.InventarioSucursal.SingleAsync(i =>
+                i.SucursalId == sucursal.Id && i.ProductoId == producto.Id)).StockActual = 50m;
+            await db.SaveChangesAsync();
+            await cuentasSvc.RegistrarAsientoAsync(new RegistrarAsientoRequest(
+                sucursal.Id, vendedor.Id, "Operativo", $"Venta {factura.FolioInterno}",
+                [new RegistrarDetalleAsientoRequest(cuentas["1000"].Id, MovimientoTipo.Debito, 1160m, null),
+                 new RegistrarDetalleAsientoRequest(cuentas["3000"].Id, MovimientoTipo.Credito, 1000m, null),
+                 new RegistrarDetalleAsientoRequest(cuentas["4000"].Id, MovimientoTipo.Credito, 160m, null)],
+                C(5, 12)));
+
+            var res = await cierre.CerrarAsync(sucursal.Id, mes.Year, mes.Month);
+            Assert.True(res.Cerrado);
+            Assert.Equal(500m, res.CostoVentas);
+            Assert.NotNull(res.AsientoId);
+
+            var balance = await reportes.BalanceAsync(sucursal.Id, fin);
+            Assert.True(balance.Cuadrado);
+            Assert.Equal(balance.TotalActivo, balance.TotalPasivoPatrimonio);
+
+            var er = await reportes.ResultadosAsync(sucursal.Id, ini, fin);
+            Assert.Equal(1000m, er.VentasNetas);
+            Assert.Equal(160m, er.IvaTrasladado);
+            Assert.Equal(500m, er.CostoVentas);
+            Assert.Equal(500m, er.UtilidadBruta);
+
+            var ex = await reportes.ExistenciasAsync(sucursal.Id, ini, fin);
+            var ren = Assert.Single(ex.Renglones);
+            Assert.Equal(0m, ren.Inicial);
+            Assert.Equal(100m, ren.Compras);
+            Assert.Equal(50m, ren.Ventas);
+            Assert.Equal(50m, ren.Final);
+
+            await Assert.ThrowsAsync<InvalidOperationException>(() => cuentasSvc.RegistrarAsientoAsync(
+                new RegistrarAsientoRequest(sucursal.Id, vendedor.Id, "Operativo", "bloqueado",
+                [new RegistrarDetalleAsientoRequest(cuentas["6000"].Id, MovimientoTipo.Debito, 10m, null),
+                 new RegistrarDetalleAsientoRequest(cuentas["1000"].Id, MovimientoTipo.Credito, 10m, null)],
+                C(15, 12))));
+            await cierre.ReabrirAsync(sucursal.Id, mes.Year, mes.Month);
+            Assert.False(await cierre.EstaCerradoAsync(sucursal.Id, C(15, 12)));
+            var tras = await cuentasSvc.RegistrarAsientoAsync(
+                new RegistrarAsientoRequest(sucursal.Id, vendedor.Id, "Operativo", "reabierto",
+                [new RegistrarDetalleAsientoRequest(cuentas["6000"].Id, MovimientoTipo.Debito, 10m, null),
+                 new RegistrarDetalleAsientoRequest(cuentas["1000"].Id, MovimientoTipo.Credito, 10m, null)],
+                C(15, 12)));
+            Assert.True(tras.Equilibrado);
+        }
+    }
+
     private static async Task<(Sucursal Sucursal, Cliente Cliente, Usuario Usuario, Producto Producto,
         UnidadMedida Unidad, OrdenVenta Orden)> PrepararOrdenAsync(
             ErpDbContext db, bool agregarReglaDesbalanceada)

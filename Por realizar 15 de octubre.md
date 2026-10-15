@@ -32,17 +32,54 @@ Revisé los dos documentos. La lista siguiente separa lo que **parece realmente 
 
 ## Prioridad 0 — Validaciones antes de operar en producción
 
-1. **Probar timbrado real en Finkok TEST.**  
+> **Revisión verificada 15-oct-2026:** `dotnet build OilsMexico.slnx --no-restore`
+> terminó con 0 errores y 0 advertencias; la suite completa terminó con 36/36
+> pruebas aprobadas (incluye PostgreSQL/Testcontainers). Corrección incluida:
+> `BalanceAsync` descuadraba porque el resultado se calculaba con signo
+> invertido (`gas − ing` en vez de `ing − gas`) y las cuentas se presentaban
+> sin normalizar a su naturaleza — corregido y cubierto con prueba nueva.
+
+1. **Probar timbrado real en Finkok TEST — ⏳ BLOQUEADO (falta CSD + credenciales).**
 Recorrer los casos indicados: factura PUE, factura PPD con complemento de pago REP, cancelación y consulta del estado ante el SAT. Confirmar que certificados, credenciales y configuración estén cargados mediante `user-secrets` o un mecanismo seguro, nunca en el repositorio. Esto depende de disponer del CSD y credenciales de prueba.
+   - Verificado por revisión de código: `PacTimbradoService` con modos SIMULADO/TEST/PRODUCCION,
+     `DatosPac` fail-closed sin credenciales, reintento Finkok 307, `cancel_signature`
+     firmada local (la llave nunca viaja), `EstadoSatAsync` vía `get_sat_status`,
+     UI `/facturacion` muestra el modo PAC. Sin CSD/credenciales opera en SIMULADO.
+   - **No validado en vivo:** no se probaron PUE, PPD + REP, cancelación ni consulta SAT
+     contra Finkok TEST. La existencia del soporte en código no acredita respuesta del PAC.
+   - Guía operativa: `docs-validacion-finkok-test.md`.
 
-2. **Validar el correo SMTP de extremo a extremo.**  
+2. **Validar el correo SMTP de extremo a extremo — ⏳ BLOQUEADO (falta servidor SMTP).**
 Probar la conexión y el envío real de CFDI, estados de cuenta y comunicados. Verificar recepción, destinatarios y adjuntos XML + PDF. Los documentos indican que el PDF al correo ya está implementado; lo pendiente es comprobar el flujo con un servidor SMTP real.
+   - Verificado por revisión de código: `EmailService` (MailKit) con `ProbarAsync`,
+     `EnviarCfdiAsync` adjunta XML + PDF (defensivo: si falla el PDF igual va el XML),
+     estados de cuenta CxC/CxP, comunicados y `ValidarListoParaEnviar` fail-closed.
+   - **Salvedad de aceptación:** si la generación del PDF falla, el código captura la
+     excepción y puede enviar el correo solo con XML. El requisito XML + PDF no queda
+     garantizado en ese caso; el flujo también informa que se envió solo XML. Definir si
+     el PDF es obligatorio y, de serlo, no dar el envío por exitoso cuando falte.
+   - **No validado en vivo:** faltan servidor SMTP, envío a buzón de prueba y verificación
+     de recepción, destinatarios y adjuntos.
+   - Guía operativa: `docs-validacion-smtp.md`.
 
-3. **Hacer un recorrido manual del cierre contable con PostgreSQL.**  
+3. **Validar cierre contable con PostgreSQL — ✅ AUTOMATIZADO / ⏳ SMOKE UI.**
 En una base de prueba, comprobar cierre de un mes con ventas, póliza de costo, bloqueo de nuevos asientos en el periodo y reapertura con el usuario Admin. Las pruebas automatizadas se describen como aprobadas, pero falta el smoke manual contra PostgreSQL.
+   - Verificado en esta revisión: `PostgreSQL_conciliacion_cierre_balance_resultados_y_existencias`
+     pasó dentro de la suite (Testcontainers con BD desechable). El escenario registra compra
+     de 100 L y venta de 50 L con movimientos y pólizas, cierra con costo FIFO de $500,
+     verifica el bloqueo de asientos y reabre como Admin.
+   - **Alcance de la prueba:** valida servicios y persistencia PostgreSQL; no recorre la UI
+     ni ejecuta el flujo de compra/POS de extremo a extremo.
+   - Pendiente: smoke manual desde la UI (`/reportes` → pestaña Cierre contable).
 
-4. **Conciliar manualmente los reportes financieros con datos reales de prueba.**  
+4. **Conciliar los reportes financieros — ✅ AUTOMATIZADO / ⏳ SMOKE UI.**
 Revisar que el Balance cuadre (Activo = Pasivo + Patrimonio), que la utilidad esperada coincida con Estado de Resultados y que las existencias concuerden con el kardex. No hacerlo directamente en producción.
+   - Verificado en esta revisión: la misma prueba aprobada concilia en PostgreSQL — Balance cuadra
+     (tras corregir bug de signo en `BalanceAsync`), ER (ventas 1000, IVA 160, costo 500,
+     utilidad bruta 500) y existencias (0 + 100 − 50 = 50, concilia kardex y stock).
+   - **Alcance de la prueba:** las cifras y aserciones se validan en los servicios sobre
+     datos sintéticos; no se ha conciliado visualmente el reporte de la UI.
+   - Pendiente: conciliación manual desde la UI con datos de prueba conocidos.
 
 ## Prioridad 1 — Definir y proteger la integridad contable y los datos
 
