@@ -14,6 +14,10 @@ public sealed class ErpDbContext(DbContextOptions<ErpDbContext> options) : DbCon
     public DbSet<FacturaDetalle> FacturaDetalles => Set<FacturaDetalle>();
     public DbSet<Cliente> Clientes => Set<Cliente>();
     public DbSet<Proveedor> Proveedores => Set<Proveedor>();
+    public DbSet<ContactoTercero> ContactosTercero => Set<ContactoTercero>();
+    public DbSet<CorreoTercero> CorreosTercero => Set<CorreoTercero>();
+    public DbSet<TelefonoTercero> TelefonosTercero => Set<TelefonoTercero>();
+    public DbSet<DireccionTercero> DireccionesTercero => Set<DireccionTercero>();
     public DbSet<CodigoPostal> CodigosPostales => Set<CodigoPostal>();
     public DbSet<Usuario> Usuarios => Set<Usuario>();
     public DbSet<Compra> Compras => Set<Compra>();

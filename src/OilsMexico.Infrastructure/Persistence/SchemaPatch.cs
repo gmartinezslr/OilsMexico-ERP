@@ -286,6 +286,7 @@ public static class SchemaPatch
         await CotizacionesPatch.AplicarAsync(db);
         await GastosPatch.AplicarAsync(db);
         await PeriodoContablePatch.AplicarAsync(db);
+        await TerceroContactosPatch.AplicarAsync(db);
 
         // CASH BASIS: las ventas PUE (contado) se consideran cobradas al momento de emitirse.
         // Se estampa el cobro faltante en el histórico PUE para que Estado de Cuentas, cortes y
@@ -480,4 +481,3 @@ public static class SchemaPatch
             """);
     }
 }
-

@@ -1,0 +1,87 @@
+@using OilsMexico.Application.DTOs
+@using Microsoft.AspNetCore.Components
+
+<div class="alert alert-info py-2">
+    Agrega una fila por domicilio. La dirección puede ser fiscal, de entrega, sucursal u otro uso;
+    puede existir una dirección predeterminada por cada tipo.
+</div>
+<div class="d-flex justify-content-between align-items-center mb-2">
+    <h6 class="mb-0 fw-bold">Direcciones</h6>
+    <button type="button" class="btn btn-sm btn-outline-primary" @onclick="Agregar">+ Agregar dirección</button>
+</div>
+@foreach (var direccion in Direcciones)
+{
+    <div class="border rounded p-3 mb-3" @key="direccion.Clave">
+        <div class="row g-2 align-items-end mb-2">
+            <div class="col-md-4">
+                <label class="form-label small">Tipo / uso</label>
+                <select class="form-select" @bind="direccion.Tipo">
+                    <option>Fiscal</option>
+                    <option>Entrega</option>
+                    <option>Sucursal</option>
+                    <option>Devoluciones</option>
+                    <option>Otro</option>
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label small">Persona que recibe (opcional)</label>
+                <select class="form-select" @bind="direccion.ContactoRecibeClave">
+                    <option value="">Sin asignar / recepción general</option>
+                    @foreach (var contacto in Contactos.Where(x => !string.IsNullOrWhiteSpace(x.Nombre)))
+                    {
+                        <option value="@contacto.Clave">@contacto.Nombre</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-2 form-check">
+                <input class="form-check-input" type="radio" name="@($"direccion-default-{direccion.Tipo}")"
+                       checked="@direccion.EsPredeterminada" @onchange="() => MarcarPredeterminada(direccion)"
+                       id="@($"default-{direccion.Clave}")" />
+                <label class="form-check-label small" for="@($"default-{direccion.Clave}")">Predeterminada para el uso</label>
+            </div>
+            <div class="col-md-2 text-end">
+                <button type="button" class="btn btn-sm btn-outline-danger" @onclick="() => Direcciones.Remove(direccion)">Quitar</button>
+            </div>
+        </div>
+        <DireccionSepomex @bind-CodigoPostal="direccion.CodigoPostal"
+                          @bind-Colonia="direccion.Colonia"
+                          @bind-Calle="direccion.Calle"
+                          @bind-NumeroExterior="direccion.NumeroExterior"
+                          @bind-NumeroInterior="direccion.NumeroInterior"
+                          @bind-Municipio="direccion.Municipio"
+                          @bind-Estado="direccion.Estado"
+                          @bind-Ciudad="direccion.Ciudad" />
+        <div class="row g-2 mt-1">
+            <div class="col-md-4">
+                <label class="form-label small">País</label>
+                <input class="form-control" @bind="direccion.Pais" />
+            </div>
+            <div class="col-md-4">
+                <label class="form-label small">Horario de recepción</label>
+                <input class="form-control" @bind="direccion.Horario" />
+            </div>
+            <div class="col-md-4">
+                <label class="form-label small">Instrucciones de entrega / acceso</label>
+                <input class="form-control" @bind="direccion.Instrucciones" />
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired] public List<DireccionTerceroDto> Direcciones { get; set; } = [];
+    [Parameter, EditorRequired] public List<ContactoTerceroDto> Contactos { get; set; } = [];
+
+    private void MarcarPredeterminada(DireccionTerceroDto seleccionada)
+    {
+        foreach (var direccion in Direcciones)
+            if (string.Equals(direccion.Tipo, seleccionada.Tipo, StringComparison.OrdinalIgnoreCase))
+                direccion.EsPredeterminada = ReferenceEquals(direccion, seleccionada);
+    }
+
+    private void Agregar() => Direcciones.Add(new DireccionTerceroDto
+    {
+        Tipo = "Entrega",
+        Pais = "México"
+    });
+}

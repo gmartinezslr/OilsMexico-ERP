@@ -142,6 +142,10 @@ public sealed record ClienteCatalogoDto
     public string CodigoPostal { get; set; } = "06600";
     public int? VendedorId { get; set; }
     public Domain.Enums.SituacionFiscal SituacionFiscal { get; set; } = Domain.Enums.SituacionFiscal.Actual;
+    public List<ContactoTerceroDto> Contactos { get; set; } = [];
+    public List<CorreoTerceroDto> Correos { get; set; } = [];
+    public List<TelefonoTerceroDto> Telefonos { get; set; } = [];
+    public List<DireccionTerceroDto> Direcciones { get; set; } = [];
 }
 
 /// <summary>
@@ -168,4 +172,64 @@ public sealed record ProveedorCatalogoDto
     public bool Activo { get; set; } = true;
     public int DiasCredito { get; set; } = 30;
     public Domain.Enums.SituacionFiscal SituacionFiscal { get; set; } = Domain.Enums.SituacionFiscal.Actual;
+    public List<ContactoTerceroDto> Contactos { get; set; } = [];
+    public List<CorreoTerceroDto> Correos { get; set; } = [];
+    public List<TelefonoTerceroDto> Telefonos { get; set; } = [];
+    public List<DireccionTerceroDto> Direcciones { get; set; } = [];
+}
+
+public sealed record ContactoTerceroDto
+{
+    public string Clave { get; set; } = Guid.NewGuid().ToString("N");
+    public string Nombre { get; set; } = string.Empty;
+    public string? Puesto { get; set; }
+    public string? Area { get; set; }
+    public bool EsPrincipal { get; set; }
+    public bool EsRespaldo { get; set; }
+    public bool PuedeRecibirPedidos { get; set; }
+    public bool PuedeRecibirNotificaciones { get; set; }
+    public string? AlcanceAutorizacion { get; set; }
+    public string? Horario { get; set; }
+    public string? Notas { get; set; }
+}
+
+public sealed record CorreoTerceroDto
+{
+    public string Clave { get; set; } = Guid.NewGuid().ToString("N");
+    public string Tipo { get; set; } = "Principal";
+    public string Direccion { get; set; } = string.Empty;
+    public string? ContactoClave { get; set; }
+    public bool EsPrincipal { get; set; }
+    public string? Notas { get; set; }
+}
+
+public sealed record TelefonoTerceroDto
+{
+    public string Clave { get; set; } = Guid.NewGuid().ToString("N");
+    public string Tipo { get; set; } = "Celular";
+    public string Numero { get; set; } = string.Empty;
+    public string? ContactoClave { get; set; }
+    public bool TieneWhatsApp { get; set; }
+    public bool EsPrincipal { get; set; }
+    public string? Horario { get; set; }
+    public string? Notas { get; set; }
+}
+
+public sealed record DireccionTerceroDto
+{
+    public string Clave { get; set; } = Guid.NewGuid().ToString("N");
+    public string Tipo { get; set; } = "Principal";
+    public string? Calle { get; set; }
+    public string? NumeroExterior { get; set; }
+    public string? NumeroInterior { get; set; }
+    public string? Colonia { get; set; }
+    public string? CodigoPostal { get; set; }
+    public string? Municipio { get; set; }
+    public string? Estado { get; set; }
+    public string? Ciudad { get; set; }
+    public string Pais { get; set; } = "México";
+    public string? ContactoRecibeClave { get; set; }
+    public bool EsPredeterminada { get; set; }
+    public string? Horario { get; set; }
+    public string? Instrucciones { get; set; }
 }

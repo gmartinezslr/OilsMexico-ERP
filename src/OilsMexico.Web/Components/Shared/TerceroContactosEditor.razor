@@ -1,0 +1,170 @@
+@using OilsMexico.Application.DTOs
+@using Microsoft.AspNetCore.Components
+
+<div class="alert alert-info py-2">
+    Registra cada persona y medio por separado. Los medios compartidos pueden quedar sin contacto asociado.
+    @if (EsCliente)
+    {
+        <span> Marca una persona de respaldo distinta del contacto principal y asóciale al menos un teléfono o correo.</span>
+    }
+    else
+    {
+        <span> El puesto o cargo es obligatorio para cada contacto del proveedor.</span>
+    }
+</div>
+
+<div class="d-flex justify-content-between align-items-center mb-2">
+    <h6 class="mb-0 fw-bold">Personas de contacto</h6>
+    <button type="button" class="btn btn-sm btn-outline-primary" @onclick="AgregarContacto">+ Agregar persona</button>
+</div>
+@foreach (var contacto in Contactos)
+{
+    <div class="border rounded p-3 mb-2" @key="contacto.Clave">
+        <div class="row g-2 align-items-end">
+            <div class="col-md-5">
+                <label class="form-label small">Nombre completo</label>
+                <input class="form-control" @bind="contacto.Nombre" />
+            </div>
+            <div class="col-md-4">
+                <label class="form-label small">Puesto / cargo @(!EsCliente ? "*" : "")</label>
+                <input class="form-control" @bind="contacto.Puesto" />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label small">Área</label>
+                <input class="form-control" @bind="contacto.Area" />
+            </div>
+            <div class="col-md-3 form-check ms-2">
+                <input class="form-check-input" type="radio" name="contacto-principal" checked="@contacto.EsPrincipal"
+                       @onchange="() => MarcarPrincipal(contacto)" id="@($"principal-{contacto.Clave}")" />
+                <label class="form-check-label small" for="@($"principal-{contacto.Clave}")">Contacto principal</label>
+            </div>
+            @if (EsCliente)
+            {
+                <div class="col-md-3 form-check">
+                    <input class="form-check-input" type="radio" name="contacto-respaldo" checked="@contacto.EsRespaldo"
+                           @onchange="() => MarcarRespaldo(contacto)" id="@($"respaldo-{contacto.Clave}")" />
+                    <label class="form-check-label small" for="@($"respaldo-{contacto.Clave}")">Respaldo / quien recibe</label>
+                </div>
+                <div class="col-md-2 form-check">
+                    <input class="form-check-input" type="checkbox" @bind="contacto.PuedeRecibirPedidos"
+                           id="@($"pedidos-{contacto.Clave}")" />
+                    <label class="form-check-label small" for="@($"pedidos-{contacto.Clave}")">Recibe pedidos</label>
+                </div>
+                <div class="col-md-3 form-check">
+                    <input class="form-check-input" type="checkbox" @bind="contacto.PuedeRecibirNotificaciones"
+                           id="@($"avisos-{contacto.Clave}")" />
+                    <label class="form-check-label small" for="@($"avisos-{contacto.Clave}")">Recibe notificaciones</label>
+                </div>
+                @if (contacto.EsRespaldo)
+                {
+                    <div class="col-md-6">
+                        <label class="form-label small">Alcance de autorización</label>
+                        <input class="form-control" @bind="contacto.AlcanceAutorizacion"
+                               placeholder="Ej. recibir mercancía; aclarar si puede firmar" />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label small">Horario / disponibilidad</label>
+                        <input class="form-control" @bind="contacto.Horario" />
+                    </div>
+                }
+            }
+            <div class="col text-end">
+                <button type="button" class="btn btn-sm btn-outline-danger" @onclick="() => Contactos.Remove(contacto)">Quitar</button>
+            </div>
+        </div>
+    </div>
+}
+
+<div class="d-flex justify-content-between align-items-center mt-4 mb-2">
+    <h6 class="mb-0 fw-bold">Correos electrónicos</h6>
+    <button type="button" class="btn btn-sm btn-outline-primary" @onclick="AgregarCorreo">+ Agregar correo</button>
+</div>
+@foreach (var correo in Correos)
+{
+    <div class="row g-2 align-items-end mb-2" @key="correo.Clave">
+        <div class="col-md-2"><label class="form-label small">Tipo / uso</label><input class="form-control" @bind="correo.Tipo" /></div>
+        <div class="col-md-4"><label class="form-label small">Correo</label><input class="form-control" type="email" @bind="correo.Direccion" /></div>
+        <div class="col-md-3">
+            <label class="form-label small">Persona (opcional)</label>
+            <select class="form-select" @bind="correo.ContactoClave">
+                <option value="">Buzón / área compartida</option>
+                @foreach (var contacto in Contactos.Where(x => !string.IsNullOrWhiteSpace(x.Nombre)))
+                {
+                    <option value="@contacto.Clave">@contacto.Nombre</option>
+                }
+            </select>
+        </div>
+        <div class="col-md-2 form-check">
+            <input class="form-check-input" type="radio" name="correo-principal" checked="@correo.EsPrincipal"
+                   @onchange="() => MarcarCorreoPrincipal(correo)" id="@($"email-main-{correo.Clave}")" />
+            <label class="form-check-label small" for="@($"email-main-{correo.Clave}")">Principal</label>
+        </div>
+        <div class="col-md-1"><button type="button" class="btn btn-sm btn-outline-danger" @onclick="() => Correos.Remove(correo)">Quitar</button></div>
+    </div>
+}
+
+<div class="d-flex justify-content-between align-items-center mt-4 mb-2">
+    <h6 class="mb-0 fw-bold">Teléfonos</h6>
+    <button type="button" class="btn btn-sm btn-outline-primary" @onclick="AgregarTelefono">+ Agregar teléfono</button>
+</div>
+@foreach (var telefono in Telefonos)
+{
+    <div class="row g-2 align-items-end mb-2" @key="telefono.Clave">
+        <div class="col-md-2"><label class="form-label small">Tipo</label><input class="form-control" @bind="telefono.Tipo" /></div>
+        <div class="col-md-3"><label class="form-label small">Número</label><input class="form-control" type="tel" @bind="telefono.Numero" /></div>
+        <div class="col-md-3">
+            <label class="form-label small">Persona (opcional)</label>
+            <select class="form-select" @bind="telefono.ContactoClave">
+                <option value="">Línea general / área</option>
+                @foreach (var contacto in Contactos.Where(x => !string.IsNullOrWhiteSpace(x.Nombre)))
+                {
+                    <option value="@contacto.Clave">@contacto.Nombre</option>
+                }
+            </select>
+        </div>
+        <div class="col-md-1 form-check">
+            <input class="form-check-input" type="checkbox" @bind="telefono.TieneWhatsApp"
+                   id="@($"whatsapp-{telefono.Clave}")" />
+            <label class="form-check-label small" for="@($"whatsapp-{telefono.Clave}")">WhatsApp</label>
+        </div>
+        <div class="col-md-1 form-check">
+            <input class="form-check-input" type="radio" name="telefono-principal" checked="@telefono.EsPrincipal"
+                   @onchange="() => MarcarTelefonoPrincipal(telefono)" id="@($"phone-main-{telefono.Clave}")" />
+            <label class="form-check-label small" for="@($"phone-main-{telefono.Clave}")">Principal</label>
+        </div>
+        <div class="col-md-2"><button type="button" class="btn btn-sm btn-outline-danger" @onclick="() => Telefonos.Remove(telefono)">Quitar</button></div>
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired] public List<ContactoTerceroDto> Contactos { get; set; } = [];
+    [Parameter, EditorRequired] public List<CorreoTerceroDto> Correos { get; set; } = [];
+    [Parameter, EditorRequired] public List<TelefonoTerceroDto> Telefonos { get; set; } = [];
+    [Parameter] public bool EsCliente { get; set; }
+
+    private void AgregarContacto() => Contactos.Add(new ContactoTerceroDto());
+    private void AgregarCorreo() => Correos.Add(new CorreoTerceroDto());
+    private void AgregarTelefono() => Telefonos.Add(new TelefonoTerceroDto());
+
+    private void MarcarPrincipal(ContactoTerceroDto seleccionado)
+    {
+        foreach (var contacto in Contactos) contacto.EsPrincipal = contacto == seleccionado;
+        if (EsCliente && seleccionado.EsRespaldo) seleccionado.EsRespaldo = false;
+    }
+
+    private void MarcarRespaldo(ContactoTerceroDto seleccionado)
+    {
+        foreach (var contacto in Contactos) contacto.EsRespaldo = contacto == seleccionado;
+        if (seleccionado.EsPrincipal) seleccionado.EsPrincipal = false;
+    }
+
+    private void MarcarCorreoPrincipal(CorreoTerceroDto seleccionado)
+    {
+        foreach (var correo in Correos) correo.EsPrincipal = ReferenceEquals(correo, seleccionado);
+    }
+
+    private void MarcarTelefonoPrincipal(TelefonoTerceroDto seleccionado)
+    {
+        foreach (var telefono in Telefonos) telefono.EsPrincipal = ReferenceEquals(telefono, seleccionado);
+    }
+}

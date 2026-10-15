@@ -80,7 +80,20 @@ public partial class Clientes : ComponentBase
 
     private async Task AlEscribir(ChangeEventArgs e) { filtro = e.Value?.ToString() ?? ""; await Cargar(); }
 
-    private void Nuevo() { edit = new ClienteCatalogoDto { CodigoPostal = "06600" }; vendedorSel = ""; paso = 1; msg = ""; }
+    private void Nuevo()
+    {
+        edit = new ClienteCatalogoDto
+        {
+            CodigoPostal = "06600",
+            Contactos =
+            [
+                new() { EsPrincipal = true },
+                new() { EsRespaldo = true }
+            ],
+            Direcciones = [new() { Tipo = "Fiscal", EsPredeterminada = true, CodigoPostal = "06600" }]
+        };
+        vendedorSel = ""; paso = 1; msg = "";
+    }
 
     private void IrPaso(int n) { paso = Math.Clamp(n, 1, 3); msg = ""; }
 
@@ -92,8 +105,9 @@ public partial class Clientes : ComponentBase
         { msg = "Paso 1: captura Nombre y RFC antes de continuar."; err = true; return; }
         if (paso == 2 && string.IsNullOrWhiteSpace(edit.RegimenFiscal))
         { msg = "Paso 2: elige el régimen fiscal."; err = true; return; }
+        if (paso == 3 && !ValidarDirecciones()) { err = true; return; }
         err = false;
-        paso = Math.Min(3, paso + 1);
+        paso = Math.Min(4, paso + 1);
     }
 
     private void Anterior() { paso = Math.Max(1, paso - 1); msg = ""; }
@@ -109,6 +123,7 @@ public partial class Clientes : ComponentBase
         msg = "";
         if (string.IsNullOrWhiteSpace(edit.Nombre) || string.IsNullOrWhiteSpace(edit.Rfc))
         { msg = "Nombre y RFC son obligatorios."; err = true; return; }
+        if (!ValidarDirecciones()) { err = true; return; }
         if (!string.IsNullOrWhiteSpace(vendedorSel)
             && (!int.TryParse(vendedorSel, out var vid) || !vendedores.Any(v => v.Id == vid)))
         { msg = "Selecciona un vendedor válido de la lista."; err = true; return; }
@@ -149,5 +164,21 @@ public partial class Clientes : ComponentBase
         if (!ok) return;
         Nuevo();
         await Cargar();
+    }
+
+    private bool ValidarDirecciones()
+    {
+        var capturadas = edit.Direcciones.Where(d =>
+            !string.IsNullOrWhiteSpace(d.Calle) || !string.IsNullOrWhiteSpace(d.Colonia)
+            || !string.IsNullOrWhiteSpace(d.CodigoPostal) || !string.IsNullOrWhiteSpace(d.Municipio)).ToList();
+        if (capturadas.Count == 0)
+        { msg = "Registra al menos una dirección."; return false; }
+        if (capturadas.Any(d => string.IsNullOrWhiteSpace(d.Colonia)
+            || string.IsNullOrWhiteSpace(d.CodigoPostal) || d.CodigoPostal.Length != 5
+            || !d.CodigoPostal.All(char.IsDigit)))
+        { msg = "Cada dirección iniciada debe tener CP de 5 dígitos y colonia de SEPOMEX."; return false; }
+        if (!capturadas.Any(d => d.EsPredeterminada))
+        { msg = "Marca una dirección predeterminada para al menos un uso."; return false; }
+        return true;
     }
 }

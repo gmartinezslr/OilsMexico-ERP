@@ -29,4 +29,8 @@ public sealed class Proveedor
     public int DiasCredito { get; set; } = 30;
 
     public SituacionFiscal SituacionFiscal { get; set; } = SituacionFiscal.Actual; // Estado de Situación Fiscal declarado ante el SAT.
+    public List<ContactoTercero> Contactos { get; set; } = [];
+    public List<CorreoTercero> Correos { get; set; } = [];
+    public List<TelefonoTercero> Telefonos { get; set; } = [];
+    public List<DireccionTercero> Direcciones { get; set; } = [];
 }

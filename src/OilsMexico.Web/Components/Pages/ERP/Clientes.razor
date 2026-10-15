@@ -10,8 +10,8 @@
 <div class="container-fluid py-3">
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h3 class="fw-bold mb-0">Clientes
-            <AyudaContextual Titulo="Alta de clientes en 3 pasos"
-                Texto="1) Datos: nombre, RFC válido y contacto. 2) Facturación: régimen, situación fiscal, tipo de precio y vendedor dueño. 3) Dirección SEPOMEX: CP de 5 dígitos + colonia del catálogo. Sin colonia no se puede guardar." />
+            <AyudaContextual Titulo="Alta de clientes en 4 pasos"
+                Texto="1) Datos fiscales: nombre y RFC válido. 2) Facturación: régimen, situación fiscal, tipo de precio y vendedor dueño. 3) Direcciones: varios domicilios SEPOMEX. 4) Contactos: correos, teléfonos y persona de respaldo obligatoria." />
         </h3>
         <button class="btn btn-primary" @onclick="Nuevo">+ Nuevo cliente</button>
     </div>
@@ -39,15 +39,16 @@
         <div class="col-lg-7"><div class="card shadow-sm"><div class="card-body">
             <div class="d-flex justify-content-between align-items-center">
                 <h5 class="fw-bold mb-0">@(edit.Id == 0 ? "Nuevo cliente" : $"Editar #{edit.Id}")</h5>
-                <span class="badge bg-secondary">Paso @paso de 3</span>
+                <span class="badge bg-secondary">Paso @paso de 4</span>
             </div>
             <div class="progress my-2" style="height:6px">
-                <div class="progress-bar" role="progressbar" style="width:@(paso * 100 / 3)%"></div>
+                <div class="progress-bar" role="progressbar" style="width:@(paso * 100 / 4)%"></div>
             </div>
             <div class="btn-group btn-group-sm mb-3" role="group" aria-label="Pasos del alta">
                 <button type="button" class="btn @(paso == 1 ? "btn-primary" : "btn-outline-primary")" @onclick="() => IrPaso(1)">1 · Datos</button>
                 <button type="button" class="btn @(paso == 2 ? "btn-primary" : "btn-outline-primary")" @onclick="() => IrPaso(2)">2 · Facturación</button>
-                <button type="button" class="btn @(paso == 3 ? "btn-primary" : "btn-outline-primary")" @onclick="() => IrPaso(3)">3 · Dirección</button>
+                <button type="button" class="btn @(paso == 3 ? "btn-primary" : "btn-outline-primary")" @onclick="() => IrPaso(3)">3 · Direcciones</button>
+                <button type="button" class="btn @(paso == 4 ? "btn-primary" : "btn-outline-primary")" @onclick="() => IrPaso(4)">4 · Contactos</button>
             </div>
             @if (paso == 1)
             {
@@ -60,10 +61,6 @@
                     {
                         <small class="@(rfcErr ? "text-danger" : "text-success")">@rfcInfo</small>
                     }</div>
-                <div class="col-md-6"><label class="form-label small">Email</label>
-                    <input class="form-control" @bind="edit.Email" /></div>
-                <div class="col-md-6"><label class="form-label small">Teléfono</label>
-                    <input class="form-control" @bind="edit.Telefono" /></div>
             </div>
             }
             else if (paso == 2)
@@ -107,18 +104,19 @@
                     <small class="text-muted">Se usa como vendedor sugerido al facturar. Cambiarlo aquí no altera ventas ya registradas.</small></div>
             </div>
             }
+            else if (paso == 3)
+            {
+                <TerceroDireccionesEditor Direcciones="edit.Direcciones" Contactos="edit.Contactos" />
+            }
             else
             {
-            <h6 class="fw-bold mt-1">Dirección</h6>
-            <DireccionSepomex @bind-CodigoPostal="edit.CodigoPostal" @bind-Colonia="edit.Colonia"
-                              @bind-Calle="edit.Calle" @bind-NumeroExterior="edit.NumeroExterior"
-                              @bind-NumeroInterior="edit.NumeroInterior" @bind-Municipio="edit.Municipio"
-                              @bind-Estado="edit.Estado" @bind-Ciudad="edit.Ciudad" />
+                <TerceroContactosEditor EsCliente="true" Contactos="edit.Contactos"
+                                        Correos="edit.Correos" Telefonos="edit.Telefonos" />
             }
             <div class="d-flex justify-content-between gap-2 mt-3">
                 <button class="btn btn-outline-secondary" disabled="@(paso == 1)" @onclick="Anterior">← Anterior</button>
                 <div class="d-flex gap-2">
-                    @if (paso < 3)
+                    @if (paso < 4)
                     {
                         <button class="btn btn-primary" @onclick="Siguiente">Siguiente →</button>
                     }

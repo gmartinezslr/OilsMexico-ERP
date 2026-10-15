@@ -46,8 +46,8 @@ public sealed class ProveedorConfig : IEntityTypeConfiguration<Proveedor>
         e.HasKey(x => x.Id); e.Property(x => x.Id).HasColumnName("id");
         e.Property(x => x.Nombre).HasColumnName("nombre").HasMaxLength(150).IsRequired();
         e.Property(x => x.Rfc).HasColumnName("rfc").HasMaxLength(13).HasDefaultValue("XAXX010101000");
-        e.Property(x => x.Telefono).HasColumnName("telefono").HasMaxLength(20);
-        e.Property(x => x.Email).HasColumnName("email").HasMaxLength(100);
+        e.Property(x => x.Telefono).HasColumnName("telefono").HasMaxLength(40);
+        e.Property(x => x.Email).HasColumnName("email").HasMaxLength(254);
         e.Property(x => x.Calle).HasColumnName("calle").HasMaxLength(150);
         e.Property(x => x.NumeroExterior).HasColumnName("numero_exterior").HasMaxLength(20);
         e.Property(x => x.NumeroInterior).HasColumnName("numero_interior").HasMaxLength(20);
