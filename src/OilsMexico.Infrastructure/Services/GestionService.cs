@@ -48,7 +48,7 @@ public sealed partial class GestionService(ErpDbContext db, ISucursalContext ctx
         var ventasPorDia = numVentas / Math.Max(1, dias);
 
         var totalCortes = await db.CortesCaja.AsNoTracking()
-            .Where(c => c.SucursalId == sucursalId && c.Estado == "Abierto")
+            .Where(c => c.SucursalId == sucursalId && c.Estado == EstadoCorte.Abierto)
             .CountAsync(ct);
 
         return new DashboardGestionDto(

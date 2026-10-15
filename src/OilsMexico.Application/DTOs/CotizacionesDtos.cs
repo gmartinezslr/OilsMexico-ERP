@@ -30,7 +30,7 @@ public sealed record CotizacionConvertirRequest(
 
 /// <summary>Resultado de la conversión: nueva orden de venta creada.</summary>
 public sealed record CotizacionConvertirResult(
-    int OrdenVentaId, string FolioInterno, decimal Total, string EstadoNuevaOrden);
+    int OrdenVentaId, string FolioInterno, decimal Total, EstadoOrdenVenta EstadoNuevaOrden);
 
 /// <summary>Encabezado completo de cotización (solo lectura) para pantalla de detalle.</summary>
 public sealed record CotizacionResponseDto(
@@ -88,7 +88,7 @@ public sealed record OrdenVentaFacturarRequest(
 /// <summary>Resultado de facturar la orden: la orden pasa a Facturada y queda ligada a la Factura.</summary>
 public sealed record OrdenVentaFacturarResult(
     int OrdenVentaId, string FolioOrden, EstadoOrdenVenta EstadoOrden,
-    int FacturaId, string FolioFactura, string EstadoFactura,
+    int FacturaId, string FolioFactura, EstadoFactura EstadoFactura,
     decimal Subtotal, decimal Iva, decimal Total, Guid? UuidSat);
 
 /// <summary>Resultado de cancelación de cotización u orden de venta.</summary>

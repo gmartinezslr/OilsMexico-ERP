@@ -69,7 +69,7 @@ public sealed partial class CotizacionesService
         // Comitea la transacción antes de devolver el resultado
         await tx.CommitAsync(ct);
 
-        return new CotizacionConvertirResult(orden.Id, orden.FolioInterno!, orden.Total, orden.Estado.ToString());
+        return new CotizacionConvertirResult(orden.Id, orden.FolioInterno!, orden.Total, orden.Estado);
     }
 
     /// <summary>Anula una cotización (solo estado Borrador/Enviada/Cancelada).</summary>

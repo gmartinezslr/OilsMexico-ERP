@@ -11,7 +11,12 @@ namespace OilsMexico.Application.Interfaces;
 public interface ICatalogosService
 {
     // ---- Productos ----
-    Task<List<ProductoCatalogoDto>> BuscarProductosAsync(string? filtro, CancellationToken ct = default);
+    /// <summary>
+    /// Listado de productos para la página Productos: filtro multi-campo (SKU, SKU anterior,
+    /// nombre, marca, viscosidad, categoría, especificación), opcional de inactivos y límite.
+    /// </summary>
+    Task<List<ProductoCatalogoDto>> BuscarProductosAsync(
+        string? filtro, bool soloActivos = true, int limite = 250, CancellationToken ct = default);
     Task<ProductoCatalogoDto?> ObtenerProductoAsync(int id, CancellationToken ct = default);
     Task<(bool Ok, string Mensaje, int Id)> GuardarProductoAsync(ProductoCatalogoDto producto, CancellationToken ct = default);
     Task<(bool Ok, string Mensaje)> CambiarEstadoProductoAsync(int id, bool activo, CancellationToken ct = default);
@@ -32,7 +37,16 @@ public interface ICatalogosService
     // ---- Usuarios ----
     Task<List<UsuarioRowDto>> ListarUsuariosAsync(string? filtro, bool soloActivos, CancellationToken ct = default);
     Task<UsuarioDto?> ObtenerUsuarioAsync(int id, CancellationToken ct = default);
-    Task<(bool Ok, string Mensaje, int Id)> GuardarUsuarioAsync(UsuarioDto usuario, CancellationToken ct = default);
+    /// <summary>
+    /// Guarda (alta o edición) un usuario. Cuando <paramref name="passwordNueva"/> es verdadero
+    /// el servicio registra el historial de contraseñas (recortándolo a <paramref name="historialContraseñas"/>),
+    /// revoca sesiones abiertas y escribe la auditoría del cambio, en lugar de que esa escritura
+    /// multi-tabla viva en la página (DIP + trazabilidad §3). <paramref name="actorNombre"/> identifica
+    /// al administrador que hizo el cambio para el <c>AuditLog</c>.
+    /// </summary>
+    Task<(bool Ok, string Mensaje, int Id)> GuardarUsuarioAsync(
+        UsuarioDto usuario, bool passwordNueva = false, string? actorNombre = null,
+        int historialContraseñas = 3, CancellationToken ct = default);
     Task<(bool Ok, string Mensaje)> CambiarEstadoUsuarioAsync(int id, bool activo, CancellationToken ct = default);
     Task<List<VendedorDto>> ListarVendedoresAsync(CancellationToken ct = default);
 }

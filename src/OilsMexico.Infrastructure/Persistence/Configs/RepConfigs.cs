@@ -21,7 +21,7 @@ public sealed class ComplementoPagoConfig : IEntityTypeConfiguration<Complemento
         e.Property(x => x.XmlSellado).HasColumnName("xml_sellado");
         e.Property(x => x.SelloDigital).HasColumnName("sello_digital");
         e.Property(x => x.CadenaOriginal).HasColumnName("cadena_original");
-        e.Property(x => x.Estado).HasColumnName("estado").HasMaxLength(20);
+        e.Property(x => x.Estado).HasColumnName("estado").HasConversion<string>().HasMaxLength(20);
         e.Property(x => x.UsuarioId).HasColumnName("usuario_id");
         e.HasOne(x => x.Sucursal).WithMany().HasForeignKey(x => x.SucursalId);
         e.HasOne(x => x.Cliente).WithMany().HasForeignKey(x => x.ClienteId);

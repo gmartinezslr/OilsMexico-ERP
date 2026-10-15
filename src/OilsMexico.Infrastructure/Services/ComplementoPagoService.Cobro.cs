@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using OilsMexico.Application.DTOs;
 using OilsMexico.Domain.Entities;
+using OilsMexico.Domain.Enums;
 
 namespace OilsMexico.Infrastructure.Services;
 
@@ -33,7 +34,7 @@ public sealed partial class ComplementoPagoService
             SucursalId = f.SucursalId,
             FolioInterno = $"REP-{f.SucursalId}-{DateTime.UtcNow:yyyyMMddHHmmss}",
             ClienteId = f.ClienteId, FechaEmision = DateTime.UtcNow,
-            Total = monto, Estado = "Pendiente", UsuarioId = ctx.UsuarioId
+            Total = monto, Estado = EstadoRep.Pendiente, UsuarioId = ctx.UsuarioId
         };
         db.ComplementosPago.Add(rep);
         await db.SaveChangesAsync(ct);
@@ -62,9 +63,9 @@ public sealed partial class ComplementoPagoService
         var (uuidRep, xmlRepTimbrado) = await pac.TimbrarAsync(rep.XmlSellado!, ct);
         rep.UuidSat = uuidRep;
         rep.XmlSellado = xmlRepTimbrado;
-        rep.Estado = "Timbrado";
+        rep.Estado = EstadoRep.Timbrado;
         await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
-        return new CobroResult(cobro.Id, rep.Id, rep.FolioInterno, monto, insoluto, "TIMBRADO");
+        return new CobroResult(cobro.Id, rep.Id, rep.FolioInterno, monto, insoluto, EstadoRep.Timbrado);
     }
 }

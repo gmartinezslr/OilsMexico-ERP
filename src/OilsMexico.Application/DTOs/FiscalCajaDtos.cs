@@ -21,7 +21,7 @@ public sealed record CrearNotaCreditoRequest(
 
 public sealed record NotaCreditoResult(
     int NotaId, string FolioInterno, Guid? UuidSat,
-    decimal Subtotal, decimal Iva, decimal Total, string Estado);
+    decimal Subtotal, decimal Iva, decimal Total, EstadoNotaCredito Estado);
 
 public sealed record NotaCreditoListadoDto(
     int NotaId, string FolioInterno, DateTime FechaEmision,
@@ -40,15 +40,15 @@ public sealed record RegistrarCobroRequest(
 
 public sealed record CobroResult(
     int CobroId, int RepId, string FolioRep, decimal Monto,
-    decimal SaldoInsoluto, string EstadoRep);
+    decimal SaldoInsoluto, EstadoRep EstadoRep);
 
 public sealed record RepListadoDto(
     int RepId, string FolioInterno, DateTime FechaEmision, string Cliente,
-    decimal Total, Guid? UuidSat, string Estado, int Cobros, bool TieneXml);
+    decimal Total, Guid? UuidSat, EstadoRep Estado, int Cobros, bool TieneXml);
 
 public sealed record RepDetalleDto(
     int RepId, string FolioInterno, DateTime FechaEmision, string Cliente,
-    decimal Total, Guid? UuidSat, string Estado,
+    decimal Total, Guid? UuidSat, EstadoRep Estado,
     List<RepDoctoDto> Documentos);
 
 public sealed record RepDoctoDto(
@@ -77,10 +77,10 @@ public sealed record CerrarCorteRequest(
 
 public sealed record CorteResult(
     int CorteId, DateTime? FechaCierreUtc, decimal TotalVentasSistema,
-    decimal EfectivoContado, decimal Diferencia, string Estado);
+    decimal EfectivoContado, decimal Diferencia, EstadoCorte Estado);
 
 public sealed record CorteListadoDto(
     int CorteId, DateTime FechaAperturaUtc, DateTime? FechaCierreUtc,
     string UsuarioApertura, decimal FondoInicial,
     decimal TotalVentasSistema, decimal EfectivoContado,
-    decimal Diferencia, string Estado, int NumVentas);
+    decimal Diferencia, EstadoCorte Estado, int NumVentas);

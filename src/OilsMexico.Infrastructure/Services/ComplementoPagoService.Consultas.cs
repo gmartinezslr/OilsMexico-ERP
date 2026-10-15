@@ -1,16 +1,17 @@
 using Microsoft.EntityFrameworkCore;
 using OilsMexico.Application.DTOs;
+using OilsMexico.Domain.Enums;
 
 namespace OilsMexico.Infrastructure.Services;
 
 public sealed partial class ComplementoPagoService
 {
     public async Task<List<RepListadoDto>> ListarAsync(
-        int sucursalId, string? estado, CancellationToken ct = default)
+        int sucursalId, EstadoRep? estado, CancellationToken ct = default)
     {
         var suc = ctx.ResolverSucursalAutorizada(sucursalId);
         var q = db.ComplementosPago.AsNoTracking().Where(r => r.SucursalId == suc);
-        if (!string.IsNullOrWhiteSpace(estado)) q = q.Where(r => r.Estado == estado);
+        if (estado.HasValue) q = q.Where(r => r.Estado == estado.Value);
         return await q.OrderByDescending(r => r.FechaEmision).Take(200)
             .Select(r => new RepListadoDto(
                 r.Id, r.FolioInterno, r.FechaEmision,

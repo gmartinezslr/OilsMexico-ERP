@@ -46,6 +46,8 @@ builder.Services.AddScoped<IHistorialVentasService>(sp => sp.GetRequiredService<
 builder.Services.AddScoped<IInventarioService, InventarioService>();
 builder.Services.AddScoped<IAlmacenConsulta, AlmacenConsultaService>();
 builder.Services.AddScoped<ICatalogosService, CatalogosService>();
+builder.Services.AddScoped<IClientesService, ClientesService>();
+builder.Services.AddScoped<IProveedoresService, ProveedoresService>();
 // Lecturas de panel y catálogos de combos: evitan que las páginas Blazor inyecten ErpDbContext (DIP).
 builder.Services.AddScoped<IDashboardService, DashboardService>();
 builder.Services.AddScoped<ICatalogoConsultaService, CatalogoConsultaService>();

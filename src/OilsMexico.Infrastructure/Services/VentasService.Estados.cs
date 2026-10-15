@@ -16,7 +16,7 @@ public sealed partial class VentasService
         f.Estado = EstadoFactura.Surtida;
         await db.SaveChangesAsync(ct);
         return new VentaPosResult(f.Id, f.FolioInterno, f.UuidSat,
-            f.Subtotal, f.Iva, f.Total, "SURTIDA");
+            f.Subtotal, f.Iva, f.Total, EstadoFactura.Surtida);
     }
 
     public async Task<VentaPosResult> DevolverAsync(int facturaId, string motivo, CancellationToken ct = default)
@@ -49,6 +49,6 @@ public sealed partial class VentasService
         await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
         return new VentaPosResult(f.Id, f.FolioInterno, f.UuidSat,
-            f.Subtotal, f.Iva, f.Total, "DEVOLUCION");
+            f.Subtotal, f.Iva, f.Total, EstadoFactura.Devolucion);
     }
 }

@@ -302,11 +302,17 @@ public interface IGestionService
 /// <summary>Reglas de negocio para generar asientos contables a partir de transacciones.</summary>
 public interface IAsientoGeneradorService
 {
-    Task<IReadOnlyList<AsientoLinea>> GenerarAsientosDeVentaAsync(int sucursalId, int usuarioId, decimal total, decimal subtotal, decimal iva, string metodoPagoSat, string formaPagoSat);
-    Task<IReadOnlyList<AsientoLinea>> GenerarAsientosDeCompraAsync(int sucursalId, int usuarioId, decimal total);
-    Task<IReadOnlyList<AsientoLinea>> GenerarAsientosDeDevolucionAsync(int sucursalId, int usuarioId, decimal total);
+    /// <summary>
+    /// Líneas de venta vs. ingresos (evento "Venta" en ReglasAsiento).
+    /// El usuario y la forma de pago se registran en el asiento al persistirlo
+    /// (<see cref="RegistrarAsientoRequest"/>), por eso el generador sólo recibe lo que
+    /// alimenta las reglas: sucursal (REGLA #1 al cargar cuentas) e importes.
+    /// </summary>
+    Task<IReadOnlyList<AsientoLinea>> GenerarAsientosDeVentaAsync(int sucursalId, decimal total, decimal subtotal, decimal iva);
+    Task<IReadOnlyList<AsientoLinea>> GenerarAsientosDeCompraAsync(int sucursalId, decimal total);
+    Task<IReadOnlyList<AsientoLinea>> GenerarAsientosDeDevolucionAsync(int sucursalId, decimal total);
     /// <summary>Líneas gasto vs. banco/efectivo (evento "Gasto" en ReglasAsiento).</summary>
-    Task<IReadOnlyList<AsientoLinea>> GenerarAsientosDeGastoAsync(int sucursalId, int usuarioId, decimal total);
+    Task<IReadOnlyList<AsientoLinea>> GenerarAsientosDeGastoAsync(int sucursalId, decimal total);
 
     /// <summary>
     /// Costo de ventas FIFO del periodo (§1.3): reconstruye las capas de inventario desde el

@@ -27,7 +27,7 @@ public sealed partial class CorteCajaService
             ?? throw new InvalidOperationException("Corte no existe.");
         if (!ctx.EsAdmin && corte.SucursalId != ctx.SucursalId)
             throw new UnauthorizedAccessException("No puedes cerrar cortes de otra sucursal.");
-        if (corte.Estado != "Abierto") throw new InvalidOperationException("El corte ya está cerrado.");
+        if (corte.Estado != EstadoCorte.Abierto) throw new InvalidOperationException("El corte ya está cerrado.");
         var ventas = await VentasTurnoAsync(corte.SucursalId, corte.FechaAperturaUtc, ct);
         var foto = Clasificar(corte.Id, corte.FondoInicial, ventas);
         foto.GastosEfectivo = Math.Round(
@@ -43,11 +43,11 @@ public sealed partial class CorteCajaService
         corte.Diferencia = Math.Round(corte.EfectivoContado - foto.EfectivoNeto, 2);
         corte.FechaCierreUtc = DateTime.UtcNow;
         corte.UsuarioCierreId = ctx.UsuarioId;
-        corte.Estado = "Cerrado";
+        corte.Estado = EstadoCorte.Cerrado;
         corte.Observaciones = req.Observaciones?.Trim();
         await db.SaveChangesAsync(ct);
         return new CorteResult(corte.Id, corte.FechaCierreUtc, corte.TotalVentasSistema,
-            corte.EfectivoContado, corte.Diferencia, "CERRADO");
+            corte.EfectivoContado, corte.Diferencia, EstadoCorte.Cerrado);
     }
 
     public async Task<List<CorteListadoDto>> HistorialAsync(int sucursalId, int dias, CancellationToken ct = default)

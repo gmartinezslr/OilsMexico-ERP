@@ -30,6 +30,8 @@ public partial class Compras : ComponentBase
     private bool cargandoAntiguedadCxp;
 
     [Inject] private OilsMexico.Application.Interfaces.IAvisos Avisos { get; set; } = default!;
+    // DIP: el combo de proveedores se alimenta del servicio de consulta, no de ErpDbContext.
+    [Inject] private OilsMexico.Application.Interfaces.ICatalogoConsultaService Catalogos { get; set; } = default!;
 
     /// <summary>Catálogos SAT (formas de pago) consumidos del servicio — sin literales en markup (§6.1).</summary>
     private CatalogosSatDto catalogosSat = new([], [], [], []);
@@ -65,8 +67,8 @@ public partial class Compras : ComponentBase
         if (!first) return;
         if (!Sesion.Autenticado && !await Sesion.RestaurarAsync()) { Nav.NavigateTo("/login"); return; }
         if (!await Autorizacion.TienePermisoAsync(PermisosPaginas.Nombre("compras"))) { Nav.NavigateTo("/"); return; }
-        proveedores = await Db.Proveedores.AsNoTracking().Where(p => p.Activo)
-            .OrderBy(p => p.Nombre).Select(p => new ProvRow(p.Id, p.Nombre)).ToListAsync();
+        proveedores = (await Catalogos.ProveedoresAsync())
+            .Select(p => new ProvRow(p.Id, p.Nombre)).ToList();
         if (proveedores.Count > 0) provId = proveedores[0].Id;
         await Cargar();
         await CargarCxp();

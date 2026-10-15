@@ -19,16 +19,23 @@ public sealed class CatalogosService(ErpDbContext db) : ICatalogosService
     // ------------------------------------------------------------------
     // Productos
     // ------------------------------------------------------------------
-    public async Task<List<ProductoCatalogoDto>> BuscarProductosAsync(string? filtro, CancellationToken ct = default)
+    public async Task<List<ProductoCatalogoDto>> BuscarProductosAsync(
+        string? filtro, bool soloActivos = true, int limite = 250, CancellationToken ct = default)
     {
         var q = db.Productos.AsNoTracking().AsQueryable();
+        if (soloActivos) q = q.Where(p => p.Activo);
         if (!string.IsNullOrWhiteSpace(filtro))
         {
             var f = filtro.Trim().ToLower();
-            q = q.Where(p => p.Sku.ToLower().Contains(f) || p.Nombre.ToLower().Contains(f)
-                || p.Marca.ToLower().Contains(f) || p.Viscosidad.ToLower().Contains(f));
+            q = q.Where(p => p.Sku.ToLower().Contains(f)
+                || (p.SkuAnterior != null && p.SkuAnterior.ToLower().Contains(f))
+                || p.Nombre.ToLower().Contains(f)
+                || p.Marca.ToLower().Contains(f)
+                || p.Viscosidad.ToLower().Contains(f)
+                || (p.Categoria != null && p.Categoria.ToLower().Contains(f))
+                || (p.Especificacion != null && p.Especificacion.ToLower().Contains(f)));
         }
-        return await q.OrderBy(p => p.Nombre).Take(200).Select(p => A(p)).ToListAsync(ct);
+        return await q.OrderBy(p => p.Nombre).Take(Math.Clamp(limite, 1, 1000)).Select(p => A(p)).ToListAsync(ct);
     }
 
     public async Task<ProductoCatalogoDto?> ObtenerProductoAsync(int id, CancellationToken ct = default)
@@ -268,12 +275,21 @@ public sealed class CatalogosService(ErpDbContext db) : ICatalogosService
     {
         var u = await db.Usuarios.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id, ct);
         if (u is null) return null;
-        return new UsuarioDto(u.Id, u.Nombre, u.Correo, u.PinHash, u.PasswordHash, u.Rol, u.RoleId,
-            u.SucursalId, u.Activo, u.IntentosFallidos, u.BloqueosTemporales, u.BloqueadoHastaUtc,
-            u.BloqueadoDefinitivamente, u.SesionToken, u.DosFaActivo, u.DosFaSecret, u.UltimoCambioPasswordUtc);
+        return new UsuarioDto
+        {
+            Id = u.Id, Nombre = u.Nombre, Correo = u.Correo, PinHash = u.PinHash,
+            PasswordHash = u.PasswordHash, Rol = u.Rol, RoleId = u.RoleId,
+            SucursalId = u.SucursalId, Activo = u.Activo, IntentosFallidos = u.IntentosFallidos,
+            BloqueosTemporales = u.BloqueosTemporales, BloqueadoHastaUtc = u.BloqueadoHastaUtc,
+            BloqueadoDefinitivamente = u.BloqueadoDefinitivamente, SesionToken = u.SesionToken,
+            DosFaActivo = u.DosFaActivo, DosFaSecret = u.DosFaSecret,
+            UltimoCambioPasswordUtc = u.UltimoCambioPasswordUtc
+        };
     }
 
-    public async Task<(bool Ok, string Mensaje, int Id)> GuardarUsuarioAsync(UsuarioDto dto, CancellationToken ct = default)
+    public async Task<(bool Ok, string Mensaje, int Id)> GuardarUsuarioAsync(
+        UsuarioDto dto, bool passwordNueva = false, string? actorNombre = null,
+        int historialContraseñas = 3, CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(dto.Nombre)) return (false, "El nombre es obligatorio.", 0);
         if (string.IsNullOrWhiteSpace(dto.Correo))
@@ -288,6 +304,11 @@ public sealed class CatalogosService(ErpDbContext db) : ICatalogosService
         if (dto.Id == 0 && string.IsNullOrEmpty(dto.PasswordHash))
             return (false, "La contraseña es obligatoria.", 0);
 
+        // Password nueva = alta (siempre lleva) o cambio explícito; sin ese caso la contraseña
+        // que trae el DTO es la vigente y no debe tocar historial, auditoría ni sesiones.
+        var passwordAplicada = dto.Id == 0 || passwordNueva;
+        int usuarioId;
+
         if (dto.Id == 0)
         {
             var u = new Usuario
@@ -299,21 +320,49 @@ public sealed class CatalogosService(ErpDbContext db) : ICatalogosService
             };
             db.Usuarios.Add(u);
             await db.SaveChangesAsync(ct);
-            return (true, $"Usuario '{u.Nombre}' guardado.", u.Id);
+            usuarioId = u.Id;
+        }
+        else
+        {
+            var upd = await db.Usuarios.FirstOrDefaultAsync(x => x.Id == dto.Id, ct);
+            if (upd is null) return (false, "El usuario ya no existe.", 0);
+            upd.Nombre = dto.Nombre; upd.Correo = dto.Correo; upd.PinHash = dto.PinHash;
+            upd.Rol = dto.Rol; upd.RoleId = dto.RoleId; upd.SucursalId = dto.SucursalId; upd.Activo = dto.Activo;
+            if (passwordNueva && !string.IsNullOrEmpty(dto.PasswordHash))
+            {
+                upd.PasswordHash = dto.PasswordHash;
+                upd.UltimoCambioPasswordUtc = dto.UltimoCambioPasswordUtc ?? upd.UltimoCambioPasswordUtc;
+                upd.SesionToken = null; // Revoca sesiones abiertas al cambiar la contraseña.
+            }
+            await db.SaveChangesAsync(ct);
+            usuarioId = upd.Id;
         }
 
-        var upd = await db.Usuarios.FirstOrDefaultAsync(x => x.Id == dto.Id, ct);
-        if (upd is null) return (false, "El usuario ya no existe.", 0);
-        upd.Nombre = dto.Nombre; upd.Correo = dto.Correo; upd.PinHash = dto.PinHash;
-        upd.Rol = dto.Rol; upd.RoleId = dto.RoleId; upd.SucursalId = dto.SucursalId; upd.Activo = dto.Activo;
-        if (!string.IsNullOrEmpty(dto.PasswordHash))
+        if (passwordAplicada && !string.IsNullOrEmpty(dto.PasswordHash))
         {
-            upd.PasswordHash = dto.PasswordHash;
-            upd.UltimoCambioPasswordUtc = dto.UltimoCambioPasswordUtc ?? upd.UltimoCambioPasswordUtc;
-            upd.SesionToken = null; // Revoca sesiones abiertas al cambiar la contraseña.
+            // Historial de contraseñas (evita repetir las últimas N) + auditoría del cambio
+            // hechos por el servicio: antes esta escritura multi-tabla vivía en la página.
+            db.PasswordHistories.Add(new PasswordHistory
+            {
+                UsuarioId = usuarioId,
+                PasswordHash = dto.PasswordHash,
+                FechaCambioUtc = DateTime.UtcNow
+            });
+            var excedentes = await db.PasswordHistories.AsNoTracking().Where(h => h.UsuarioId == usuarioId)
+                .OrderByDescending(h => h.FechaCambioUtc).Skip(Math.Max(1, historialContraseñas)).ToListAsync(ct);
+            if (excedentes.Count > 0) db.PasswordHistories.RemoveRange(excedentes);
+            db.AuditLogs.Add(new AuditLog
+            {
+                UsuarioId = usuarioId,
+                UsuarioNombre = dto.Nombre,
+                Tipo = "PasswordChangeAdmin",
+                Detalle = $"Contraseña restablecida por el administrador {actorNombre ?? "?"}.",
+                FechaUtc = DateTime.UtcNow
+            });
+            await db.SaveChangesAsync(ct);
         }
-        await db.SaveChangesAsync(ct);
-        return (true, $"Usuario '{upd.Nombre}' guardado.", upd.Id);
+
+        return (true, $"Usuario '{dto.Nombre}' guardado.", usuarioId);
     }
 
     public async Task<(bool Ok, string Mensaje)> CambiarEstadoUsuarioAsync(int id, bool activo, CancellationToken ct = default)
@@ -335,16 +384,31 @@ public sealed class CatalogosService(ErpDbContext db) : ICatalogosService
     // ------------------------------------------------------------------
     // Proyecciones entity -> DTO
     // ------------------------------------------------------------------
-    private static ProductoCatalogoDto A(Producto p) => new(p.Id, p.Sku, p.Nombre, p.Marca, p.Viscosidad,
-        p.TipoBase, p.DescripcionTecnica, p.Categoria, p.SkuAnterior, p.Sae, p.Especificacion,
-        p.PiezasPorCaja, p.PrecioLista, p.PrecioLpOroConIva, p.PrecioUnitario, p.PrecioVenta,
-        p.PrecioMayoreo, p.PrecioCosto, p.Activo);
+    private static ProductoCatalogoDto A(Producto p) => new()
+    {
+        Id = p.Id, Sku = p.Sku, Nombre = p.Nombre, Marca = p.Marca, Viscosidad = p.Viscosidad,
+        TipoBase = p.TipoBase, DescripcionTecnica = p.DescripcionTecnica, Categoria = p.Categoria,
+        SkuAnterior = p.SkuAnterior, Sae = p.Sae, Especificacion = p.Especificacion,
+        PiezasPorCaja = p.PiezasPorCaja, PrecioLista = p.PrecioLista,
+        PrecioLpOroConIva = p.PrecioLpOroConIva, PrecioUnitario = p.PrecioUnitario,
+        PrecioVenta = p.PrecioVenta, PrecioMayoreo = p.PrecioMayoreo,
+        PrecioCosto = p.PrecioCosto, Activo = p.Activo
+    };
 
-    private static UnidadMedidaDto U(UnidadMedida u) => new(u.Id, u.ProductoId, u.UnidadNombre,
-        u.FactorConversion, u.CodigoBarra, u.PrecioUnitario);
+    private static UnidadMedidaDto U(UnidadMedida u) => new()
+    {
+        Id = u.Id, ProductoId = u.ProductoId, UnidadNombre = u.UnidadNombre,
+        FactorConversion = u.FactorConversion, CodigoBarra = u.CodigoBarra,
+        PrecioUnitario = u.PrecioUnitario
+    };
 
-    private static SucursalDto S(Sucursal s) => new(s.Id, s.Nombre, s.CodigoSucursal, s.Direccion,
-        s.RfcEmisor, s.Activa, s.RazonSocial, s.RegimenFiscal, s.CodigoPostal, s.Calle,
-        s.NumeroExterior, s.NumeroInterior, s.Colonia, s.Municipio, s.Estado, s.Ciudad, s.Pais,
-        s.Telefono, s.Email);
+    private static SucursalDto S(Sucursal s) => new()
+    {
+        Id = s.Id, Nombre = s.Nombre, CodigoSucursal = s.CodigoSucursal, Direccion = s.Direccion,
+        RfcEmisor = s.RfcEmisor, Activa = s.Activa, RazonSocial = s.RazonSocial,
+        RegimenFiscal = s.RegimenFiscal, CodigoPostal = s.CodigoPostal, Calle = s.Calle,
+        NumeroExterior = s.NumeroExterior, NumeroInterior = s.NumeroInterior, Colonia = s.Colonia,
+        Municipio = s.Municipio, Estado = s.Estado, Ciudad = s.Ciudad, Pais = s.Pais,
+        Telefono = s.Telefono, Email = s.Email
+    };
 }

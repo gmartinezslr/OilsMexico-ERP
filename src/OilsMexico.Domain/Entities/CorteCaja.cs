@@ -28,7 +28,7 @@ public sealed class CorteCaja
     public decimal EfectivoContado { get; set; }
     /// <summary>Contado - (FondoInicial + EfectivoSistema). 0 = cuadrado.</summary>
     public decimal Diferencia { get; set; }
-    /// <summary>Abierto | Cerrado.</summary>
-    public string Estado { get; set; } = "Abierto";
+    /// <summary>Abierto | Cerrado (enum <see cref="Enums.EstadoCorte"/>; columna texto en PG).</summary>
+    public Enums.EstadoCorte Estado { get; set; } = Enums.EstadoCorte.Abierto;
     public string? Observaciones { get; set; }
 }

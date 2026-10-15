@@ -90,6 +90,35 @@ public enum EstadoNotaCredito
 }
 
 // ---------------------------------------------------------------------------
+// Complemento de pagos / REP (CFDI Tipo P). Se guarda como texto en PG
+// (ver RepConfigs: HasConversion<string>); la columna ya existía como varchar.
+// ---------------------------------------------------------------------------
+
+/// <summary>
+/// Estado del REP: Pendiente (sin timbrar) → Timbrado | Cancelado.
+/// Sustituye el literal <c>"Pendiente"</c> que vivía en <c>ComplementoPago.Estado</c>
+/// (checklist §6.2 A9 — estados string/enum heterogéneos).
+/// </summary>
+public enum EstadoRep
+{
+    Pendiente,
+    Timbrado,
+    Cancelado
+}
+
+// ---------------------------------------------------------------------------
+// Corte de caja. Se guarda como texto en PG (ver CajaConfigs: HasConversion<string>);
+// los valores existentes en la tabla ("Abierto"/"Cerrado") coinciden con los nombres.
+// ---------------------------------------------------------------------------
+
+/// <summary>Estado del corte de caja: un solo corte Abierto por sucursal → Cerrado.</summary>
+public enum EstadoCorte
+{
+    Abierto,
+    Cerrado
+}
+
+// ---------------------------------------------------------------------------
 // Módulo de conciliación bancaria. Se guardan como texto en PG (ver BancosPatch),
 // con CHECK derivado de Enum.GetNames para no duplicar los valores.
 // ---------------------------------------------------------------------------

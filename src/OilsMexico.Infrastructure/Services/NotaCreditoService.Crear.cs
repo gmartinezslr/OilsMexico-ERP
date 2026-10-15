@@ -94,7 +94,7 @@ public sealed partial class NotaCreditoService
         await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
         return new NotaCreditoResult(nc.Id, nc.FolioInterno, nc.UuidSat,
-            nc.Subtotal, nc.Iva, nc.Total, "TIMBRADA");
+            nc.Subtotal, nc.Iva, nc.Total, EstadoNotaCredito.Timbrada);
     }
 
     private async Task RevertirPolizaVentaAsync(Factura factura, NotaCredito nota, CancellationToken ct)

@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Components;
-using Microsoft.EntityFrameworkCore;
-using OilsMexico.Domain.Entities;
+using OilsMexico.Application.DTOs;
+using OilsMexico.Application.Interfaces;
 using OilsMexico.Domain.Services;
 
 namespace OilsMexico.Web.Components.Pages.ERP;
@@ -14,19 +14,23 @@ public partial class Usuarios : ComponentBase
     private string filtro = "", msg = "", pin1 = "", pin2 = "";
     private bool err, guardando, esAdmin, soloActivos = true;
     private int miId;
-    private List<UsuarioRow> lista = [];
-    private Usuario edit = new() { Rol = Roles.Vendedor, Activo = true };
+    // DIP: el componente no conoce ErpDbContext; el catálogo de usuarios (incluido el
+    // historial de contraseñas y la auditoría del cambio) vive en ICatalogosService.
+    private List<UsuarioRowDto> lista = [];
+    private UsuarioDto edit = new() { Rol = Roles.Vendedor, Activo = true };
     private List<SucRow> sucursales = [];
     // Política de contraseña configurable por el administrador (longitud, historial, vigencia).
-    private OilsMexico.Application.DTOs.PasswordConfigDto cfgPwd = new(20, 3, 90, true, true, true, true);
+    private PasswordConfigDto cfgPwd = new(20, 3, 90, true, true, true, true);
     // Estado y flujos de 2FA de la cuenta seleccionada (gestionados por el Admin).
-    private OilsMexico.Application.DTOs.DosFaEstadoDto? dosFa;
+    private DosFaEstadoDto? dosFa;
     private string codigo2FAAct = "", codigo2FADesac = "";
     private bool mostrarDesactivar;
     [Microsoft.AspNetCore.Components.Inject]
     private OilsMexico.Application.Interfaces.IAuthService Auth { get; set; } = default!;
 
-    private sealed record UsuarioRow(int Id, string Nombre, string Rol, string Sucursal, bool Activo, bool BloqueadoDefinitivo, bool BloqueadoTemporal);
+    [Microsoft.AspNetCore.Components.Inject]
+    private ICatalogosService Catalogos { get; set; } = default!;
+
     private sealed record SucRow(int Id, string Nombre, string Codigo);
 
     protected override async Task OnInitializedAsync()
@@ -35,8 +39,8 @@ public partial class Usuarios : ComponentBase
         esAdmin = Sesion.Sesion?.Rol == Roles.Admin;
         if (!esAdmin) { Nav.NavigateTo("/"); return; }
         miId = Sesion.Sesion?.UsuarioId ?? 0;
-        sucursales = await Db.Sucursales.AsNoTracking().OrderBy(s => s.CodigoSucursal)
-            .Select(s => new SucRow(s.Id, s.Nombre, s.CodigoSucursal)).ToListAsync();
+        sucursales = (await Catalogos.ListarSucursalesResumenAsync())
+            .Select(s => new SucRow(s.Id, s.Nombre, s.CodigoSucursal)).ToList();
         if (sucursales.Count > 0) edit.SucursalId = sucursales[0].Id;
         cfgPwd = await Auth.ObtenerPasswordConfigAsync();
         await Cargar();
@@ -55,20 +59,7 @@ public partial class Usuarios : ComponentBase
     private async Task Cargar()
     {
         if (!esAdmin) { lista = []; return; }
-        var q = from u in Db.Usuarios.AsNoTracking()
-                join s in Db.Sucursales.AsNoTracking() on u.SucursalId equals s.Id into sj
-                from s in sj.DefaultIfEmpty()
-                orderby u.Nombre
-                select new { u, Suc = s != null ? s.Nombre : "-" };
-        if (soloActivos) q = q.Where(x => x.u.Activo);
-        if (!string.IsNullOrWhiteSpace(filtro))
-        {
-            var f = filtro.Trim().ToLower();
-            q = q.Where(x => x.u.Nombre.ToLower().Contains(f) || x.u.Rol.ToLower().Contains(f)
-                || x.Suc.ToLower().Contains(f));
-        }
-        lista = await q.Take(200).Select(x =>
-            new UsuarioRow(x.u.Id, x.u.Nombre, x.u.Rol, x.Suc, x.u.Activo, x.u.BloqueadoDefinitivamente, x.u.BloqueadoHastaUtc != null && x.u.BloqueadoHastaUtc > DateTime.UtcNow)).ToListAsync();
+        lista = await Catalogos.ListarUsuariosAsync(filtro, soloActivos);
         if (edit.Id == 0 && lista.Count > 0) await Editar(lista[0].Id);
     }
 
@@ -77,14 +68,14 @@ public partial class Usuarios : ComponentBase
     private void Nuevo()
     {
         if (!esAdmin) return;
-        edit = new Usuario { Rol = Roles.Vendedor, Activo = true, SucursalId = sucursales.Count > 0 ? sucursales[0].Id : 0 };
+        edit = new UsuarioDto { Rol = Roles.Vendedor, Activo = true, SucursalId = sucursales.Count > 0 ? sucursales[0].Id : 0 };
         pin1 = pin2 = "";
         msg = "";
     }
 
     private async Task Editar(int id)
     {
-        var u = await Db.Usuarios.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id);
+        var u = await Catalogos.ObtenerUsuarioAsync(id);
         if (u is null) return;
         edit = u;
         pin1 = pin2 = "";
@@ -108,10 +99,6 @@ public partial class Usuarios : ComponentBase
         { msg = "El correo de acceso no es válido."; err = true; return; }
         if (edit.Id == 0 && edit.Correo is null)
         { msg = "El correo es obligatorio para un usuario nuevo."; err = true; return; }
-        if (edit.Correo is not null && await Db.Usuarios.AnyAsync(x => x.Id != edit.Id && x.Correo != null && x.Correo.ToLower() == edit.Correo.ToLower()))
-        { msg = "Ese correo ya está asignado a otro usuario."; err = true; return; }
-        if (!await Db.Sucursales.AnyAsync(s => s.Id == edit.SucursalId))
-        { msg = "Selecciona una sucursal valida."; err = true; return; }
 
         var quierePassword = !string.IsNullOrEmpty(pin1) || !string.IsNullOrEmpty(pin2);
         if (edit.Id == 0 && !quierePassword)
@@ -146,36 +133,17 @@ public partial class Usuarios : ComponentBase
         guardando = true;
         try
         {
-            if (edit.Id == 0) Db.Usuarios.Add(edit);
-            else Db.Usuarios.Update(edit);
-            await Db.SaveChangesAsync();
-            if (quierePassword)
+            // El servicio persiste y, cuando hay contraseña nueva, registra el historial
+            // y la auditoría del cambio (antes esta escritura vivía aquí en la página).
+            var (ok, mensaje, id) = await Catalogos.GuardarUsuarioAsync(
+                edit, quierePassword, Sesion.Sesion?.Nombre, cfgPwd.Historial);
+            msg = mensaje; err = !ok;
+            if (ok)
             {
-                // Historial de contraseñas (evita repetir las últimas N) + auditoría del cambio admin.
-                Db.PasswordHistories.Add(new PasswordHistory
-                {
-                    UsuarioId = edit.Id,
-                    PasswordHash = edit.PasswordHash,
-                    FechaCambioUtc = DateTime.UtcNow
-                });
-                var excedentes = await Db.PasswordHistories.AsNoTracking().Where(h => h.UsuarioId == edit.Id)
-                    .OrderByDescending(h => h.FechaCambioUtc).Skip(cfgPwd.Historial).ToListAsync();
-                if (excedentes.Count > 0) Db.PasswordHistories.RemoveRange(excedentes);
-                Db.AuditLogs.Add(new AuditLog
-                {
-                    UsuarioId = edit.Id,
-                    UsuarioNombre = edit.Nombre,
-                    Tipo = "PasswordChangeAdmin",
-                    Detalle = $"Contraseña restablecida por el administrador {(Sesion.Sesion?.Nombre ?? "?")}.",
-                    FechaUtc = DateTime.UtcNow
-                });
-                await Db.SaveChangesAsync();
+                pin1 = pin2 = "";
+                await Cargar();
+                await Editar(id);
             }
-            msg = $"Usuario '{edit.Nombre}' guardado."; err = false;
-            pin1 = pin2 = "";
-            var id = edit.Id;
-            await Cargar();
-            await Editar(id);
         }
         catch (Exception ex) { msg = "Error: " + ex.Message; err = true; }
         guardando = false;
@@ -185,11 +153,9 @@ public partial class Usuarios : ComponentBase
     {
         if (!esAdmin) return;
         if (edit.Id == miId) { msg = "No puedes desactivar tu propio usuario."; err = true; return; }
-        edit.Activo = false;
-        edit.SesionToken = null; // Revoca las sesiones abiertas del usuario desactivado.
-        Db.Usuarios.Update(edit);
-        await Db.SaveChangesAsync();
-        msg = "Usuario desactivado (ya no puede iniciar sesión)."; err = false;
+        var (ok, mensaje) = await Catalogos.CambiarEstadoUsuarioAsync(edit.Id, false);
+        msg = ok ? "Usuario desactivado (ya no puede iniciar sesión)." : mensaje; err = !ok;
+        if (!ok) return;
         await Cargar();
         await Editar(edit.Id);
     }
@@ -207,10 +173,9 @@ public partial class Usuarios : ComponentBase
     private async Task Reactivar()
     {
         if (!esAdmin) return;
-        edit.Activo = true;
-        Db.Usuarios.Update(edit);
-        await Db.SaveChangesAsync();
-        msg = "Usuario reactivado."; err = false;
+        var (ok, mensaje) = await Catalogos.CambiarEstadoUsuarioAsync(edit.Id, true);
+        msg = ok ? "Usuario reactivado." : mensaje; err = !ok;
+        if (!ok) return;
         await Cargar();
         await Editar(edit.Id);
     }

@@ -302,7 +302,7 @@ public sealed partial class VentasService
     private static VentaPosResult ResultadoVenta(Factura factura, Guid? uuid) =>
         new(factura.Id, factura.FolioInterno, uuid,
             factura.Subtotal, factura.Iva, factura.Total,
-            factura.Estado.ToString().ToUpperInvariant());
+            factura.Estado);
 
     /// <summary>
     /// Resuelve quién se lleva el crédito de la venta. Cadena de precedencia:

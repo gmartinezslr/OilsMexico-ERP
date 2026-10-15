@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using OilsMexico.Application.DTOs;
 using OilsMexico.Application.Interfaces;
 using OilsMexico.Domain.Entities;
+using OilsMexico.Domain.Enums;
 using OilsMexico.Infrastructure.Persistence;
 
 namespace OilsMexico.Infrastructure.Services;
@@ -18,7 +19,7 @@ public sealed partial class CorteCajaService(ErpDbContext db, ISucursalContext c
     {
         var suc = ctx.ResolverSucursalAutorizada(sucursalId);
         return await db.CortesCaja.AsNoTracking()
-            .Where(c => c.SucursalId == suc && c.Estado == "Abierto")
+            .Where(c => c.SucursalId == suc && c.Estado == EstadoCorte.Abierto)
             .OrderByDescending(c => c.FechaAperturaUtc)
             .Select(c => new CorteAbiertoDto(
                 c.Id, c.SucursalId, c.FechaAperturaUtc, c.UsuarioAperturaNombre, c.FondoInicial))
@@ -30,7 +31,7 @@ public sealed partial class CorteCajaService(ErpDbContext db, ISucursalContext c
         var suc = ctx.ResolverSucursalAutorizada(sucursalId);
         if (fondoInicial < 0) throw new InvalidOperationException("El fondo inicial no puede ser negativo.");
         var existe = await db.CortesCaja
-            .AnyAsync(c => c.SucursalId == suc && c.Estado == "Abierto", ct);
+            .AnyAsync(c => c.SucursalId == suc && c.Estado == EstadoCorte.Abierto, ct);
         if (existe) throw new InvalidOperationException("Ya hay un corte abierto; ciérralo antes de abrir otro.");
         var usuario = await db.Usuarios.AsNoTracking()
             .Where(u => u.Id == ctx.UsuarioId).Select(u => u.Nombre).FirstOrDefaultAsync(ct)
@@ -39,7 +40,7 @@ public sealed partial class CorteCajaService(ErpDbContext db, ISucursalContext c
         {
             SucursalId = suc, UsuarioAperturaId = ctx.UsuarioId,
             UsuarioAperturaNombre = usuario, FechaAperturaUtc = DateTime.UtcNow,
-            FondoInicial = Math.Round(fondoInicial, 2), Estado = "Abierto"
+            FondoInicial = Math.Round(fondoInicial, 2), Estado = EstadoCorte.Abierto
         };
         db.CortesCaja.Add(corte);
         await db.SaveChangesAsync(ct);

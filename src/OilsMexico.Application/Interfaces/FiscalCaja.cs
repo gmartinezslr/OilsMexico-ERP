@@ -28,7 +28,7 @@ public interface IComplementoPagoService
     Task<List<VentaPpdPendienteDto>> PendientesAsync(int sucursalId, CancellationToken ct = default);
     /// <summary>Registra un cobro y lo ampara en un REP timbrado (1 cobro = 1 REP).</summary>
     Task<CobroResult> RegistrarCobroAsync(RegistrarCobroRequest request, CancellationToken ct = default);
-    Task<List<RepListadoDto>> ListarAsync(int sucursalId, string? estado, CancellationToken ct = default);
+    Task<List<RepListadoDto>> ListarAsync(int sucursalId, EstadoRep? estado, CancellationToken ct = default);
     Task<RepDetalleDto?> DetalleAsync(int repId, CancellationToken ct = default);
     Task<string?> ObtenerXmlAsync(int repId, CancellationToken ct = default);
 }

@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Components;
-using Microsoft.EntityFrameworkCore;
-using OilsMexico.Domain.Entities;
+using OilsMexico.Application.DTOs;
+using OilsMexico.Application.Interfaces;
 using OilsMexico.Domain.Enums;
 using OilsMexico.Domain.Services;
 
@@ -13,14 +13,18 @@ public partial class Proveedores : ComponentBase
     private string filtro = "", msg = "";
     private bool err, guardando;
     private int paso = 1;
-    private List<Proveedor> lista = [];
-    private Proveedor edit = new();
+    // DIP: el componente no conoce ErpDbContext; el padrón vive en IProveedoresService.
+    private List<ProveedorCatalogoDto> lista = [];
+    private ProveedorCatalogoDto edit = new();
     // Resultado de la última validación de RFC en el campo (feedback en vivo).
     private string rfcInfo = "";
     private bool rfcErr;
 
     [Microsoft.AspNetCore.Components.Inject]
     private OilsMexico.Application.Interfaces.IAuthService Auth { get; set; } = default!;
+
+    [Microsoft.AspNetCore.Components.Inject]
+    private IProveedoresService ProveedoresSvc { get; set; } = default!;
 
     protected override async Task OnAfterRenderAsync(bool first)
     {
@@ -32,17 +36,11 @@ public partial class Proveedores : ComponentBase
 
     private async Task Cargar()
     {
-        var q = Db.Proveedores.AsNoTracking().Where(p => p.Activo).OrderBy(p => p.Nombre).AsQueryable();
-        if (!string.IsNullOrWhiteSpace(filtro))
-        {
-            var f = filtro.Trim().ToLower();
-            q = q.Where(p => p.Nombre.ToLower().Contains(f) || p.Rfc.ToLower().Contains(f));
-        }
-        lista = await q.Take(200).ToListAsync();
+        lista = await ProveedoresSvc.ListarAsync(filtro);
     }
 
     private async Task AlEscribir(ChangeEventArgs e) { filtro = e.Value?.ToString() ?? ""; await Cargar(); }
-    private void Nuevo() { edit = new Proveedor(); rfcInfo = ""; rfcErr = false; paso = 1; msg = ""; }
+    private void Nuevo() { edit = new ProveedorCatalogoDto(); rfcInfo = ""; rfcErr = false; paso = 1; msg = ""; }
 
     private void IrPaso(int n) { paso = Math.Clamp(n, 1, 3); msg = ""; }
 
@@ -70,18 +68,11 @@ public partial class Proveedores : ComponentBase
 
     private async Task Editar(int id)
     {
-        var p = await Db.Proveedores.FindAsync(id);
+        var p = await ProveedoresSvc.ObtenerAsync(id);
         if (p is null) return;
         rfcInfo = ""; rfcErr = false;
         paso = 1; msg = "";
-        edit = new Proveedor
-        {
-            Id = p.Id, Nombre = p.Nombre, Rfc = p.Rfc, Telefono = p.Telefono, Email = p.Email,
-            Calle = p.Calle, NumeroExterior = p.NumeroExterior, NumeroInterior = p.NumeroInterior,
-            Colonia = p.Colonia, CodigoPostal = p.CodigoPostal, Municipio = p.Municipio,
-            Estado = p.Estado, Ciudad = p.Ciudad, Pais = p.Pais, Direccion = p.Direccion, Activo = p.Activo,
-            SituacionFiscal = p.SituacionFiscal
-        };
+        edit = p with { };
     }
 
     private async Task Guardar()
@@ -105,12 +96,9 @@ public partial class Proveedores : ComponentBase
         guardando = true;
         try
         {
-            edit.Direccion = $"{edit.Calle} {edit.NumeroExterior} {edit.NumeroInterior}, {edit.Colonia}, CP {edit.CodigoPostal}, {edit.Municipio}, {edit.Estado}".Trim(' ', ',');
-            if (edit.Id == 0) Db.Proveedores.Add(edit);
-            else Db.Proveedores.Update(edit);
-            await Db.SaveChangesAsync();
-            msg = $"Proveedor '{edit.Nombre}' guardado."; err = false;
-            await Cargar();
+            var (ok, mensaje, _) = await ProveedoresSvc.GuardarAsync(edit);
+            msg = mensaje; err = !ok;
+            if (ok) await Cargar();
         }
         catch (Exception ex) { msg = "Error: " + ex.Message; err = true; }
         guardando = false;
@@ -118,10 +106,9 @@ public partial class Proveedores : ComponentBase
 
     private async Task Desactivar()
     {
-        edit.Activo = false;
-        Db.Proveedores.Update(edit);
-        await Db.SaveChangesAsync();
-        msg = "Proveedor desactivado."; err = false;
+        var (ok, mensaje) = await ProveedoresSvc.DesactivarAsync(edit.Id);
+        msg = ok ? "Proveedor desactivado." : mensaje; err = !ok;
+        if (!ok) return;
         Nuevo();
         await Cargar();
     }

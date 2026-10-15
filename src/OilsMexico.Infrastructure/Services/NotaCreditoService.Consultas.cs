@@ -68,6 +68,6 @@ public sealed partial class NotaCreditoService
 
         await db.SaveChangesAsync(ct);
         return new NotaCreditoResult(n.Id, n.FolioInterno, n.UuidSat,
-            n.Subtotal, n.Iva, n.Total, "CANCELADA");
+            n.Subtotal, n.Iva, n.Total, EstadoNotaCredito.Cancelada);
     }
 }

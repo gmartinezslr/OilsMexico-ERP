@@ -31,7 +31,7 @@ public sealed record VentaPosRequest(
 
 public sealed record VentaPosResult(
     int FacturaId, string FolioInterno, Guid? UuidSat,
-    decimal Subtotal, decimal Iva, decimal Total, string Estado);
+    decimal Subtotal, decimal Iva, decimal Total, EstadoFactura Estado);
 
 public sealed record CatalogosSatDto(
     Dictionary<string, string> FormasPago,

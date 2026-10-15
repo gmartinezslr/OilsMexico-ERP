@@ -1,7 +1,6 @@
 using Microsoft.AspNetCore.Components;
-using Microsoft.EntityFrameworkCore;
 using OilsMexico.Application.DTOs;
-using OilsMexico.Domain.Entities;
+using OilsMexico.Application.Interfaces;
 using OilsMexico.Domain.Enums;
 using OilsMexico.Domain.Services;
 
@@ -15,8 +14,10 @@ public partial class Clientes : ComponentBase
     private string vendedorSel = "";
     private bool err, guardando;
     private int paso = 1;
-    private List<Cliente> lista = [];
-    private Cliente edit = new();
+    // DIP: el componente no conoce ErpDbContext; el padrón vive en IClientesService
+    // y los catálogos de apoyo en ICatalogosService.
+    private List<ClienteCatalogoDto> lista = [];
+    private ClienteCatalogoDto edit = new();
     private List<(int Id, string Nombre)> vendedores = [];
     private CatalogosSatDto catalogos = new([], [], [], []);
     // Resultado de la última validación de RFC en el campo (feedback en vivo).
@@ -25,6 +26,12 @@ public partial class Clientes : ComponentBase
 
     [Microsoft.AspNetCore.Components.Inject]
     private OilsMexico.Application.Interfaces.IAuthService Auth { get; set; } = default!;
+
+    [Microsoft.AspNetCore.Components.Inject]
+    private IClientesService ClientesSvc { get; set; } = default!;
+
+    [Microsoft.AspNetCore.Components.Inject]
+    private ICatalogosService Catalogos { get; set; } = default!;
 
     protected override async Task OnInitializedAsync()
     {
@@ -45,25 +52,16 @@ public partial class Clientes : ComponentBase
         if (vendedores.Count == 0)
         {
             // Catálogo de vendedores (rol que puede recibir comisiones).
-            vendedores = await Db.Usuarios.AsNoTracking()
-                .Where(u => u.Activo && (u.Rol == Roles.Vendedor || u.Rol == Roles.Admin))
-                .OrderBy(u => u.Nombre)
-                .Select(u => new ValueTuple<int, string>(u.Id, u.Nombre))
-                .ToListAsync();
+            vendedores = (await Catalogos.ListarVendedoresAsync())
+                .Select(v => (v.Id, v.Nombre)).ToList();
         }
-        var q = Db.Clientes.AsNoTracking().Where(c => c.Activo).OrderBy(c => c.Nombre).AsQueryable();
-        if (!string.IsNullOrWhiteSpace(filtro))
-        {
-            var f = filtro.Trim().ToLower();
-            q = q.Where(c => c.Nombre.ToLower().Contains(f) || c.Rfc.ToLower().Contains(f));
-        }
-        lista = await q.Take(200).ToListAsync();
+        lista = await ClientesSvc.ListarAsync(filtro);
         if (edit.Id == 0 && lista.Count > 0) Seleccionar(lista[0]);
     }
 
-    private void Seleccionar(Cliente c)
+    private void Seleccionar(ClienteCatalogoDto c)
     {
-        edit = Clonar(c);
+        edit = c with { };
         vendedorSel = c.VendedorId?.ToString() ?? "";
         rfcInfo = ""; rfcErr = false;
         paso = 1; msg = "";
@@ -82,7 +80,7 @@ public partial class Clientes : ComponentBase
 
     private async Task AlEscribir(ChangeEventArgs e) { filtro = e.Value?.ToString() ?? ""; await Cargar(); }
 
-    private void Nuevo() { edit = new Cliente { CodigoPostal = "06600" }; vendedorSel = ""; paso = 1; msg = ""; }
+    private void Nuevo() { edit = new ClienteCatalogoDto { CodigoPostal = "06600" }; vendedorSel = ""; paso = 1; msg = ""; }
 
     private void IrPaso(int n) { paso = Math.Clamp(n, 1, 3); msg = ""; }
 
@@ -102,7 +100,7 @@ public partial class Clientes : ComponentBase
 
     private async Task Editar(int id)
     {
-        var c = await Db.Clientes.FindAsync(id);
+        var c = await ClientesSvc.ObtenerAsync(id);
         if (c is not null) Seleccionar(c);
     }
 
@@ -131,15 +129,14 @@ public partial class Clientes : ComponentBase
         guardando = true;
         try
         {
-            edit.Direccion = $"{edit.Calle} {edit.NumeroExterior} {edit.NumeroInterior}, {edit.Colonia}, CP {edit.CodigoPostal}, {edit.Municipio}, {edit.Estado}".Trim(' ', ',');
-            if (edit.Id == 0) Db.Clientes.Add(edit);
-            else Db.Clientes.Update(edit);
-            await Db.SaveChangesAsync();
-            msg = $"Cliente '{edit.Nombre}' guardado."; err = false;
-            Avisos.Agregar($"Cliente guardado: {edit.Nombre}", $"RFC {edit.Rfc} · {edit.RegimenFiscal}", "exito");
-            var id = edit.Id;
-            await Cargar();
-            Seleccionar((await Db.Clientes.FindAsync(id))!);
+            var (ok, mensaje, id) = await ClientesSvc.GuardarAsync(edit);
+            msg = mensaje; err = !ok;
+            if (ok)
+            {
+                Avisos.Agregar($"Cliente guardado: {edit.Nombre}", $"RFC {edit.Rfc} · {edit.RegimenFiscal}", "exito");
+                await Cargar();
+                Seleccionar((await ClientesSvc.ObtenerAsync(id))!);
+            }
         }
         catch (Exception ex) { msg = "Error: " + ex.Message; err = true; }
         guardando = false;
@@ -147,22 +144,10 @@ public partial class Clientes : ComponentBase
 
     private async Task Desactivar()
     {
-        edit.Activo = false;
-        Db.Clientes.Update(edit);
-        await Db.SaveChangesAsync();
-        msg = "Cliente desactivado."; err = false;
+        var (ok, mensaje) = await ClientesSvc.DesactivarAsync(edit.Id);
+        msg = ok ? "Cliente desactivado." : mensaje; err = !ok;
+        if (!ok) return;
         Nuevo();
         await Cargar();
     }
-
-    private static Cliente Clonar(Cliente c) => new()
-    {
-        Id = c.Id, Nombre = c.Nombre, Rfc = c.Rfc, Telefono = c.Telefono, Email = c.Email,
-        Direccion = c.Direccion, TipoPrecio = c.TipoPrecio, RegimenFiscal = c.RegimenFiscal,
-        CodigoPostal = c.CodigoPostal, Calle = c.Calle, NumeroExterior = c.NumeroExterior,
-        NumeroInterior = c.NumeroInterior, Colonia = c.Colonia, Municipio = c.Municipio,
-        Estado = c.Estado, Ciudad = c.Ciudad, Pais = c.Pais, Activo = c.Activo,
-        VendedorId = c.VendedorId, SituacionFiscal = c.SituacionFiscal,
-        LimiteCredito = c.LimiteCredito, DiasCredito = c.DiasCredito
-    };
 }

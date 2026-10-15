@@ -42,8 +42,8 @@ public sealed class ComplementoPago
     public string? XmlSellado { get; set; }
     public string? SelloDigital { get; set; }
     public string? CadenaOriginal { get; set; }
-    /// <summary>Pendiente | Timbrado | Cancelado.</summary>
-    public string Estado { get; set; } = "Pendiente";
+    /// <summary>Pendiente | Timbrado | Cancelado (enum <see cref="Enums.EstadoRep"/>; columna texto en PG).</summary>
+    public Enums.EstadoRep Estado { get; set; } = Enums.EstadoRep.Pendiente;
     public int UsuarioId { get; set; }
     public List<ComplementoPagoDetalle> Documentos { get; set; } = [];
 }

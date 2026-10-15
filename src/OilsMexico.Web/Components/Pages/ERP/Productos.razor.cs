@@ -1,9 +1,7 @@
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
-using Microsoft.EntityFrameworkCore;
 using OilsMexico.Application.DTOs;
 using OilsMexico.Application.Interfaces;
-using OilsMexico.Domain.Entities;
 using OilsMexico.Domain.Services;
 
 namespace OilsMexico.Web.Components.Pages.ERP;
@@ -13,14 +11,17 @@ public partial class Productos : ComponentBase
     [Microsoft.AspNetCore.Components.Inject]
     private OilsMexico.Application.Interfaces.IAutorizacionService Autorizacion { get; set; } = default!;
     [Inject] private IImportacionProductosService Importador { get; set; } = default!;
+    // DIP: el componente no conoce ErpDbContext; productos, presentaciones y stock
+    // se leen/guardan vía ICatalogosService (DIP §6.2).
+    [Inject] private ICatalogosService Catalogos { get; set; } = default!;
 
     private string filtro = "", msg = "";
     private bool err, guardando, guardandoUnidad, soloActivos = true;
-    private List<Producto> lista = [];
-    private Producto edit = new() { TipoBase = "Sintetico" };
-    private List<UnidadMedida> unidades = [];
-    private UnidadMedida unidadEdit = new() { UnidadNombre = "Litro", FactorConversion = 1m };
-    private List<StockRow> stocks = [];
+    private List<ProductoCatalogoDto> lista = [];
+    private ProductoCatalogoDto edit = new();
+    private List<UnidadMedidaDto> unidades = [];
+    private UnidadMedidaDto unidadEdit = new() { UnidadNombre = "Litro", FactorConversion = 1m };
+    private List<StockSucursalDto> stocks = [];
 
     // Estado del modal de importación Excel
     private bool mostrarModalImportar;
@@ -34,8 +35,6 @@ public partial class Productos : ComponentBase
     private string importMsg = "";
     private bool importErr;
 
-    private sealed record StockRow(string Sucursal, decimal Stock, decimal Minimo, bool BajoMinimo);
-
     protected override async Task OnAfterRenderAsync(bool first)
     {
         if (!first) return;
@@ -47,20 +46,7 @@ public partial class Productos : ComponentBase
 
     private async Task Cargar()
     {
-        var q = Db.Productos.AsNoTracking().OrderBy(p => p.Nombre).AsQueryable();
-        if (soloActivos) q = q.Where(p => p.Activo);
-        if (!string.IsNullOrWhiteSpace(filtro))
-        {
-            var f = filtro.Trim().ToLower();
-            q = q.Where(p => p.Sku.ToLower().Contains(f)
-                || (p.SkuAnterior != null && p.SkuAnterior.ToLower().Contains(f))
-                || p.Nombre.ToLower().Contains(f)
-                || p.Marca.ToLower().Contains(f)
-                || p.Viscosidad.ToLower().Contains(f)
-                || (p.Categoria != null && p.Categoria.ToLower().Contains(f))
-                || (p.Especificacion != null && p.Especificacion.ToLower().Contains(f)));
-        }
-        lista = await q.Take(250).ToListAsync();
+        lista = await Catalogos.BuscarProductosAsync(filtro, soloActivos, 250);
         if (edit.Id == 0 && lista.Count > 0) await Editar(lista[0].Id);
         else if (edit.Id != 0) await CargarDetalle(edit.Id);
     }
@@ -69,7 +55,7 @@ public partial class Productos : ComponentBase
 
     private void Nuevo()
     {
-        edit = new Producto
+        edit = new ProductoCatalogoDto
         {
             TipoBase = "Sintetico",
             Categoria = "SINTETICOS",
@@ -77,31 +63,24 @@ public partial class Productos : ComponentBase
             Activo = true
         };
         unidades = [];
-        unidadEdit = new UnidadMedida { UnidadNombre = "Litro", FactorConversion = 1m };
+        unidadEdit = new UnidadMedidaDto { UnidadNombre = "Litro", FactorConversion = 1m };
         stocks = [];
         msg = "";
     }
 
     private async Task Editar(int id)
     {
-        var p = await Db.Productos.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id);
+        var p = await Catalogos.ObtenerProductoAsync(id);
         if (p is null) return;
-        edit = Clonar(p);
+        edit = p with { };
         await CargarDetalle(id);
     }
 
     private async Task CargarDetalle(int productoId)
     {
-        unidades = await Db.UnidadesMedida.AsNoTracking()
-            .Where(u => u.ProductoId == productoId).OrderBy(u => u.Id).ToListAsync();
-        unidadEdit = new UnidadMedida { ProductoId = productoId, UnidadNombre = "Litro", FactorConversion = 1m, PrecioUnitario = edit.PrecioVenta };
-        var rows = await (from i in Db.InventarioSucursal.AsNoTracking()
-                          join s in Db.Sucursales.AsNoTracking() on i.SucursalId equals s.Id
-                          where i.ProductoId == productoId
-                          group new { i, s } by s.Nombre into g
-                          select new { Suc = g.Key, Stock = g.Sum(x => x.i.StockActual), Min = g.Sum(x => x.i.StockMinimo) })
-            .ToListAsync();
-        stocks = rows.Select(r => new StockRow(r.Suc, r.Stock, r.Min, r.Min > 0 && r.Stock <= r.Min)).ToList();
+        unidades = await Catalogos.ListarUnidadesAsync(productoId);
+        unidadEdit = new UnidadMedidaDto { ProductoId = productoId, UnidadNombre = "Litro", FactorConversion = 1m, PrecioUnitario = edit.PrecioVenta };
+        stocks = await Catalogos.StockPorSucursalAsync(productoId);
     }
 
     private async Task Guardar()
@@ -133,37 +112,18 @@ public partial class Productos : ComponentBase
         if (edit.PrecioVenta == 0 && edit.PrecioMayoreo == 0 && edit.PrecioLista == 0)
         { msg = "Captura al menos un precio mayor a cero."; err = true; return; }
 
-        var dup = await Db.Productos.AsNoTracking()
-            .AnyAsync(p => p.Sku.ToLower() == edit.Sku.ToLower() && p.Id != edit.Id);
-        if (dup) { msg = "Ya existe otro producto con ese SKU."; err = true; return; }
-
         guardando = true;
         try
         {
-            if (edit.Id == 0)
+            // Alta/edición + duplicado de SKU + stock en sucursales y presentación base
+            // viven en el servicio; aquí sólo se muestra el resultado.
+            var (ok, mensaje, id) = await Catalogos.GuardarProductoAsync(edit);
+            msg = mensaje; err = !ok;
+            if (ok)
             {
-                Db.Productos.Add(edit);
-                await Db.SaveChangesAsync();
-                var sucs = await Db.Sucursales.Select(s => s.Id).ToListAsync();
-                foreach (var s in sucs)
-                    Db.InventarioSucursal.Add(new InventarioSucursal
-                    { SucursalId = s, ProductoId = edit.Id, LoteId = null, StockActual = 0, StockMinimo = 5 });
-                var precioBase = edit.PrecioVenta > 0 ? edit.PrecioVenta : edit.PrecioMayoreo;
-                Db.UnidadesMedida.Add(new UnidadMedida
-                { ProductoId = edit.Id, UnidadNombre = "Litro", FactorConversion = 1m, PrecioUnitario = precioBase });
-                await Db.SaveChangesAsync();
-                msg = "Producto creado (con Litro x1 y stock en sucursales).";
+                await Cargar();
+                await Editar(id);
             }
-            else
-            {
-                Db.Productos.Update(edit);
-                await Db.SaveChangesAsync();
-                msg = "Producto guardado correctamente.";
-            }
-            err = false;
-            var id = edit.Id;
-            await Cargar();
-            await Editar(id);
         }
         catch (Exception ex) { msg = "Error: " + ex.Message; err = true; }
         guardando = false;
@@ -171,66 +131,47 @@ public partial class Productos : ComponentBase
 
     private async Task Desactivar()
     {
-        edit.Activo = false;
-        Db.Productos.Update(edit);
-        await Db.SaveChangesAsync();
-        msg = "Producto desactivado (ya no aparece en POS)."; err = false;
+        var (ok, mensaje) = await Catalogos.CambiarEstadoProductoAsync(edit.Id, false);
+        msg = ok ? "Producto desactivado (ya no aparece en POS)." : mensaje; err = !ok;
+        if (!ok) return;
         await Cargar();
         await Editar(edit.Id);
     }
 
     private async Task Reactivar()
     {
-        edit.Activo = true;
-        Db.Productos.Update(edit);
-        await Db.SaveChangesAsync();
-        msg = "Producto reactivado."; err = false;
+        var (ok, mensaje) = await Catalogos.CambiarEstadoProductoAsync(edit.Id, true);
+        msg = ok ? "Producto reactivado." : mensaje; err = !ok;
+        if (!ok) return;
         await Cargar();
         await Editar(edit.Id);
     }
 
     private void NuevaUnidad()
     {
-        unidadEdit = new UnidadMedida
+        unidadEdit = new UnidadMedidaDto
         { ProductoId = edit.Id, UnidadNombre = "Litro", FactorConversion = 1m, PrecioUnitario = edit.PrecioVenta };
     }
 
     private async Task EditarUnidad(int id)
     {
-        var u = await Db.UnidadesMedida.FindAsync(id);
+        var u = await Catalogos.ObtenerUnidadAsync(id);
         if (u is null) return;
-        unidadEdit = new UnidadMedida
-        { Id = u.Id, ProductoId = u.ProductoId, UnidadNombre = u.UnidadNombre, FactorConversion = u.FactorConversion, CodigoBarra = u.CodigoBarra, PrecioUnitario = u.PrecioUnitario };
+        unidadEdit = u with { };
     }
 
     private async Task GuardarUnidad()
     {
         msg = "";
         if (edit.Id == 0) { msg = "Guarda primero el producto."; err = true; return; }
-        if (string.IsNullOrWhiteSpace(unidadEdit.UnidadNombre))
-        { msg = "La unidad es obligatoria."; err = true; return; }
-        if (unidadEdit.FactorConversion <= 0)
-        { msg = "Litros por unidad debe ser mayor a cero."; err = true; return; }
-        if (unidadEdit.PrecioUnitario < 0)
-        { msg = "El precio no puede ser negativo."; err = true; return; }
-        unidadEdit.ProductoId = edit.Id;
-        unidadEdit.CodigoBarra = CodigosBarra.Normalizar(unidadEdit.CodigoBarra);
-        var (barraOk, barraMsg) = CodigosBarra.Validar(unidadEdit.CodigoBarra);
-        if (!barraOk) { msg = barraMsg; err = true; return; }
-        if (!string.IsNullOrEmpty(unidadEdit.CodigoBarra))
-        {
-            var dupBar = await Db.UnidadesMedida.AsNoTracking().AnyAsync(u =>
-                u.CodigoBarra == unidadEdit.CodigoBarra && u.Id != unidadEdit.Id);
-            if (dupBar) { msg = "Ese codigo de barras ya esta en uso."; err = true; return; }
-        }
         guardandoUnidad = true;
         try
         {
-            if (unidadEdit.Id == 0) Db.UnidadesMedida.Add(unidadEdit);
-            else Db.UnidadesMedida.Update(unidadEdit);
-            await Db.SaveChangesAsync();
-            msg = "Presentacion guardada."; err = false;
-            await CargarDetalle(edit.Id);
+            // Validaciones (unidad, factor, precio, código de barras y duplicados) en el servicio.
+            unidadEdit.ProductoId = edit.Id;
+            var (ok, mensaje, _) = await Catalogos.GuardarUnidadAsync(unidadEdit);
+            msg = mensaje; err = !ok;
+            if (ok) await CargarDetalle(edit.Id);
         }
         catch (Exception ex) { msg = "Error: " + ex.Message; err = true; }
         guardandoUnidad = false;
@@ -238,16 +179,9 @@ public partial class Productos : ComponentBase
 
     private async Task EliminarUnidad(int id)
     {
-        var u = await Db.UnidadesMedida.FindAsync(id);
-        if (u is null) return;
-        if (unidades.Count <= 1)
-        { msg = "El producto debe tener al menos una presentacion."; err = true; return; }
-        var enVentas = await Db.Set<FacturaDetalle>().AsNoTracking().AnyAsync(d => d.UnidadMedidaId == id);
-        if (enVentas) { msg = "No se puede quitar: ya se uso en ventas."; err = true; return; }
-        Db.UnidadesMedida.Remove(u);
-        await Db.SaveChangesAsync();
-        msg = "Presentacion eliminada."; err = false;
-        await CargarDetalle(edit.Id);
+        var (ok, mensaje) = await Catalogos.EliminarUnidadAsync(id);
+        msg = mensaje; err = !ok;
+        if (ok) await CargarDetalle(edit.Id);
     }
 
     // ==========================================
@@ -393,27 +327,4 @@ public partial class Productos : ComponentBase
             importando = false;
         }
     }
-
-    private static Producto Clonar(Producto p) => new()
-    {
-        Id = p.Id,
-        Sku = p.Sku,
-        SkuAnterior = p.SkuAnterior,
-        Nombre = p.Nombre,
-        Marca = p.Marca,
-        Viscosidad = p.Viscosidad,
-        Sae = p.Sae,
-        TipoBase = p.TipoBase,
-        Categoria = p.Categoria,
-        Especificacion = p.Especificacion,
-        PiezasPorCaja = p.PiezasPorCaja,
-        PrecioLista = p.PrecioLista,
-        PrecioLpOroConIva = p.PrecioLpOroConIva,
-        PrecioUnitario = p.PrecioUnitario,
-        DescripcionTecnica = p.DescripcionTecnica,
-        PrecioVenta = p.PrecioVenta,
-        PrecioMayoreo = p.PrecioMayoreo,
-        PrecioCosto = p.PrecioCosto,
-        Activo = p.Activo
-    };
 }

@@ -25,7 +25,7 @@ public sealed class CorteCajaConfig : IEntityTypeConfiguration<CorteCaja>
         e.Property(x => x.NumVentas).HasColumnName("num_ventas");
         e.Property(x => x.EfectivoContado).HasColumnName("efectivo_contado").HasPrecision(12, 2);
         e.Property(x => x.Diferencia).HasColumnName("diferencia").HasPrecision(12, 2);
-        e.Property(x => x.Estado).HasColumnName("estado").HasMaxLength(20);
+        e.Property(x => x.Estado).HasColumnName("estado").HasConversion<string>().HasMaxLength(20);
         e.Property(x => x.Observaciones).HasColumnName("observaciones");
         e.HasOne(x => x.Sucursal).WithMany().HasForeignKey(x => x.SucursalId);
         e.HasIndex(x => new { x.SucursalId, x.Estado }).HasDatabaseName("ix_cortes_sucursal_estado");

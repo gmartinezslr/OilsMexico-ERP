@@ -9,7 +9,7 @@ namespace OilsMexico.Infrastructure.Services;
 public sealed partial class AsientoGeneradorService(ErpDbContext db, ISucursalContext ctx) : IAsientoGeneradorService
 {
     public async Task<IReadOnlyList<AsientoLinea>> GenerarAsientosDeVentaAsync(
-        int sucursalId, int usuarioId, decimal total, decimal subtotal, decimal iva, string metodoPagoSat, string formaPagoSat)
+        int sucursalId, decimal total, decimal subtotal, decimal iva)
     {
         var reglas = await db.ReglasAsiento
             .Where(r => r.Evento == "Venta" && r.Activo)
@@ -47,17 +47,17 @@ public sealed partial class AsientoGeneradorService(ErpDbContext db, ISucursalCo
         return lineas.AsReadOnly();
     }
 
-    public Task<IReadOnlyList<AsientoLinea>> GenerarAsientosDeCompraAsync(int sucursalId, int usuarioId, decimal total)
+    public Task<IReadOnlyList<AsientoLinea>> GenerarAsientosDeCompraAsync(int sucursalId, decimal total)
     {
         return GenerarConEventoAsync("Compra", sucursalId, total, 0m, 0m);
     }
 
-    public Task<IReadOnlyList<AsientoLinea>> GenerarAsientosDeDevolucionAsync(int sucursalId, int usuarioId, decimal total)
+    public Task<IReadOnlyList<AsientoLinea>> GenerarAsientosDeDevolucionAsync(int sucursalId, decimal total)
     {
         return GenerarConEventoAsync("Devolucion", sucursalId, total, 0m, 0m);
     }
 
-    public Task<IReadOnlyList<AsientoLinea>> GenerarAsientosDeGastoAsync(int sucursalId, int usuarioId, decimal total)
+    public Task<IReadOnlyList<AsientoLinea>> GenerarAsientosDeGastoAsync(int sucursalId, decimal total)
     {
         return GenerarConEventoAsync("Gasto", sucursalId, total, 0m, 0m);
     }

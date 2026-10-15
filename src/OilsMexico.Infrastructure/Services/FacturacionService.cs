@@ -78,7 +78,7 @@ public sealed class FacturacionService(
         await correo.EnviarCfdiAutomaticoAsync(facturaId, ct);
 
         return new VentaPosResult(f.Id, f.FolioInterno, f.UuidSat,
-            f.Subtotal, f.Iva, f.Total, "TIMBRADA");
+            f.Subtotal, f.Iva, f.Total, EstadoFactura.Timbrada);
     }
 
     public async Task<VentaPosResult> CancelarAsync(int facturaId, string motivo, string? folioSustitucion = null, CancellationToken ct = default)
@@ -107,7 +107,7 @@ public sealed class FacturacionService(
             : motivoSat;
         await db.SaveChangesAsync(ct);
         return new VentaPosResult(f.Id, f.FolioInterno, f.UuidSat,
-            f.Subtotal, f.Iva, f.Total, "CANCELADA");
+            f.Subtotal, f.Iva, f.Total, EstadoFactura.Cancelada);
     }
 
     public async Task<string?> ObtenerXmlAsync(int facturaId, CancellationToken ct = default)
