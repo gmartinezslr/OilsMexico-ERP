@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using OilsMexico.Application.DTOs;
+using OilsMexico.Domain.Entities;
 using OilsMexico.Domain.Enums;
 
 namespace OilsMexico.Infrastructure.Services;
@@ -22,6 +23,7 @@ public sealed partial class CorteCajaService
 
     public async Task<CorteResult> CerrarAsync(CerrarCorteRequest req, CancellationToken ct = default)
     {
+        ExigirActorAuditoria();
         if (req.EfectivoContado < 0) throw new InvalidOperationException("El conteo no puede ser negativo.");
         var corte = await db.CortesCaja.FirstOrDefaultAsync(c => c.Id == req.CorteId, ct)
             ?? throw new InvalidOperationException("Corte no existe.");
@@ -45,6 +47,11 @@ public sealed partial class CorteCajaService
         corte.UsuarioCierreId = ctx.UsuarioId;
         corte.Estado = EstadoCorte.Cerrado;
         corte.Observaciones = req.Observaciones?.Trim();
+        RegistrarAuditoria("CajaCerrada", $"Corte #{corte.Id} cerrado en sucursal {corte.SucursalId}.",
+            $"Estado=Abierto; FondoInicial={corte.FondoInicial:N2}",
+            $"Estado=Cerrado; EfectivoContado={corte.EfectivoContado:N2}; " +
+            $"TotalVentas={corte.TotalVentasSistema:N2}; Diferencia={corte.Diferencia:N2}",
+            corte.FechaCierreUtc.Value);
         await db.SaveChangesAsync(ct);
         return new CorteResult(corte.Id, corte.FechaCierreUtc, corte.TotalVentasSistema,
             corte.EfectivoContado, corte.Diferencia, EstadoCorte.Cerrado);

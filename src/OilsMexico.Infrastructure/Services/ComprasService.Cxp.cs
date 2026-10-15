@@ -11,6 +11,7 @@ public sealed partial class ComprasService
 {
     public async Task<CompraResult> CancelarAsync(int compraId, string motivo, CancellationToken ct = default)
     {
+        ExigirActorAuditoria();
         var compra = await db.Compras.Include(c => c.Detalles)
             .FirstOrDefaultAsync(c => c.Id == compraId, ct)
             ?? throw new InvalidOperationException("Compra no existe.");
@@ -20,21 +21,31 @@ public sealed partial class ComprasService
             throw new InvalidOperationException("Ya fue recibida; registra una devolución en Almacén.");
         if (compra.Estado == EstadoCompra.Cancelada) throw new InvalidOperationException("Ya está cancelada.");
         if (string.IsNullOrWhiteSpace(motivo)) throw new InvalidOperationException("El motivo es obligatorio.");
+        var estadoAnterior = compra.Estado.ToString();
         compra.Estado = EstadoCompra.Cancelada;
         compra.Notas = string.IsNullOrWhiteSpace(compra.Notas)
             ? $"Cancelada: {motivo.Trim()}" : $"{compra.Notas} | Cancelada: {motivo.Trim()}";
+        RegistrarAuditoria("CompraCancelada", $"Compra #{compra.Id} {compra.FolioInterno}. Motivo: {motivo.Trim()}",
+            estadoAnterior, compra.Estado.ToString());
         await db.SaveChangesAsync(ct);
         return new CompraResult(compra.Id, compra.FolioInterno, compra.Subtotal, compra.Iva, compra.Total, compra.Estado.ToString());
     }
 
     public async Task<CompraResult> RegistrarPagoAsync(PagoCompraRequest req, CancellationToken ct = default)
     {
+        ExigirActorAuditoria();
         var compra = await db.Compras.FirstOrDefaultAsync(c => c.Id == req.CompraId, ct)
             ?? throw new InvalidOperationException("Compra no existe.");
         if (!ctx.EsAdmin && compra.SucursalId != ctx.SucursalId)
             throw new UnauthorizedAccessException("No puedes pagar compras de otra sucursal.");
         if (compra.Estado == EstadoCompra.Cancelada) throw new InvalidOperationException("La compra está cancelada.");
         if (req.Monto <= 0) throw new InvalidOperationException("El monto debe ser mayor a cero.");
+        // Prioridad 1.1: el pago mueve CxP (CompraPago + MontoPagado); no se acepta en mes cerrado.
+        var hoyLocal = OilsMexico.Domain.Services.ReglaPeriodoCerrado.ALocal(DateTime.UtcNow);
+        if (await cierre.EstaCerradoAsync(compra.SucursalId, hoyLocal, ct))
+            throw new InvalidOperationException(
+                OilsMexico.Domain.Services.ReglaPeriodoCerrado.Mensaje(hoyLocal));
+        var montoPagadoAnterior = compra.MontoPagado;
         var saldo = compra.Total - compra.MontoPagado;
         if (req.Monto - saldo > 0.01m)
             throw new InvalidOperationException("El monto excede el saldo.");
@@ -46,6 +57,9 @@ public sealed partial class ComprasService
         compra.MontoPagado = Math.Round(compra.MontoPagado + req.Monto, 2);
         compra.EstadoPago = compra.Total - compra.MontoPagado <= 0.01m ? EstadoPagoCompra.Pagada
             : compra.MontoPagado > 0 ? EstadoPagoCompra.Parcial : EstadoPagoCompra.Pendiente;
+        RegistrarAuditoria("CompraPagada", $"Pago a compra #{compra.Id} {compra.FolioInterno}.",
+            $"MontoPagado={montoPagadoAnterior:N2}",
+            $"Monto={req.Monto:N2}; MontoPagado={compra.MontoPagado:N2}; Estado={compra.EstadoPago}");
         await db.SaveChangesAsync(ct);
         return new CompraResult(compra.Id, compra.FolioInterno, compra.Subtotal, compra.Iva, compra.Total, compra.EstadoPago.ToString());
     }

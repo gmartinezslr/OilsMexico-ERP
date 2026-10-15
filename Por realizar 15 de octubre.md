@@ -95,6 +95,13 @@ El checklist marca `ObtenerCotizacionAsync` y `ObtenerOrdenVentaAsync` como lect
 4. **Precisar el tratamiento de ventas históricas sin póliza.**  
 Un documento señala como decisión acordada no retrocontabilizar facturas antiguas para proteger periodos cerrados; por ello, sus ingresos no aparecen en los reportes basados en el libro. No lo trataría como implementación pendiente mientras esa sea la decisión del negocio. Sí conviene documentar claramente el alcance y confirmar que los usuarios entienden la diferencia en reportes históricos.
 
+### Seguimiento — implementación de Prioridad 1
+
+- **Periodo cerrado:** decisión aplicada: se rechazan ventas, notas de crédito y operaciones que cambian pólizas, CxC/CxP o inventario en un mes cerrado. La vía de corrección es reabrir el periodo como Admin. Cotizaciones y órdenes sin impacto contable siguen permitidas hasta su facturación. Se añadió la misma protección a entradas manuales de inventario y a cambios/eliminaciones de gastos; los gastos ya contabilizados no se pueden editar contablemente ni eliminar sin una póliza de ajuste.
+- **Auditoría:** quedan registrados productos/precios y presentaciones, sucursales fiscales, compras, movimientos de almacén, configuración (incluida la política de contraseña) y aperturas/cierres de caja. Los cambios se guardan junto con su auditoría; se exige un usuario autenticado para estas operaciones.
+- **Sucursal:** `ObtenerCotizacionAsync` y `ObtenerOrdenVentaAsync` aplican el filtro de la sucursal de sesión para roles no administrativos; Admin conserva la consulta entre sucursales. Si el registro no pertenece a la sucursal, ambas consultas responden como si no existiera.
+- **Ventas históricas:** se conserva la decisión de no retrocontabilizar facturas antiguas. Los reportes basados en el libro pueden diferir de los reportes operativos; falta validar y comunicar esta diferencia en la UI.
+- **Validación automatizada:** `AuditoriaTests` (6), `CierreContableTests` (10) y `PostgresP1Tests` (8) aprobadas; compilación de `OilsMexico.Web` correcta. Sigue pendiente el recorrido manual de UI con datos de prueba y la confirmación del alcance de reportes históricos.
 
 ## Prioridad 2 — Mantenibilidad y consistencia funcional
 

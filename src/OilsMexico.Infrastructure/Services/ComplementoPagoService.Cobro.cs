@@ -19,6 +19,11 @@ public sealed partial class ComplementoPagoService
             throw new InvalidOperationException("Solo las ventas PPD se liquidan con REP.");
         if (f.UuidSat is null)
             throw new InvalidOperationException("Timbra la factura PPD antes de cobrarla (el REP referencia su UUID).");
+        // Prioridad 1.1: el cobro genera REP + VentaCobro (afecta CxC/comisiones); no se acepta en mes cerrado.
+        var hoyLocal = OilsMexico.Domain.Services.ReglaPeriodoCerrado.ALocal(DateTime.UtcNow);
+        if (await cierre.EstaCerradoAsync(f.SucursalId, hoyLocal, ct))
+            throw new InvalidOperationException(
+                OilsMexico.Domain.Services.ReglaPeriodoCerrado.Mensaje(hoyLocal));
         var cobrado = await db.VentaCobros
             .Where(c => c.FacturaId == f.Id).SumAsync(c => (decimal?)c.Monto, ct) ?? 0m;
         var saldoAnt = Math.Round(f.Total - cobrado, 2);

@@ -31,10 +31,16 @@ public sealed partial class VentasService
             throw new InvalidOperationException("Solo las órdenes en estado Confirmada se pueden facturar.");
         if (orden.FacturaId.HasValue)
             throw new InvalidOperationException("La orden ya fue facturada.");
-        if (orden.SucursalId != ctx.SucursalId)
-            throw new InvalidOperationException("La orden pertenece a otra sucursal; cambia a esa sucursal para facturarla.");
+        if (!ctx.EsAdmin && orden.SucursalId != ctx.SucursalId)
+            throw new UnauthorizedAccessException("No puedes facturar órdenes de otra sucursal.");
         if (orden.Detalles.Count == 0)
             throw new InvalidOperationException("La orden no tiene renglones para facturar.");
+
+        // Prioridad 1.1: la facturación genera venta + póliza + kardex, así que respeta el
+        // periodo cerrado (igual que el POS). Cotizaciones/Órdenes previas no se bloquean.
+        var hoyLocal = ReglaPeriodoCerrado.ALocal(DateTime.UtcNow);
+        if (await _cierreContable.EstaCerradoAsync(orden.SucursalId, hoyLocal, ct))
+            throw new InvalidOperationException(ReglaPeriodoCerrado.Mensaje(hoyLocal));
 
         var formaPago = string.IsNullOrWhiteSpace(req.FormaPagoSat)
             ? CfdiDefaults.FormaPagoVenta : req.FormaPagoSat.Trim();
@@ -98,9 +104,10 @@ public sealed partial class VentasService
         var cliente = await db.Clientes.FindAsync([req.ClienteId], ct)
             ?? throw new InvalidOperationException("Cliente no existe.");
         var fechaEmision = DateTime.UtcNow;
-        if (await _cierreContable.EstaCerradoAsync(ctx.SucursalId, fechaEmision, ct))
-            throw new InvalidOperationException(
-                $"No se pueden emitir ventas ni notas de crédito en el mes {fechaEmision:yyyy-MM} porque el periodo contable está cerrado.");
+        // Prioridad 1.1 (ReglaPeriodoCerrado): ninguna venta en mes cerrado; la vía es reabrir (solo Admin).
+        var fechaLocal = ReglaPeriodoCerrado.ALocal(fechaEmision);
+        if (await _cierreContable.EstaCerradoAsync(ctx.SucursalId, fechaLocal, ct))
+            throw new InvalidOperationException(ReglaPeriodoCerrado.Mensaje(fechaLocal));
         var vendedorId = await ResolverVendedorAsync(req.VendedorId, cliente.VendedorId, ct);
         if (cliente.LimiteCredito < 0m)
             throw new InvalidOperationException("El límite de crédito del cliente no puede ser negativo.");

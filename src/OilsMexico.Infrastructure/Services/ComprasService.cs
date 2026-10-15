@@ -8,11 +8,34 @@ using OilsMexico.Infrastructure.Persistence;
 
 namespace OilsMexico.Infrastructure.Services;
 
-/// <summary>Compras ciclo completo: orden → recepción (stock + kardex) → CxP (pagos).</summary>
-public sealed partial class ComprasService(ErpDbContext db, ISucursalContext ctx) : IComprasService
+/// <summary>Compras ciclo completo: orden → recepción (stock + kardex) → CxP (pagos).
+/// Prioridad 1.1: recepción y pagos respetan periodo cerrado (mueven kardex/CxP).
+/// Prioridad 1.2: órdenes y recepciones quedan auditadas.</summary>
+public sealed partial class ComprasService(ErpDbContext db, ISucursalContext ctx, ICierreContableService cierre) : IComprasService
 {
+    private void ExigirActorAuditoria()
+    {
+        if (!ctx.Establecida || ctx.UsuarioId <= 0)
+            throw new InvalidOperationException("No se puede modificar una compra sin un usuario autenticado.");
+    }
+
+    private void RegistrarAuditoria(string tipo, string detalle, string? anterior, string? nuevo)
+    {
+        ExigirActorAuditoria();
+        db.AuditLogs.Add(new AuditLog
+        {
+            UsuarioId = ctx.UsuarioId,
+            Tipo = tipo,
+            Detalle = detalle,
+            Anterior = anterior,
+            Nuevo = nuevo,
+            FechaUtc = DateTime.UtcNow
+        });
+    }
+
     public async Task<CompraResult> CrearOrdenAsync(CrearCompraRequest req, CancellationToken ct = default)
     {
+        ExigirActorAuditoria();
         var sucursalId = ctx.ResolverSucursalAutorizada(req.SucursalId);
         if (req.Renglones.Count == 0) throw new InvalidOperationException("La orden no tiene renglones.");
         var prov = await db.Proveedores.FindAsync([req.ProveedorId], ct)
@@ -50,12 +73,16 @@ public sealed partial class ComprasService(ErpDbContext db, ISucursalContext ctx
         compra.Iva = Impuestos.IvaDeBase(subtotal);
         compra.Total = Math.Round(compra.Subtotal + compra.Iva, 2);
         db.Compras.Add(compra);
+        RegistrarAuditoria("CompraCreada",
+            $"Compra {compra.FolioInterno} proveedor #{compra.ProveedorId}, sucursal {sucursalId}.",
+            null, $"Estado={compra.Estado}; Total={compra.Total:N2}");
         await db.SaveChangesAsync(ct);
         return new CompraResult(compra.Id, compra.FolioInterno, compra.Subtotal, compra.Iva, compra.Total, compra.Estado.ToString());
     }
 
     public async Task<CompraResult> RecibirAsync(RecepcionRequest req, CancellationToken ct = default)
     {
+        ExigirActorAuditoria();
         var compra = await db.Compras.Include(c => c.Detalles)
             .FirstOrDefaultAsync(c => c.Id == req.CompraId, ct)
             ?? throw new InvalidOperationException("Compra no existe.");
@@ -64,8 +91,15 @@ public sealed partial class ComprasService(ErpDbContext db, ISucursalContext ctx
         if (compra.Estado == EstadoCompra.Cancelada) throw new InvalidOperationException("La compra está cancelada.");
         if (compra.Estado == EstadoCompra.Recibida) throw new InvalidOperationException("La compra ya fue recibida.");
         if (req.Renglones.Count == 0) throw new InvalidOperationException("Nada que recibir.");
+        // Prioridad 1.1: la recepción mueve stock + kardex COMPRA; no se acepta en mes cerrado.
+        var hoyLocal = OilsMexico.Domain.Services.ReglaPeriodoCerrado.ALocal(DateTime.UtcNow);
+        if (await cierre.EstaCerradoAsync(compra.SucursalId, hoyLocal, ct))
+            throw new InvalidOperationException(
+                OilsMexico.Domain.Services.ReglaPeriodoCerrado.Mensaje(hoyLocal));
 
         await using var tx = await db.Database.BeginTransactionAsync(ct);
+        var estadoAnterior = compra.Estado.ToString();
+        var litrosRecibidosAntes = compra.Detalles.Sum(d => d.LitrosRecibidos);
         foreach (var r in req.Renglones)
         {
             if (r.CantidadRecibir <= 0) continue;
@@ -122,6 +156,9 @@ public sealed partial class ComprasService(ErpDbContext db, ISucursalContext ctx
         await db.SaveChangesAsync(ct);
         compra.Estado = compra.Detalles.All(d => d.CantidadRecibida + 0.0001m >= d.Cantidad)
             ? EstadoCompra.Recibida : EstadoCompra.Parcial;
+        RegistrarAuditoria("CompraRecibida", $"Recepción de compra #{compra.Id} ({compra.FolioInterno}).",
+            $"Estado={estadoAnterior}; Litros={litrosRecibidosAntes:N2}",
+            $"Estado={compra.Estado}; Litros={compra.Detalles.Sum(d => d.LitrosRecibidos):N2}");
         await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
         return new CompraResult(compra.Id, compra.FolioInterno, compra.Subtotal, compra.Iva, compra.Total, compra.Estado.ToString());

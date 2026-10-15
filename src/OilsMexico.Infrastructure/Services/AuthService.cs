@@ -313,6 +313,8 @@ public sealed class AuthService(ErpDbContext db, IConfiguration configuration, I
     {
         var esAdmin = ctx.EsAdmin;
         if (!esAdmin) return new(false, "Solo el administrador puede guardar la política de contraseña.");
+        if (!ctx.Establecida || ctx.UsuarioId != usuarioId)
+            return new(false, "La sesión del administrador no coincide con el usuario autenticado.");
 
         var valido = request.LongitudMinima >= 4 && request.LongitudMinima <= 100
             && request.Historial >= 0 && request.Historial <= 20
@@ -320,21 +322,40 @@ public sealed class AuthService(ErpDbContext db, IConfiguration configuration, I
         if (!valido)
             return new(false, "Valores fuera de rango permitido.");
 
-        var guardar = async (string clave, string valor) =>
+        var valoresNuevos = new Dictionary<string, string>
         {
-            var existente = await db.Configuracion.FirstOrDefaultAsync(c => c.Clave == clave, ct);
+            [ConfiguracionService.ClavePasswordMinLongitud] = request.LongitudMinima.ToString(),
+            [ConfiguracionService.ClavePasswordHistorial] = request.Historial.ToString(),
+            [ConfiguracionService.ClavePasswordDuracionDias] = request.DuracionDias.ToString()
+        };
+        var filas = await db.Configuracion
+            .Where(c => valoresNuevos.Keys.Contains(c.Clave))
+            .ToListAsync(ct);
+        var valoresAnteriores = filas.ToDictionary(c => c.Clave, c => c.Valor);
+        foreach (var (clave, valor) in valoresNuevos)
+        {
+            var existente = filas.FirstOrDefault(c => c.Clave == clave);
             if (existente is null)
                 db.Configuracion.Add(new Configuracion { Clave = clave, Valor = valor });
             else
                 existente.Valor = valor;
-            await db.SaveChangesAsync(ct);
-        };
+        }
 
-        await guardar(ConfiguracionService.ClavePasswordMinLongitud, request.LongitudMinima.ToString());
-        await guardar(ConfiguracionService.ClavePasswordHistorial, request.Historial.ToString());
-        await guardar(ConfiguracionService.ClavePasswordDuracionDias, request.DuracionDias.ToString());
-
-        RegistrarAuditLog(usuarioId, "PasswordPolicyChanged", detalle: $"Política actualizada: longitudMin={request.LongitudMinima}, historial={request.Historial}, duracionDias={request.DuracionDias}.");
+        if (valoresNuevos.Any(kv => !valoresAnteriores.TryGetValue(kv.Key, out var anterior)
+                || !string.Equals(anterior, kv.Value, StringComparison.Ordinal)))
+        {
+            db.AuditLogs.Add(new AuditLog
+            {
+                UsuarioId = ctx.UsuarioId,
+                Tipo = "PasswordPolicyChanged",
+                Detalle = "Política de contraseñas actualizada.",
+                Anterior = string.Join("; ", valoresNuevos.Keys.Select(k =>
+                    $"{k}={valoresAnteriores.GetValueOrDefault(k, "(sin configurar)")}")),
+                Nuevo = string.Join("; ", valoresNuevos.Select(kv => $"{kv.Key}={kv.Value}")),
+                FechaUtc = DateTime.UtcNow
+            });
+        }
+        await db.SaveChangesAsync(ct);
         return new(true, "Política de contraseña guardada.");
     }
 

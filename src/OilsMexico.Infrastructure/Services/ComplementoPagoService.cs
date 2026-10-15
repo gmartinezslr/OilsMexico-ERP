@@ -13,7 +13,7 @@ namespace OilsMexico.Infrastructure.Services;
 /// </summary>
 public sealed partial class ComplementoPagoService(
     ErpDbContext db, ISucursalContext ctx, ICfdiSelladoService sellado,
-    IPacTimbradoService pac) : IComplementoPagoService
+    IPacTimbradoService pac, ICierreContableService cierre) : IComplementoPagoService
 {
     public async Task<List<VentaPpdPendienteDto>> PendientesAsync(int sucursalId, CancellationToken ct = default)
     {

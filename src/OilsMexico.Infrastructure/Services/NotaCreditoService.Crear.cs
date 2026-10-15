@@ -21,13 +21,12 @@ public sealed partial class NotaCreditoService
             or Domain.Enums.EstadoFactura.Surtida or Domain.Enums.EstadoFactura.Entregada))
             throw new InvalidOperationException($"Solo se acredita factura timbrada/surtida/entregada (origen: {f.Estado}).");
         if (f.UuidSat is null) throw new InvalidOperationException("La factura origen no tiene UUID timbrado.");
-        // REGLA #1.3: bloqueo si el periodo contable de la factura está cerrado (no pueden emitirse
-        // notas de crédito en meses cerrados; solo se bloquean asientos). Ver §1.3. Se consulta en la
-        // sucursal de la factura (donde aplica la NC), no en la de sesión.
-        var fechaNc = DateTime.Now;
+        // Prioridad 1.1 (ReglaPeriodoCerrado): ninguna NC en mes cerrado; la vía es reabrir (solo Admin).
+        // Se consulta en la sucursal de la factura (donde aplica la NC), no en la de sesión.
+        var fechaNc = OilsMexico.Domain.Services.ReglaPeriodoCerrado.ALocal(DateTime.UtcNow);
         if (await _cierreContable.EstaCerradoAsync(f.SucursalId, fechaNc, ct))
             throw new InvalidOperationException(
-                $"No se pueden emitir notas de crédito en el mes {fechaNc:yyyy-MM} porque el periodo contable está cerrado.");
+                OilsMexico.Domain.Services.ReglaPeriodoCerrado.Mensaje(fechaNc));
         var previa = await db.NotasCredito
             .AnyAsync(n => n.FacturaOrigenId == f.Id && n.Estado != EstadoNotaCredito.Cancelada, ct);
         if (previa) throw new InvalidOperationException("La factura ya tiene una NC activa.");

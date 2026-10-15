@@ -13,9 +13,30 @@ namespace OilsMexico.Infrastructure.Services;
 /// <c>ICatalogosService</c> (DIP) y el acceso a datos de cada entidad vive en un solo
 /// método reutilizable (SRP). La página arma el DTO ya saneado (normalización de SKU,
 /// código de barras, etc.) y este servicio sólo valida reglas de BD (duplicados, FKs).
+/// Prioridad 1.2: altas/cambios de producto y precios registran auditoría.
 /// </summary>
-public sealed class CatalogosService(ErpDbContext db) : ICatalogosService
+public sealed class CatalogosService(ErpDbContext db, ISucursalContext ctx) : ICatalogosService
 {
+    private void ExigirActorAuditoria()
+    {
+        if (!ctx.Establecida || ctx.UsuarioId <= 0)
+            throw new InvalidOperationException("No se puede modificar el catálogo sin un usuario autenticado.");
+    }
+
+    /// <summary>Agrega la auditoría a la misma unidad de trabajo que el cambio auditado.</summary>
+    private void RegistrarAuditoria(string tipo, string? detalle, string? anterior, string? nuevo)
+    {
+        ExigirActorAuditoria();
+        db.AuditLogs.Add(new AuditLog
+        {
+            UsuarioId = ctx.UsuarioId,
+            Tipo = tipo,
+            Detalle = detalle,
+            Anterior = anterior,
+            Nuevo = nuevo,
+            FechaUtc = DateTime.UtcNow
+        });
+    }
     // ------------------------------------------------------------------
     // Productos
     // ------------------------------------------------------------------
@@ -49,6 +70,9 @@ public sealed class CatalogosService(ErpDbContext db) : ICatalogosService
         if (string.IsNullOrWhiteSpace(dto.Sku) || string.IsNullOrWhiteSpace(dto.Nombre)
             || string.IsNullOrWhiteSpace(dto.Marca) || string.IsNullOrWhiteSpace(dto.Viscosidad))
             return (false, "SKU, nombre, marca y viscosidad son obligatorios.", 0);
+        if (dto.PrecioLista < 0 || dto.PrecioLpOroConIva < 0 || dto.PrecioUnitario < 0
+            || dto.PrecioVenta < 0 || dto.PrecioMayoreo < 0 || dto.PrecioCosto < 0)
+            return (false, "Los precios no pueden ser negativos.", 0);
 
         var tipoBase = string.IsNullOrWhiteSpace(dto.TipoBase) ? "Sintetico" : dto.TipoBase;
         var piezas = dto.PiezasPorCaja <= 0 ? 1 : dto.PiezasPorCaja;
@@ -60,6 +84,7 @@ public sealed class CatalogosService(ErpDbContext db) : ICatalogosService
         if (venta == 0 && dto.PrecioMayoreo == 0 && dto.PrecioLista == 0)
             return (false, "Captura al menos un precio mayor a cero.", 0);
 
+        ExigirActorAuditoria();
         var dup = await db.Productos.AsNoTracking()
             .AnyAsync(p => p.Sku.ToLower() == dto.Sku.ToLower() && p.Id != dto.Id, ct);
         if (dup) return (false, "Ya existe otro producto con ese SKU.", 0);
@@ -77,6 +102,8 @@ public sealed class CatalogosService(ErpDbContext db) : ICatalogosService
                 Activo = true
             };
             db.Productos.Add(p);
+            RegistrarAuditoria("ProductoCreado", $"Producto SKU {p.Sku} ({p.Nombre}).",
+                null, DescribirProducto(p));
             await db.SaveChangesAsync(ct);
             // Crea stock en cero por sucursal + presentación base "Litro x1".
             foreach (var sid in await db.Sucursales.Select(s => s.Id).ToListAsync(ct))
@@ -93,12 +120,15 @@ public sealed class CatalogosService(ErpDbContext db) : ICatalogosService
 
         var upd = await db.Productos.FirstOrDefaultAsync(x => x.Id == dto.Id, ct);
         if (upd is null) return (false, "El producto ya no existe.", 0);
+        var anterior = DescribirProducto(upd);
         upd.Sku = dto.Sku; upd.Nombre = dto.Nombre; upd.Marca = dto.Marca; upd.Viscosidad = dto.Viscosidad;
         upd.TipoBase = tipoBase; upd.DescripcionTecnica = dto.DescripcionTecnica; upd.Categoria = dto.Categoria;
         upd.SkuAnterior = dto.SkuAnterior; upd.Sae = dto.Sae; upd.Especificacion = dto.Especificacion;
         upd.PiezasPorCaja = piezas; upd.PrecioLista = dto.PrecioLista;
         upd.PrecioLpOroConIva = dto.PrecioLpOroConIva; upd.PrecioUnitario = unitario;
         upd.PrecioVenta = venta; upd.PrecioMayoreo = dto.PrecioMayoreo; upd.PrecioCosto = dto.PrecioCosto;
+        RegistrarAuditoria("ProductoActualizado", $"Producto #{upd.Id} SKU {upd.Sku}; incluye cambios de precios.",
+            anterior, DescribirProducto(upd));
         await db.SaveChangesAsync(ct);
         return (true, "Producto guardado correctamente.", upd.Id);
     }
@@ -107,7 +137,10 @@ public sealed class CatalogosService(ErpDbContext db) : ICatalogosService
     {
         var p = await db.Productos.FirstOrDefaultAsync(x => x.Id == id, ct);
         if (p is null) return (false, "El producto ya no existe.");
+        ExigirActorAuditoria();
+        var anterior = p.Activo.ToString();
         p.Activo = activo;
+        RegistrarAuditoria("ProductoEstadoActualizado", $"Producto #{p.Id} SKU {p.Sku}.", anterior, activo.ToString());
         await db.SaveChangesAsync(ct);
         return (true, activo ? "Producto reactivado." : "Producto desactivado (ya no aparece en POS).");
     }
@@ -152,6 +185,7 @@ public sealed class CatalogosService(ErpDbContext db) : ICatalogosService
             .AnyAsync(u => u.CodigoBarra == barra && u.Id != dto.Id, ct))
             return (false, "Ese codigo de barras ya esta en uso.", 0);
 
+        ExigirActorAuditoria();
         if (dto.Id == 0)
         {
             var u = new UnidadMedida
@@ -160,14 +194,20 @@ public sealed class CatalogosService(ErpDbContext db) : ICatalogosService
                 FactorConversion = dto.FactorConversion, CodigoBarra = barra, PrecioUnitario = dto.PrecioUnitario
             };
             db.UnidadesMedida.Add(u);
+            RegistrarAuditoria("PresentacionCreada",
+                $"Presentación de producto #{u.ProductoId}: {u.UnidadNombre}.",
+                null, $"{u.FactorConversion}|{u.PrecioUnitario}|{u.CodigoBarra}");
             await db.SaveChangesAsync(ct);
             return (true, "Presentacion guardada.", u.Id);
         }
 
         var upd = await db.UnidadesMedida.FirstOrDefaultAsync(x => x.Id == dto.Id, ct);
         if (upd is null) return (false, "La presentacion ya no existe.", 0);
+        var anterior = $"{upd.UnidadNombre}|{upd.FactorConversion}|{upd.PrecioUnitario}|{upd.CodigoBarra}";
         upd.ProductoId = dto.ProductoId; upd.UnidadNombre = dto.UnidadNombre;
         upd.FactorConversion = dto.FactorConversion; upd.CodigoBarra = barra; upd.PrecioUnitario = dto.PrecioUnitario;
+        RegistrarAuditoria("PresentacionActualizada", $"Presentación #{upd.Id} de producto #{upd.ProductoId}.",
+            anterior, $"{upd.UnidadNombre}|{upd.FactorConversion}|{upd.PrecioUnitario}|{upd.CodigoBarra}");
         await db.SaveChangesAsync(ct);
         return (true, "Presentacion guardada.", upd.Id);
     }
@@ -180,7 +220,11 @@ public sealed class CatalogosService(ErpDbContext db) : ICatalogosService
         if (totales <= 1) return (false, "El producto debe tener al menos una presentacion.");
         var enVentas = await db.Set<FacturaDetalle>().AsNoTracking().AnyAsync(d => d.UnidadMedidaId == id, ct);
         if (enVentas) return (false, "No se puede quitar: ya se uso en ventas.");
+        ExigirActorAuditoria();
         db.UnidadesMedida.Remove(u);
+        RegistrarAuditoria("PresentacionEliminada",
+            $"Presentación #{u.Id} de producto #{u.ProductoId}: {u.UnidadNombre}.",
+            $"{u.FactorConversion}|{u.PrecioUnitario}|{u.CodigoBarra}", "eliminada");
         await db.SaveChangesAsync(ct);
         return (true, "Presentacion eliminada.");
     }
@@ -219,6 +263,7 @@ public sealed class CatalogosService(ErpDbContext db) : ICatalogosService
         var dup = await db.Sucursales.AnyAsync(s => s.CodigoSucursal == codigo && s.Id != dto.Id, ct);
         if (dup) return (false, $"Ya existe otra sucursal con el codigo '{codigo}'.", 0);
 
+        ExigirActorAuditoria();
         var razon = string.IsNullOrWhiteSpace(dto.RazonSocial) ? dto.Nombre : dto.RazonSocial;
         var direccion = $"{dto.Calle} {dto.NumeroExterior} {dto.NumeroInterior}, {dto.Colonia}, CP {cp}, {dto.Municipio}, {dto.Estado}".Trim(' ', ',');
 
@@ -233,17 +278,22 @@ public sealed class CatalogosService(ErpDbContext db) : ICatalogosService
                 Pais = dto.Pais, Telefono = dto.Telefono, Email = dto.Email
             };
             db.Sucursales.Add(s);
+            RegistrarAuditoria("SucursalCreada", $"Sucursal {s.CodigoSucursal} ({s.Nombre}).",
+                null, DescribirSucursal(s));
             await db.SaveChangesAsync(ct);
             return (true, $"Sucursal '{s.Nombre}' guardada.", s.Id);
         }
 
         var upd = await db.Sucursales.FirstOrDefaultAsync(x => x.Id == dto.Id, ct);
         if (upd is null) return (false, "La sucursal ya no existe.", 0);
+        var anterior = DescribirSucursal(upd);
         upd.Nombre = dto.Nombre; upd.CodigoSucursal = codigo; upd.Direccion = direccion; upd.RfcEmisor = rfc;
         upd.Activa = dto.Activa; upd.RazonSocial = razon; upd.RegimenFiscal = dto.RegimenFiscal; upd.CodigoPostal = cp;
         upd.Calle = dto.Calle; upd.NumeroExterior = dto.NumeroExterior; upd.NumeroInterior = dto.NumeroInterior;
         upd.Colonia = dto.Colonia; upd.Municipio = dto.Municipio; upd.Estado = dto.Estado; upd.Ciudad = dto.Ciudad;
         upd.Pais = dto.Pais; upd.Telefono = dto.Telefono; upd.Email = dto.Email;
+        RegistrarAuditoria("SucursalActualizada", $"Sucursal #{upd.Id} {upd.CodigoSucursal}.",
+            anterior, DescribirSucursal(upd));
         await db.SaveChangesAsync(ct);
         return (true, $"Sucursal '{upd.Nombre}' guardada.", upd.Id);
     }
@@ -394,6 +444,14 @@ public sealed class CatalogosService(ErpDbContext db) : ICatalogosService
         PrecioVenta = p.PrecioVenta, PrecioMayoreo = p.PrecioMayoreo,
         PrecioCosto = p.PrecioCosto, Activo = p.Activo
     };
+
+    private static string DescribirProducto(Producto p) =>
+        $"SKU={p.Sku}; Nombre={p.Nombre}; PrecioLista={p.PrecioLista}; PrecioLpOroConIva={p.PrecioLpOroConIva}; " +
+        $"PrecioUnitario={p.PrecioUnitario}; PrecioVenta={p.PrecioVenta}; PrecioMayoreo={p.PrecioMayoreo}; PrecioCosto={p.PrecioCosto}";
+
+    private static string DescribirSucursal(Sucursal s) =>
+        $"Código={s.CodigoSucursal}; Nombre={s.Nombre}; RazónSocial={s.RazonSocial}; RFC={s.RfcEmisor}; " +
+        $"Régimen={s.RegimenFiscal}; CP={s.CodigoPostal}; Activa={s.Activa}; Dirección={s.Direccion}";
 
     private static UnidadMedidaDto U(UnidadMedida u) => new()
     {

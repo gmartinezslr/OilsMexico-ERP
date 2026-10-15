@@ -86,7 +86,11 @@ public sealed class PostgresP1Tests(PgFixture fixture)
 
             var ctx = new SucursalContext();
             ctx.Establecer(sucursal.Id, 1, Roles.Admin);
-            var cuentas = await new ComprasService(db, ctx).CuentasPorPagarAsync(sucursal.Id, null);
+            var generador = new AsientoGeneradorService(db, ctx);
+            var cuentasContables = new CuentasContablesService(db, ctx);
+            var cierre = new CierreContableService(db, ctx, generador, cuentasContables);
+            var compras = new ComprasService(db, ctx, cierre);
+            var cuentas = await compras.CuentasPorPagarAsync(sucursal.Id, null);
 
             var saldo = Assert.Single(cuentas);
             Assert.Equal(100m, saldo.Saldo);

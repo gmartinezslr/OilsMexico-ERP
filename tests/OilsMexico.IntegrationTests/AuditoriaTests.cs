@@ -126,6 +126,93 @@ public sealed class AuditoriaTests
         Assert.Contains("Aprobada", eventos[0].Detalle);
     }
 
+    [Fact]
+    public async Task Operaciones_de_catalogo_compras_configuracion_y_caja_se_auditan()
+    {
+        var (db, context) = CrearDb(nameof(Operaciones_de_catalogo_compras_configuracion_y_caja_se_auditan));
+        var catalogos = new CatalogosService(db, context);
+        var producto = new ProductoCatalogoDto
+        {
+            Sku = "ACE-01", Nombre = "Aceite", Marca = "Marca", Viscosidad = "5W-30",
+            PrecioVenta = 100m, PrecioUnitario = 100m, PrecioLista = 120m
+        };
+        var creado = await catalogos.GuardarProductoAsync(producto);
+        Assert.True(creado.Ok);
+
+        producto.Id = creado.Id;
+        producto.PrecioVenta = 110m;
+        producto.PrecioUnitario = 110m;
+        var actualizado = await catalogos.GuardarProductoAsync(producto);
+        Assert.True(actualizado.Ok);
+
+        var proveedor = new Proveedor { Nombre = "Proveedor", CodigoPostal = "06600", Activo = true };
+        db.Proveedores.Add(proveedor);
+        await db.SaveChangesAsync();
+        var compras = new ComprasService(db, context, new CierreStub());
+        await compras.CrearOrdenAsync(new CrearCompraRequest(
+            1, proveedor.Id, null, null,
+            [new CompraRenglonDto(creado.Id, null, "Litro", 1m, 2m, 50m)]));
+
+        var configuracion = new ConfiguracionService(db, context);
+        await configuracion.GuardarAsync("prueba_config", "nuevo");
+
+        var caja = new CorteCajaService(db, context);
+        var corte = await caja.AbrirAsync(1, 200m);
+        await caja.CerrarAsync(new CerrarCorteRequest(corte.CorteId, 200m, "Cierre de prueba"));
+
+        var eventos = await db.AuditLogs.OrderBy(a => a.Id).ToListAsync();
+        Assert.Contains(eventos, e => e.Tipo == "ProductoCreado" && e.UsuarioId == 7);
+        Assert.Contains(eventos, e => e.Tipo == "ProductoActualizado"
+            && e.Anterior!.Contains("PrecioVenta=100") && e.Nuevo!.Contains("PrecioVenta=110"));
+        Assert.Contains(eventos, e => e.Tipo == "CompraCreada" && e.UsuarioId == 7);
+        Assert.Contains(eventos, e => e.Tipo == "ConfiguracionActualizada"
+            && e.Anterior is null && e.Nuevo == "nuevo" && e.UsuarioId == 7);
+        Assert.Contains(eventos, e => e.Tipo == "CajaAbierta" && e.UsuarioId == 7);
+        Assert.Contains(eventos, e => e.Tipo == "CajaCerrada" && e.UsuarioId == 7);
+    }
+
+    [Fact]
+    public async Task Entrada_de_inventario_respeta_el_periodo_cerrado()
+    {
+        var (db, context) = CrearDb(nameof(Entrada_de_inventario_respeta_el_periodo_cerrado));
+        var inventario = new InventarioService(db, context, new CierreStub(cerrado: true));
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            inventario.EntradaCompraAsync(1, 12, null, 5m, 7));
+
+        Assert.Empty(await db.Movimientos.ToListAsync());
+        Assert.Empty(await db.InventarioSucursal.ToListAsync());
+        Assert.Empty(await db.AuditLogs.ToListAsync());
+    }
+
+    [Fact]
+    public async Task Gasto_con_poliza_no_se_puede_editar_contablemente_ni_eliminar()
+    {
+        var (db, context) = CrearDb(nameof(Gasto_con_poliza_no_se_puede_editar_contablemente_ni_eliminar));
+        var fecha = DateTime.UtcNow;
+        var gasto = new Gasto
+        {
+            SucursalId = 1, UsuarioId = 7, Fecha = fecha, Categoria = "Servicios",
+            Concepto = "Servicio", Importe = 100m, FormaPagoSat = "01"
+        };
+        db.Gastos.Add(gasto);
+        await db.SaveChangesAsync();
+        db.AsientosContables.Add(new AsientoContable
+        {
+            SucursalId = 1, UsuarioId = 7, Concepto = $"Gasto {gasto.Categoria} #{gasto.Id} {gasto.Concepto}"
+        });
+        await db.SaveChangesAsync();
+        var servicio = new GastoService(
+            db, context, new CuentasContablesService(db, context), new CierreStub());
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => servicio.EditarAsync(gasto.Id,
+            new CrearGastoRequest(1, fecha, "Servicios", "Servicio", 120m, "01", null, null)));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => servicio.EliminarAsync(gasto.Id));
+
+        Assert.Single(await db.Gastos.ToListAsync());
+        Assert.Single(await db.AsientosContables.ToListAsync());
+    }
+
     private sealed class VentasStub : IVentasPosService, IOrdenVentaFacturacionService
     {
         public Task<List<ProductoDto>> BuscarProductosAsync(
@@ -138,6 +225,22 @@ public sealed class AuditoriaTests
 
         public Task<OrdenVentaFacturarResult> FacturarOrdenVentaAsync(
             int ordenId, OrdenVentaFacturarRequest request, CancellationToken ct = default) =>
+            throw new NotSupportedException();
+    }
+
+    private sealed class CierreStub(bool cerrado = false) : ICierreContableService
+    {
+        public Task<List<PeriodoContableDto>> ListarAsync(int sucursalId, CancellationToken ct = default) =>
+            Task.FromResult(new List<PeriodoContableDto>());
+
+        public Task<bool> EstaCerradoAsync(int sucursalId, DateTime fecha, CancellationToken ct = default) =>
+            Task.FromResult(cerrado);
+
+        public Task<CierreContableResultDto> CerrarAsync(
+            int sucursalId, int anio, int mes, CancellationToken ct = default) =>
+            throw new NotSupportedException();
+
+        public Task ReabrirAsync(int sucursalId, int anio, int mes, CancellationToken ct = default) =>
             throw new NotSupportedException();
     }
 }

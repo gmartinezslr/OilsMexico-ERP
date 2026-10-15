@@ -10,7 +10,7 @@ namespace OilsMexico.Infrastructure.Services;
 /// Lee y escribe los parámetros de configuración del sistema (tabla <c>configuracion</c>).
 /// API genérica (ObtenerIntAsync/GuardarAsync) + accesos tipados para los parámetros actuales.
 /// </summary>
-public sealed class ConfiguracionService(ErpDbContext db) : IConfiguracionService
+public sealed class ConfiguracionService(ErpDbContext db, ISucursalContext ctx) : IConfiguracionService
 {
     public const string ClaveTimeoutSesion = "sesion_timeout_min";
     public const string ClavePasswordMinLongitud = "password_policy_min_longitud";
@@ -88,10 +88,25 @@ public sealed class ConfiguracionService(ErpDbContext db) : IConfiguracionServic
     public async Task GuardarAsync(string clave, string valor, CancellationToken ct = default)
     {
         var existente = await db.Configuracion.FirstOrDefaultAsync(c => c.Clave == clave, ct);
+        var anterior = existente?.Valor;
+        if (!ctx.Establecida || ctx.UsuarioId <= 0)
+            throw new InvalidOperationException("No se puede modificar la configuración sin un usuario autenticado.");
         if (existente is null)
             db.Configuracion.Add(new Configuracion { Clave = clave, Valor = valor });
         else
             existente.Valor = valor;
+        if (!string.Equals(anterior, valor, StringComparison.Ordinal))
+        {
+            db.AuditLogs.Add(new AuditLog
+            {
+                UsuarioId = ctx.UsuarioId,
+                Tipo = "ConfiguracionActualizada",
+                Detalle = $"Clave de configuración: {clave}.",
+                Anterior = anterior,
+                Nuevo = valor,
+                FechaUtc = DateTime.UtcNow
+            });
+        }
         await db.SaveChangesAsync(ct);
     }
 

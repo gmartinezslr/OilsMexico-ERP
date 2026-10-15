@@ -15,6 +15,26 @@ namespace OilsMexico.Infrastructure.Services;
 /// </summary>
 public sealed partial class CorteCajaService(ErpDbContext db, ISucursalContext ctx) : ICorteCajaService
 {
+    private void ExigirActorAuditoria()
+    {
+        if (!ctx.Establecida || ctx.UsuarioId <= 0)
+            throw new InvalidOperationException("No se puede operar la caja sin un usuario autenticado.");
+    }
+
+    private void RegistrarAuditoria(string tipo, string detalle, string? anterior, string? nuevo, DateTime fechaUtc)
+    {
+        ExigirActorAuditoria();
+        db.AuditLogs.Add(new AuditLog
+        {
+            UsuarioId = ctx.UsuarioId,
+            Tipo = tipo,
+            Detalle = detalle,
+            Anterior = anterior,
+            Nuevo = nuevo,
+            FechaUtc = fechaUtc
+        });
+    }
+
     public async Task<CorteAbiertoDto?> AbiertoAsync(int sucursalId, CancellationToken ct = default)
     {
         var suc = ctx.ResolverSucursalAutorizada(sucursalId);
@@ -28,6 +48,7 @@ public sealed partial class CorteCajaService(ErpDbContext db, ISucursalContext c
 
     public async Task<CorteAbiertoDto> AbrirAsync(int sucursalId, decimal fondoInicial, CancellationToken ct = default)
     {
+        ExigirActorAuditoria();
         var suc = ctx.ResolverSucursalAutorizada(sucursalId);
         if (fondoInicial < 0) throw new InvalidOperationException("El fondo inicial no puede ser negativo.");
         var existe = await db.CortesCaja
@@ -43,6 +64,8 @@ public sealed partial class CorteCajaService(ErpDbContext db, ISucursalContext c
             FondoInicial = Math.Round(fondoInicial, 2), Estado = EstadoCorte.Abierto
         };
         db.CortesCaja.Add(corte);
+        RegistrarAuditoria("CajaAbierta", $"Apertura de caja en sucursal {suc}.",
+            null, $"FondoInicial={corte.FondoInicial:N2}", corte.FechaAperturaUtc);
         await db.SaveChangesAsync(ct);
         return new CorteAbiertoDto(corte.Id, corte.SucursalId, corte.FechaAperturaUtc,
             corte.UsuarioAperturaNombre, corte.FondoInicial);

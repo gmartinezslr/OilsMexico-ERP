@@ -7,6 +7,12 @@ namespace OilsMexico.Infrastructure.Services;
 /// <summary>Validación + póliza automática del gasto (gasto vs. banco/efectivo).</summary>
 public sealed partial class GastoService
 {
+    private void ExigirActorAuditoria()
+    {
+        if (!ctx.Establecida || ctx.UsuarioId <= 0)
+            throw new InvalidOperationException("No se puede modificar un gasto sin un usuario autenticado.");
+    }
+
     private static (string Categoria, string Concepto) Validar(CrearGastoRequest req)
     {
         if (req.Importe <= 0) throw new InvalidOperationException("El importe debe ser mayor a cero.");
@@ -35,38 +41,49 @@ public sealed partial class GastoService
     /// <summary>
     /// Póliza automática con las ReglasAsiento del evento "Gasto".
     /// Si aún no hay reglas sembradas (BD previa), cae a 6000↔1000/1100.
+    /// Prioridad 1.1: la póliza hereda la fecha OPERATIVA del gasto (no UtcNow), para que
+    /// el bloqueo de periodo cerrado la evalúe en el mes correcto. Si el periodo está
+    /// cerrado el gasto ya se rechazó en CrearAsync; aquí el guard es defensa en profundidad.
     /// </summary>
     private async Task RegistrarPolizaAsync(Domain.Entities.Gasto gasto, CancellationToken ct)
     {
         List<RegistrarDetalleAsientoRequest>? lineas = null;
-        try
+        var reglas = await db.ReglasAsiento.AsNoTracking()
+            .Where(r => r.Evento == "Gasto" && r.Activo)
+            .OrderBy(r => r.Orden).ToListAsync(ct);
+        if (reglas.Count >= 2)
         {
-            var reglas = await db.ReglasAsiento.AsNoTracking()
-                .Where(r => r.Evento == "Gasto" && r.Activo)
-                .OrderBy(r => r.Orden).ToListAsync(ct);
-            if (reglas.Count >= 2)
+            lineas = [];
+            foreach (var r in reglas)
             {
-                lineas = [];
-                foreach (var r in reglas)
-                {
-                    var tipo = r.Debe ? MovimientoTipo.Debito : MovimientoTipo.Credito;
-                    lineas.Add(new RegistrarDetalleAsientoRequest(r.CuentaId, tipo, gasto.Importe, gasto.Concepto));
-                }
+                var tipo = r.Debe ? MovimientoTipo.Debito : MovimientoTipo.Credito;
+                lineas.Add(new RegistrarDetalleAsientoRequest(r.CuentaId, tipo, gasto.Importe, gasto.Concepto));
             }
         }
-        catch { lineas = null; }
         lineas ??= await LineasPorDefectoAsync(gasto, ct);
-        if (lineas.Count == 0) return;
-        try
+        if (lineas.Count == 0)
+            throw new InvalidOperationException(
+                "No hay cuentas contables configuradas para registrar la póliza del gasto.");
+        // Hereda la fecha operativa del gasto: la póliza cae en el mismo periodo contable.
+        await cuentas.RegistrarAsientoAsync(new RegistrarAsientoRequest(
+            gasto.SucursalId, gasto.UsuarioId, "Operativo",
+            $"Gasto {gasto.Categoria} #{gasto.Id} {gasto.Concepto}", lineas,
+            gasto.Fecha), ct);
+    }
+
+    /// <summary>Agrega la auditoría a la misma unidad de trabajo que el cambio auditado.</summary>
+    private void RegistrarAuditoria(string tipo, string? detalle, string? anterior, string? nuevo)
+    {
+        ExigirActorAuditoria();
+        db.AuditLogs.Add(new Domain.Entities.AuditLog
         {
-            await cuentas.RegistrarAsientoAsync(new RegistrarAsientoRequest(
-                gasto.SucursalId, gasto.UsuarioId, "Operativo",
-                $"Gasto {gasto.Categoria} #{gasto.Id} {gasto.Concepto}", lineas), ct);
-        }
-        catch
-        {
-            // La póliza es informativa: un catálogo sin las cuentas no tumba el gasto.
-        }
+            UsuarioId = ctx.UsuarioId,
+            Tipo = tipo,
+            Detalle = detalle,
+            Anterior = anterior,
+            Nuevo = nuevo,
+            FechaUtc = DateTime.UtcNow
+        });
     }
 
     private async Task<List<RegistrarDetalleAsientoRequest>> LineasPorDefectoAsync(
