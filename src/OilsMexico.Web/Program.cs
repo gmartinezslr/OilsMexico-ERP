@@ -28,7 +28,9 @@ builder.Services.AddScoped<ISucursalContext, SucursalContext>();
 builder.Services.AddScoped<ISesionActual, SesionActual>();
 builder.Services.AddScoped<IAvisos, AvisosService>();
 builder.Services.AddScoped<ITimeoutSesion, TimeoutSesion>();
-builder.Services.AddScoped<IConfiguracionService, ConfiguracionService>();
+// Componentes distintos del mismo circuito (p. ej. el temporizador y Configuración) pueden leer
+// la configuración simultáneamente; cada instancia usa su propio DbContext transitorio.
+builder.Services.AddTransient<IConfiguracionService, ConfiguracionService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IAutorizacionService, AutorizacionService>();
 builder.Services.AddScoped<ICatalogosSatService, CatalogosSatService>();

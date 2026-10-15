@@ -22,22 +22,10 @@ public partial class Configuracion : ComponentBase
     private bool guardandoBloqueo;
     private decimal tasaCxc, tasaCxp;
     private bool guardandoMora;
+    private int paso = 1;
 
     [Inject] private IConfiguracionService Config { get; set; } = default!;
     [Inject] private IAuthService Auth { get; set; } = default!;
-
-    protected override async Task OnInitializedAsync()
-    {
-        if (!Sesion.Autenticado) return;
-        esAdmin = Sesion.Sesion?.Rol == Roles.Admin;
-        if (esAdmin)
-        {
-            minutos = await Config.ObtenerMinutosTimeoutAsync();
-            await CargarPwd();
-            await CargarBloqueo();
-            await CargarMora();
-        }
-    }
 
     protected override async Task OnAfterRenderAsync(bool first)
     {
@@ -128,5 +116,17 @@ public partial class Configuracion : ComponentBase
               $"{p.BloqueosParaDefinitivo}.º bloqueo → definitivo).";
         err = false;
         StateHasChanged();
+    }
+
+    private void IrPaso(int p) => paso = p;
+
+    private void Anterior()
+    {
+        if (paso > 1) paso--;
+    }
+
+    private void Siguiente()
+    {
+        if (paso < 3) paso++;
     }
 }
