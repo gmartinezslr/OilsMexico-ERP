@@ -84,4 +84,47 @@ public sealed partial class CobranzaService
         // Lo más urgente primero: lleva más días parado.
         return salida.OrderByDescending(x => x.DiasEmitida).ToList();
     }
+
+    /// <summary>
+    /// Saldo VENCIDO del cliente: lo que debe por facturas cuya fecha de vencimiento
+    /// (emisión + días de crédito) ya pasó, menos lo ya cobrado de esas mismas facturas.
+    /// Base del bloqueo por límite de crédito en el POS (§4.1). Devuelve 0 si no debe nada vencido.
+    /// </summary>
+    public async Task<decimal> SaldoVencidoPorClienteAsync(int clienteId, CancellationToken ct = default)
+    {
+        var hoyLocal = DateTime.Today;
+
+        // Facturas vivas del cliente con su fecha de vencimiento (emisión + días de crédito del
+        // cliente). DiasCredito se proyecta en la query para que el filtro por vencimiento sea
+        // traducible a SQL (evita client-eval, que PostgreSQL no soporta). Una factura vencida es
+        // aquella cuya FechaVencimiento es anterior a hoy.
+        var vivas = await db.Facturas.AsNoTracking()
+            .Where(f => f.ClienteId == clienteId
+                && f.Estado != EstadoFactura.Cancelada
+                && f.Estado != EstadoFactura.Devolucion)
+            .Select(f => new
+            {
+                f.Id,
+                f.Total,
+                Vencimiento = f.FechaEmision.Date.AddDays(f.Cliente!.DiasCredito)
+            })
+            .ToListAsync(ct);
+
+        var vencidas = vivas.Where(f => f.Vencimiento < hoyLocal).ToList();
+        if (vencidas.Count == 0) return 0m;
+
+        var idsVencidas = vencidas.Select(f => f.Id).ToList();
+
+        // Cobros aplicados a esas facturas vencidas (mismo criterio cash-basis que EstadoCuentas:
+        // el cobro de una factura cancelada/devuelta no compensa deuda, pero aquí las facturas ya
+        // están vivas, así que se suman todos sus cobros).
+        var cobros = await db.VentaCobros.AsNoTracking()
+            .Where(c => idsVencidas.Contains(c.FacturaId))
+            .GroupBy(c => c.FacturaId)
+            .Select(g => new { FacturaId = g.Key, Monto = g.Sum(x => x.Monto) })
+            .ToDictionaryAsync(x => x.FacturaId, x => x.Monto, ct);
+
+        var saldo = vencidas.Sum(f => f.Total - (cobros.TryGetValue(f.Id, out var pagado) ? pagado : 0m));
+        return Math.Round(saldo, 2);
+    }
 }

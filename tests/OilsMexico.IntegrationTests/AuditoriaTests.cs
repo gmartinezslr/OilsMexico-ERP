@@ -126,7 +126,7 @@ public sealed class AuditoriaTests
         Assert.Contains("Aprobada", eventos[0].Detalle);
     }
 
-    private sealed class VentasStub : IVentasPosService
+    private sealed class VentasStub : IVentasPosService, IOrdenVentaFacturacionService
     {
         public Task<List<ProductoDto>> BuscarProductosAsync(
             int sucursalId, string? filtro, CancellationToken ct = default) =>
@@ -134,6 +134,10 @@ public sealed class AuditoriaTests
 
         public Task<VentaPosResult> RegistrarVentaAsync(
             VentaPosRequest request, CancellationToken ct = default) =>
+            throw new NotSupportedException();
+
+        public Task<OrdenVentaFacturarResult> FacturarOrdenVentaAsync(
+            int ordenId, OrdenVentaFacturarRequest request, CancellationToken ct = default) =>
             throw new NotSupportedException();
     }
 }

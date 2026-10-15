@@ -13,8 +13,11 @@ namespace OilsMexico.Infrastructure.Services;
 /// </summary>
 public sealed partial class NotaCreditoService(
     ErpDbContext db, ISucursalContext ctx, ICfdiSelladoService sellado,
-    IPacTimbradoService pac) : INotaCreditoService
+    IPacTimbradoService pac,
+    ICierreContableService cierreContable) : INotaCreditoService
 {
+    // §1.3: usado en CrearYTimbrarAsync (Crear.cs) para impedir NC en periodos cerrados.
+    private readonly ICierreContableService _cierreContable = cierreContable;
     public async Task<NotaCreditoPreviewDto> PreviewAsync(int facturaOrigenId, CancellationToken ct = default)
     {
         var f = await db.Facturas.AsNoTracking()

@@ -15,36 +15,89 @@ namespace OilsMexico.Infrastructure.Services;
 public sealed partial class ReportesFinancierosService
 {
     /// <summary>Estado de Resultados por sucursal y periodo.</summary>
+    /// <remarks>
+    /// §1.4b (unificación con el libro contable). Ingresos, IVA y gastos se derivan de las
+    /// pólizas; así el estado de resultados concilia con la balanza. Las pólizas de venta se
+    /// generan dentro de la misma transacción que la venta.
+    /// <list type="bullet">
+    /// <item><b>Ventas / IVA</b>: movimiento neto de las cuentas contables de ingreso y de IVA.</item>
+    /// <item><b>Costo de ventas</b>: ya unificado con el libro — meses cerrados leen su póliza de
+    /// cierre; meses abiertos usan el mismo motor FIFO que la póliza (ver <c>CostoVentasDelRangoAsync</c>).</item>
+    /// <item><b>Gastos operativos</b>: derivados de asientos contables (cuentas Tipo = 5), sin
+    /// incluir la cuenta 5000 de costo de ventas, que se informa por separado.</item>
+    /// </list>
+    /// El contrato del DTO (<see cref="EstadoResultadosDto"/>) no cambia.
+    /// </remarks>
     public async Task<EstadoResultadosDto> ResultadosAsync(
         int sucursalId, DateTime desde, DateTime hasta, CancellationToken ct = default)
     {
         var suc = ctx.ResolverSucursalAutorizada(sucursalId);
         var (ini, fin) = Rango(desde, hasta);
 
-        // Ventas efectivas del periodo (excluye canceladas y devoluciones).
-        var filas = await db.Facturas.AsNoTracking()
-            .Where(f => f.SucursalId == suc
-                && f.FechaEmision >= ini && f.FechaEmision < fin
-                && f.Estado != EstadoFactura.Cancelada
-                && f.Estado != EstadoFactura.Devolucion)
-            .Select(f => new { f.Subtotal, f.Iva, f.Total })
-            .ToListAsync(ct);
+        var ingresos = await IngresosContablesDelRangoAsync(suc, ini, fin, ct);
+        var ventasNetas = Math.Round(ingresos.VentasNetas, 2);
+        var ivaTrasladado = Math.Round(ingresos.IvaTrasladado, 2);
+        // §1.4b: gastos operativos desde asientos contables (cuentas Tipo=5 Gasto), fuente de verdad.
+        var gastos = Math.Round(await GastosOperativosDelRangoAsync(suc, ini, fin, ct), 2);
 
-        var ventasNetas = filas.Sum(f => f.Subtotal);
-        var ivaTrasladado = filas.Sum(f => f.Iva);
-        var totalVentas = filas.Sum(f => f.Total);
-
-        // §1.3: costo de ventas FIFO (meses cerrados leen su póliza de cierre; abiertos, FIFO en vivo).
+        // Costo de ventas ya unificado con el libro (cierre FIFO cerrado o motor FIFO en vivo).
         var costoVentas = Math.Round(await CostoVentasDelRangoAsync(suc, desde, hasta, ct), 2);
-        var utilidadBruta = Math.Round(totalVentas - costoVentas, 2);
-        var margenBruto = totalVentas > 0 ? Math.Round(utilidadBruta / totalVentas * 100m, 2) : 0m;
+        var utilidadBruta = Math.Round(ventasNetas - costoVentas, 2);
+        var utilidadOperacion = Math.Round(utilidadBruta - gastos, 2);
+        var utilidadNeta = utilidadOperacion; // sin ISR/IVA retenido modelados en el ERP.
+        var margenBruto = ventasNetas > 0 ? Math.Round(utilidadBruta / ventasNetas * 100m, 2) : 0m;
+        var margenNeto = ventasNetas > 0 ? Math.Round(utilidadNeta / ventasNetas * 100m, 2) : 0m;
 
         return new EstadoResultadosDto(
             suc, desde.Date, hasta.Date,
-            ventasNetas, 0m, totalVentas,
-            costoVentas, utilidadBruta, 0m,
-            utilidadBruta, ivaTrasladado, utilidadBruta,
-            margenBruto, margenBruto);
+            ventasNetas, 0m, ventasNetas,
+            costoVentas, utilidadBruta, gastos,
+            utilidadOperacion, ivaTrasladado, utilidadNeta,
+            margenBruto, margenNeto);
+    }
+
+    private async Task<(decimal VentasNetas, decimal IvaTrasladado)> IngresosContablesDelRangoAsync(
+        int suc, DateTime ini, DateTime fin, CancellationToken ct)
+    {
+        var movs = await db.DetallesAsientos.AsNoTracking()
+            .Where(d => d.AsientoContable!.SucursalId == suc
+                && d.AsientoContable.FechaUtc >= ini && d.AsientoContable.FechaUtc < fin
+                && (d.Cuenta.Tipo == 4 || (d.Cuenta.Tipo == 2 && d.Cuenta.Codigo == "4000")))
+            .GroupBy(d => new { d.Cuenta.Tipo, d.Cuenta.Codigo })
+            .Select(g => new
+            {
+                g.Key.Tipo,
+                g.Key.Codigo,
+                Debitos = g.Where(d => d.TipoMovimiento == MovimientoTipo.Debito).Sum(d => d.Importe),
+                Creditos = g.Where(d => d.TipoMovimiento == MovimientoTipo.Credito).Sum(d => d.Importe)
+            })
+            .ToListAsync(ct);
+
+        return (
+            movs.Where(m => m.Tipo == 4).Sum(m => m.Creditos - m.Debitos),
+            movs.Where(m => m.Tipo == 2 && m.Codigo == "4000").Sum(m => m.Creditos - m.Debitos));
+    }
+
+    /// <summary>
+    /// Gastos operativos del rango sumados desde los asientos contables: movimiento neto de las
+    /// cuentas de resultado de Gasto (Tipo = 5), es decir débitos − créditos (una reversión de un
+    /// gasto resta). Es la MISMA fuente que usa el Balance/Balanza, por lo que ambos cuadran.
+    /// </summary>
+    private async Task<decimal> GastosOperativosDelRangoAsync(int suc, DateTime ini, DateTime fin, CancellationToken ct)
+    {
+        var movs = await db.DetallesAsientos.AsNoTracking()
+            .Where(d => d.AsientoContable!.SucursalId == suc
+                && d.AsientoContable.FechaUtc >= ini && d.AsientoContable.FechaUtc < fin
+                && d.Cuenta.Tipo == 5 && d.Cuenta.Codigo != "5000") // Costos se muestran por separado.
+            .GroupBy(d => d.CuentaId)
+            .Select(g => new
+            {
+                Debitos = g.Where(d => d.TipoMovimiento == MovimientoTipo.Debito).Sum(d => d.Importe),
+                Creditos = g.Where(d => d.TipoMovimiento == MovimientoTipo.Credito).Sum(d => d.Importe)
+            })
+            .ToListAsync(ct);
+
+        return movs.Sum(m => m.Debitos - m.Creditos);
     }
 
     /// <summary>Cambio de existencias: inicial + compras − ventas ± ajustes ± traspasos.</summary>

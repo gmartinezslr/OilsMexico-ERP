@@ -9,8 +9,12 @@ namespace OilsMexico.Infrastructure.Services;
 
 public sealed partial class VentasService(
     ErpDbContext db, ISucursalContext ctx,
-    ICfdiSelladoService sellado, IPacTimbradoService pac) : IVentasService
+    ICfdiSelladoService sellado, IPacTimbradoService pac,
+    ICierreContableService cierreContable, ICobranzaService cobranza) : IVentasService
 {
+    // §1.3 (periodo cerrado) y §4.1 (crédito): se usan en RegistrarVentaAsync (Venta.cs).
+    private readonly ICierreContableService _cierreContable = cierreContable;
+    private readonly ICobranzaService _cobranza = cobranza;
 
     public async Task<List<ProductoDto>> BuscarProductosAsync(int sucursalId, string? filtro, CancellationToken ct = default)
     {

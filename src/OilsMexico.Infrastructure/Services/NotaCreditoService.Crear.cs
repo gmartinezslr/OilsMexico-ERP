@@ -21,6 +21,13 @@ public sealed partial class NotaCreditoService
             or Domain.Enums.EstadoFactura.Surtida or Domain.Enums.EstadoFactura.Entregada))
             throw new InvalidOperationException($"Solo se acredita factura timbrada/surtida/entregada (origen: {f.Estado}).");
         if (f.UuidSat is null) throw new InvalidOperationException("La factura origen no tiene UUID timbrado.");
+        // REGLA #1.3: bloqueo si el periodo contable de la factura está cerrado (no pueden emitirse
+        // notas de crédito en meses cerrados; solo se bloquean asientos). Ver §1.3. Se consulta en la
+        // sucursal de la factura (donde aplica la NC), no en la de sesión.
+        var fechaNc = DateTime.Now;
+        if (await _cierreContable.EstaCerradoAsync(f.SucursalId, fechaNc, ct))
+            throw new InvalidOperationException(
+                $"No se pueden emitir notas de crédito en el mes {fechaNc:yyyy-MM} porque el periodo contable está cerrado.");
         var previa = await db.NotasCredito
             .AnyAsync(n => n.FacturaOrigenId == f.Id && n.Estado != EstadoNotaCredito.Cancelada, ct);
         if (previa) throw new InvalidOperationException("La factura ya tiene una NC activa.");
@@ -69,6 +76,8 @@ public sealed partial class NotaCreditoService
         }
         nc.RepusoStock = true;
 
+        await RevertirPolizaVentaAsync(f, nc, ct);
+
         // CASH BASIS: una NC de este flujo acredita el 100% de la factura (copia los renglones
         // completos), así que la venta queda revertida. Se marca Devolucion para que CobranzaService
         // (comisiones) y EstadoCuentasService dejen de contarla como dinero entrado: sin esto se
@@ -86,5 +95,43 @@ public sealed partial class NotaCreditoService
         await tx.CommitAsync(ct);
         return new NotaCreditoResult(nc.Id, nc.FolioInterno, nc.UuidSat,
             nc.Subtotal, nc.Iva, nc.Total, "TIMBRADA");
+    }
+
+    private async Task RevertirPolizaVentaAsync(Factura factura, NotaCredito nota, CancellationToken ct)
+    {
+        var conceptoVenta = $"Venta {factura.FolioInterno}";
+        var original = await db.AsientosContables
+            .Include(a => a.Detalles)
+                .ThenInclude(d => d.Cuenta)
+            .FirstOrDefaultAsync(a => a.SucursalId == factura.SucursalId
+                && a.Concepto == conceptoVenta, ct);
+        if (original is null)
+            return;
+
+        var detalles = original.Detalles.Select(d => new DetalleAsiento
+        {
+            CuentaId = d.CuentaId,
+            TipoMovimiento = d.TipoMovimiento == MovimientoTipo.Debito
+                ? MovimientoTipo.Credito : MovimientoTipo.Debito,
+            Importe = d.Importe,
+            Descripcion = $"Reversión NC {nota.FolioInterno}"
+        }).ToList();
+        var reversa = new AsientoContable
+        {
+            SucursalId = factura.SucursalId,
+            UsuarioId = ctx.UsuarioId,
+            FechaUtc = nota.FechaEmision,
+            Tipo = "Operativo",
+            Concepto = $"NC {nota.FolioInterno} reversa {factura.FolioInterno}",
+            Detalles = detalles
+        };
+        db.AsientosContables.Add(reversa);
+        foreach (var detalle in detalles)
+        {
+            var cuenta = original.Detalles.First(d => d.CuentaId == detalle.CuentaId).Cuenta
+                ?? throw new InvalidOperationException($"La cuenta contable {detalle.CuentaId} no existe.");
+            cuenta.SaldoActual += detalle.TipoMovimiento == MovimientoTipo.Debito
+                ? detalle.Importe : -detalle.Importe;
+        }
     }
 }

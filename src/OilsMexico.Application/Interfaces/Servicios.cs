@@ -46,6 +46,13 @@ public interface IVentasPosService
     Task<VentaPosResult> RegistrarVentaAsync(VentaPosRequest request, CancellationToken ct = default);
 }
 
+/// <summary>Facturación transaccional de una orden de venta.</summary>
+public interface IOrdenVentaFacturacionService
+{
+    Task<OrdenVentaFacturarResult> FacturarOrdenVentaAsync(
+        int ordenId, OrdenVentaFacturarRequest request, CancellationToken ct = default);
+}
+
 /// <summary>Faceta de entrega en almacén (Surtir/Devolver) — Historial la consume para operar.</summary>
 public interface IEntregaAlmacenService
 {
@@ -69,7 +76,8 @@ public interface IHistorialVentasService
 /// <see cref="IEntregaAlmacenService"/> e <see cref="IHistorialVentasService"/>: los consumidores
 /// que sólo necesitan una capacidad deben depender de la faceta correspondiente.
 /// </summary>
-public interface IVentasService : IVentasPosService, IEntregaAlmacenService, IHistorialVentasService
+public interface IVentasService : IVentasPosService, IOrdenVentaFacturacionService,
+    IEntregaAlmacenService, IHistorialVentasService
 {
 }
 
@@ -216,6 +224,9 @@ public interface ICobranzaService
     Task<CobranzaResumenDto> CobranzaVendedorAsync(int vendedorId, DateTime desde, DateTime hasta, int? sucursalId = null, CancellationToken ct = default);
 
     /// <summary>Detalle factura a factura (con renglones prorrateados) para auditoría y trazabilidad de comisiones.</summary>
+
+    /// <summary>Saldo vencido actual del cliente (facturas sin pagar pendientes por vencer).</summary>
+    Task<decimal> SaldoVencidoPorClienteAsync(int clienteId, CancellationToken ct = default);
     Task<List<CobranzaFacturaDto>> DetalleCobranzaAsync(int? vendedorId, DateTime desde, DateTime hasta, int? sucursalId = null, CancellationToken ct = default);
 
     /// <summary>

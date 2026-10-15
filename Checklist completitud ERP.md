@@ -195,6 +195,7 @@ Verificado hoy en código (auditoría SOLID de Cotizaciones 12/10 + revisión ha
 
 Tomada de `Situación al 11 de octubre.md` §4 y validaciones CFDI:
 
+- Automatización PostgreSQL P1: suite completa de integración **35/35** y pruebas PostgreSQL focalizadas **7/7**. La cobertura incluye CxC/CxP, parches, cierre/reapertura, Balanza, Estado de Resultados, existencias, crédito y conversión OV → venta. Las verificaciones manuales y los escenarios señalados abajo siguen pendientes.
 - [ ] Login 2FA con app autenticadora + cambio de contraseña por vigencia vencida.
 - [ ] Alta/edición cliente/proveedor: RFC inválido, RFC duplicado, situación Cancelada/Baja (debe bloquear).
 - [ ] Escaneo de barras en POS (USB como teclado) + código inexistente (debe avisar en campana).
@@ -202,8 +203,8 @@ Tomada de `Situación al 11 de octubre.md` §4 y validaciones CFDI:
 - [ ] Conciliación bancaria en UI (la prueba de integración dio 15/15; falta recorrido manual).
 - [ ] Cotizaciones/OV en UI real (expiración al abrir listado, Suspender/Reanudar con motivo) — la prueba dio 5/5, falta smoke manual.
 - [ ] Timbrado real Finkok (ver 6.3).
-- [ ] Reportes financieros §1.4 con BD: cuadre de Balanza (Σdébitos = Σcréditos), Balance cuadrado (Activo = Pasivo + Patrimonio), Estado de Resultados vs. utilidad esperada y cambio de existencias contra kardex real de una sucursal.
-- [ ] Cierre de periodo §1.3 con BD real (PostgreSQL): `PeriodoContablePatch`, cerrar un mes con ventas (póliza 5000↔1200), bloqueo de asientos en el mes cerrado y reapertura Admin (los tests InMemory dieron 10/10).
+- [ ] Reportes financieros §1.4 con BD: las pruebas automatizadas PostgreSQL cubren Balanza, Estado de Resultados y existencias; falta validar manualmente Balance (Activo = Pasivo + Patrimonio), utilidad esperada y cambio de existencias contra el kardex real de una sucursal. Los ingresos de facturas históricas sin póliza no se retrocontabilizan; el reporte del libro no los incluye.
+- [ ] Cierre de periodo §1.3 con BD real (PostgreSQL): las pruebas automatizadas cubren parche, cierre/reapertura y bloqueo; falta el recorrido manual de cerrar un mes con ventas (póliza 5000↔1200) y confirmar reapertura Admin.
 
 ## 8. 🟡 Documentación
 
@@ -216,7 +217,7 @@ Tomada de `Situación al 11 de octubre.md` §4 y validaciones CFDI:
 
 - [x] **Gastos operativos §1.1 (13/10/2026 rev.2)**: verificación completa contra el código confirma que todos los ítems ya estaban implementados. `Gasto` entity + `GastoConfig` (EF, snake_case) + `GastosPatch` (CREATE TABLE, FK, CHECK categorías/importe) + `IGastoService`/`GastoService` (Crear/Editar/Eliminar/Listar/TotalesPorCategoria, REGLA #1) + póliza automática (`GastoService.Poliza.cs`, evento "Gasto" en `ReglasAsiento`, fallback 6000↔1000) + vinculación `CorteCajaService.Cierre.cs` (`GastosEfectivoTurnoAsync`) + página `/gastos` (Blazor, guard de rol, listado+formulario+reporte) + `NavLink` en Gestión + endpoint `/api/export/gastos/{sucursalId}` Excel. `IGastoService` registrado en `Program.cs`. Build `OilsMexico.slnx` 0 errores.
 - [x] **Exportación Excel/PDF §2.1 (13/10/2026)**: `IExportacionService` + `ExportacionService` (9 Excel ClosedXML + 4 PDF QuestPDF), endpoints `/api/export/*` (Minimal API con guard de token) y botones de descarga en `/reportes`. Licencia QuestPDF Community en `Program.cs`. Build 0 errores. **Pendiente solo refinamiento**: verificación con BD (7), adjuntar PDF del CFDI al correo y botones en las demás páginas.
-- [x] **Reportes financieros §1.4 (servicio + UI, 13/10/2026)**: `IReportesFinancierosService` + `ReportesFinancierosService` (parcial: balanza, balance, estado de resultados, cambio de existencias, indicadores) y **página `/reportes` con 5 pestañas que consumen el servicio** (carga perezosa `??=`), registrado en `Program.cs`. Build `OilsMexico.slnx` 0 errores. Corrige el esquema real del dominio (kardex `Tipo` string, `InventarioSucursal.StockActual`, `Producto` sin `SucursalId`); `IndicadoresAsync(null)` muestra todas las sucursales para Admin. `NavLink` en Gestión. **Pendiente solo refinamiento**: exportación Excel/PDF (2.1 ✅ hecho), costo FIFO real (1.3) y verificación con BD (7).
+- [x] **Reportes financieros §1.4 y contabilización P1**: `IReportesFinancierosService` + `ReportesFinancierosService` generan ingresos, IVA y gastos desde el libro; las ventas nuevas generan póliza y las notas de crédito revierten la póliza original. La conversión OV → venta guarda factura, inventario, póliza, vínculo y auditoría en una sola transacción. **Pruebas PostgreSQL P1** cubren CxC/CxP, parches, cierre/reapertura, Balanza, Estado de Resultados, existencias, crédito y atomicidad OV → venta; suite completa 35/35 y focalizada 7/7 aprobadas. **Alcance histórico acordado**: no retrocontabilizar facturas antiguas sin póliza para preservar periodos cerrados; esos ingresos no aparecen en el Estado de Resultados basado en el libro. Pendiente recorrido manual de §7 y validación externa SMTP/PAC.
 - [x] Cotizaciones Capa A+B+C: pipeline cotización → OV → factura, expiración al cargar listado (`ExpirarCotizacionesAsync`), Suspender/Reanudar con guards estrictos y motivo en `Notas`.
 - [x] Fix FK: `OrdenVenta.CotizacionId` `int` → `int?` (manual = null) + `CotizacionesPatch` idempotente.
 - [x] REGLA #1 (guard de sucursal) en las 4 transiciones: `ConfirmarOrdenVentaAsync`, `SuspenderOrdenVentaAsync`, `ReanudarOrdenVentaAsync` (`Ordenes.cs`) y `CancelarOrdenVentaAsync` (`Convertir.cs`).

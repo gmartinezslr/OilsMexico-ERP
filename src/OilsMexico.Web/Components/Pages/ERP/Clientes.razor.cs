@@ -162,6 +162,7 @@ public partial class Clientes : ComponentBase
         CodigoPostal = c.CodigoPostal, Calle = c.Calle, NumeroExterior = c.NumeroExterior,
         NumeroInterior = c.NumeroInterior, Colonia = c.Colonia, Municipio = c.Municipio,
         Estado = c.Estado, Ciudad = c.Ciudad, Pais = c.Pais, Activo = c.Activo,
-        VendedorId = c.VendedorId, SituacionFiscal = c.SituacionFiscal
+        VendedorId = c.VendedorId, SituacionFiscal = c.SituacionFiscal,
+        LimiteCredito = c.LimiteCredito, DiasCredito = c.DiasCredito
     };
 }

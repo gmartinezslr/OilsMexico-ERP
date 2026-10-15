@@ -15,6 +15,9 @@ public sealed partial class CotizacionesService
     /// </summary>
     public async Task<CotizacionConvertirResult> ConvertirCotizacionAsync(int id, CotizacionConvertirRequest req, CancellationToken ct = default)
     {
+        // REGLA §6.2: operación atómica. Si falla cualquiera de las escrituras, todo se revierte
+        // para que no quede cotización convertida sin orden o orden sin cotización.
+        await using var tx = await db.Database.BeginTransactionAsync(ct);
         var cotizacion = await db.Cotizaciones
             .Include(c => c.Cliente)
             .Include(c => c.Detalles)
@@ -62,6 +65,9 @@ public sealed partial class CotizacionesService
         cotizacion.Estado = EstadoCotizacion.Convertida;
         cotizacion.FechaVencimiento = null; // la cotización dejó de ser válida al convertirse
         await db.SaveChangesAsync(ct);
+
+        // Comitea la transacción antes de devolver el resultado
+        await tx.CommitAsync(ct);
 
         return new CotizacionConvertirResult(orden.Id, orden.FolioInterno!, orden.Total, orden.Estado.ToString());
     }

@@ -36,9 +36,11 @@ builder.Services.AddScoped<IAutorizacionService, AutorizacionService>();
 builder.Services.AddScoped<ICatalogosSatService, CatalogosSatService>();
 builder.Services.AddScoped<IPoliticaPassword, PoliticaPasswordService>();
 builder.Services.AddSingleton<IReloj, RelojSistema>();
+// Transient, igual que ErpDbContext (contextLifetime: Transient en AddDbContext): así, dentro de
 builder.Services.AddScoped<IVentasService, VentasService>();
 // ISP: facetas de ventas registradas sobre la misma implementación (§6.2).
 builder.Services.AddScoped<IVentasPosService>(sp => sp.GetRequiredService<IVentasService>());
+builder.Services.AddScoped<IOrdenVentaFacturacionService>(sp => sp.GetRequiredService<IVentasService>());
 builder.Services.AddScoped<IEntregaAlmacenService>(sp => sp.GetRequiredService<IVentasService>());
 builder.Services.AddScoped<IHistorialVentasService>(sp => sp.GetRequiredService<IVentasService>());
 builder.Services.AddScoped<IInventarioService, InventarioService>();

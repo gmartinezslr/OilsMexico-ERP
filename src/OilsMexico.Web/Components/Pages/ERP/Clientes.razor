@@ -91,6 +91,12 @@
                         <option value="menudeo">Menudeo</option>
                         <option value="mayoreo">Mayoreo</option>
                     </select></div>
+                <div class="col-md-3"><label class="form-label small">Límite de crédito</label>
+                    <input type="number" min="0" step="0.01" class="form-control" @bind="edit.LimiteCredito" />
+                    <small class="text-muted">0 = sin crédito (solo contado). Bloquea el POS si el saldo vencido lo supera.</small></div>
+                <div class="col-md-3"><label class="form-label small">Días de crédito</label>
+                    <input type="number" min="0" step="1" class="form-control" @bind="edit.DiasCredito" />
+                    <small class="text-muted">0 = contado. Define cuándo una factura se considera vencida.</small></div>
                 <div class="col-md-6"><label class="form-label small">Vendedor responsable (dueño de la cuenta)</label>
                     <select class="form-select" @bind="vendedorSel">
                         <option value="">Sin asignar — las ventas se acreditan al usuario de sesión</option>
