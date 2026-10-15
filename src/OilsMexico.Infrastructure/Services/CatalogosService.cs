@@ -379,7 +379,7 @@ public sealed class CatalogosService(ErpDbContext db) : ICatalogosService
         => await db.Usuarios.AsNoTracking()
             .Where(u => u.Activo && (u.Rol == Roles.Vendedor || u.Rol == Roles.Admin))
             .OrderBy(u => u.Nombre)
-            .Select(u => new VendedorDto(u.Id, u.Nombre)).ToListAsync(ct);
+            .Select(u => new VendedorDto(u.Id, u.Nombre, u.Rol)).ToListAsync(ct);
 
     // ------------------------------------------------------------------
     // Proyecciones entity -> DTO

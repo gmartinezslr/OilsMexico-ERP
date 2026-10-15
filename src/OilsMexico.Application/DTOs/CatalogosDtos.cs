@@ -33,8 +33,11 @@ public sealed record SucursalDto
     public string? Email { get; set; }
 }
 
-/// <summary>Renglón del combo de vendedores (id + nombre) para asignaciones en POS/Clientes.</summary>
-public sealed record VendedorDto(int Id, string Nombre);
+/// <summary>Renglón de vendedores para combos, incluido el rol usado en la pantalla de metas.</summary>
+public sealed record VendedorDto(int Id, string Nombre, string Rol);
+
+/// <summary>Datos mínimos de cliente que requiere el POS para facturar y sugerir vendedor.</summary>
+public sealed record ClienteVentaDto(int Id, string Nombre, string Rfc, int? VendedorId);
 
 /// <summary>
 /// Producto del catálogo maestro tal como lo edita la página Productos.

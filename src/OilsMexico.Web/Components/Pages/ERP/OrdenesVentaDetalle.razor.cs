@@ -33,7 +33,8 @@ public partial class OrdenesVentaDetalle : ComponentBase
     private bool requiereFactura;
     private bool facturando;
 
-    [Inject] public ICotizacionesService CotizSvc { get; set; } = default!;
+    [Inject] public ICotizacionesConsulta CotizacionesConsulta { get; set; } = default!;
+    [Inject] public ICotizacionesOperaciones CotizacionesOps { get; set; } = default!;
     [Inject] public IAutorizacionService Autorizacion { get; set; } = default!;
     [Inject] public ICatalogosSatService Sat { get; set; } = default!;
     [Inject] public ISucursalContext SucCtx { get; set; } = default!;
@@ -67,9 +68,9 @@ public partial class OrdenesVentaDetalle : ComponentBase
         cargando = true;
         try
         {
-            orden = await CotizSvc.ObtenerOrdenVentaAsync(Id);
+            orden = await CotizacionesConsulta.ObtenerOrdenVentaAsync(Id);
             if (orden is null) return;
-            vendedores = await CotizSvc.ListarVendedoresAsync(SucCtx.SucursalId);
+            vendedores = await CotizacionesConsulta.ListarVendedoresAsync(SucCtx.SucursalId);
             vendedorConf = orden.VendedorId ?? 0;
             catalogos = Sat.Obtener();
         }
@@ -100,7 +101,7 @@ public partial class OrdenesVentaDetalle : ComponentBase
         suspendiendo = true;
         try
         {
-            await CotizSvc.SuspenderOrdenVentaAsync(Id, motivoSusp);
+            await CotizacionesOps.SuspenderOrdenVentaAsync(Id, motivoSusp);
             Nav.NavigateTo($"/ordenes-vente/detalle/{Id}", forceLoad: true);
         }
         catch (Exception ex)
@@ -120,7 +121,7 @@ public partial class OrdenesVentaDetalle : ComponentBase
         reanudando = true;
         try
         {
-            await CotizSvc.ReanudarOrdenVentaAsync(Id, motivoSusp);
+            await CotizacionesOps.ReanudarOrdenVentaAsync(Id, motivoSusp);
             Nav.NavigateTo($"/ordenes-vente/detalle/{Id}", forceLoad: true);
         }
         catch (Exception ex)
@@ -140,7 +141,7 @@ public partial class OrdenesVentaDetalle : ComponentBase
         facturando = true;
         try
         {
-            var res = await CotizSvc.ConvertirOrdenAVentaAsync(Id, new OrdenVentaFacturarRequest(
+            var res = await CotizacionesOps.ConvertirOrdenAVentaAsync(Id, new OrdenVentaFacturarRequest(
                 formaPago, metodoPago, usoCfdi, requiereFactura));
             // La orden queda Facturada + ligada a la factura; forceLoad limpia ?accion=facturar.
             Nav.NavigateTo($"/ordenes-vente/detalle/{res.OrdenVentaId}", forceLoad: true);
@@ -161,7 +162,7 @@ public partial class OrdenesVentaDetalle : ComponentBase
         confirmando = true;
         try
         {
-            var res = await CotizSvc.ConfirmarOrdenVentaAsync(Id, new OrdenVentaConfirmarRequest(
+            var res = await CotizacionesOps.ConfirmarOrdenVentaAsync(Id, new OrdenVentaConfirmarRequest(
                 vendedorConf > 0 ? vendedorConf : (int?)null, "Confirmado por vendedor del módulo Cotizaciones"));
             msg = $"Orden {res.FolioInterno} confirmada.";
             await Cargar();
@@ -183,7 +184,7 @@ public partial class OrdenesVentaDetalle : ComponentBase
         cancelando = true;
         try
         {
-            await CotizSvc.CancelarOrdenVentaAsync(Id, motivoCancel);
+            await CotizacionesOps.CancelarOrdenVentaAsync(Id, motivoCancel);
             msg = "Orden de venta cancelada.";
             await Cargar();
             Nav.NavigateTo("/ordenes-vente", forceLoad: true);

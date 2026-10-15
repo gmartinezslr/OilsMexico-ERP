@@ -25,8 +25,6 @@ builder.Services.AddDbContext<ErpDbContext>(opt =>
     optionsLifetime: ServiceLifetime.Singleton);
 
 builder.Services.AddScoped<ISucursalContext, SucursalContext>();
-// Fábrica de ámbitos para lecturas puntuales desde componentes Blazor sin acoplarlos a ErpDbContext (DIP).
-builder.Services.AddSingleton<IVentaEscopoFactory, VentaEscopoFactory>();
 builder.Services.AddScoped<ISesionActual, SesionActual>();
 builder.Services.AddScoped<IAvisos, AvisosService>();
 builder.Services.AddScoped<ITimeoutSesion, TimeoutSesion>();

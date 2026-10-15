@@ -27,6 +27,12 @@ public sealed class ClientesService(ErpDbContext db) : IClientesService
         return await q.OrderBy(c => c.Nombre).Take(200).Select(c => D(c)).ToListAsync(ct);
     }
 
+    public async Task<List<ClienteVentaDto>> ListarParaVentaAsync(CancellationToken ct = default)
+        => await db.Clientes.AsNoTracking()
+            .OrderBy(c => c.Nombre)
+            .Select(c => new ClienteVentaDto(c.Id, c.Nombre, c.Rfc, c.VendedorId))
+            .ToListAsync(ct);
+
     public async Task<ClienteCatalogoDto?> ObtenerAsync(int id, CancellationToken ct = default)
     {
         var c = await db.Clientes.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id, ct);

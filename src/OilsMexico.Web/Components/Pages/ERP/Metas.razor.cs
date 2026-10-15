@@ -1,10 +1,8 @@
 using Microsoft.AspNetCore.Components;
-using Microsoft.EntityFrameworkCore;
 using OilsMexico.Application.DTOs;
 using OilsMexico.Application.Interfaces;
 using OilsMexico.Domain.Enums;
 using OilsMexico.Domain.Services;
-using OilsMexico.Infrastructure.Persistence;
 
 namespace OilsMexico.Web.Components.Pages.ERP;
 
@@ -22,8 +20,7 @@ public partial class Metas : ComponentBase
 {
     [Inject] private IAutorizacionService Autorizacion { get; set; } = default!;
     [Inject] private IComisionesService Comisiones { get; set; } = default!;
-    // DIP: el componente no conoce ErpDbContext; las lecturas pasan por la fábrica de ámbitos.
-    [Inject] private OilsMexico.Web.Services.IVentaEscopoFactory Escopos { get; set; } = default!;
+    [Inject] private ICatalogosService Catalogos { get; set; } = default!;
     [Inject] private ISesionActual Sesion { get; set; } = default!;
     [Inject] private NavigationManager Nav { get; set; } = default!;
 
@@ -69,10 +66,8 @@ public partial class Metas : ComponentBase
 
     private async Task CargarVendedores()
     {
-        vendedores = await Escopos.ListarAsync(db => db.Usuarios
-            .Where(u => u.Activo && (u.Rol == Roles.Vendedor || u.Rol == Roles.Admin))
-            .OrderBy(u => u.Nombre)
-            .Select(u => new VendedorItem(u.Id, u.Nombre, u.Rol)));
+        vendedores = (await Catalogos.ListarVendedoresAsync())
+            .Select(v => new VendedorItem(v.Id, v.Nombre, v.Rol)).ToList();
         vendSel ??= vendedores.FirstOrDefault();
     }
 

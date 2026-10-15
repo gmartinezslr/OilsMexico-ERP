@@ -64,7 +64,7 @@ public partial class HistorialVentas : ComponentBase
     {
         try
         {
-            var r = await Ventas.SurtirAsync(facturaId);
+            var r = await Entrega.SurtirAsync(facturaId);
             msg = $"Venta {r.FolioInterno} surtida."; err = false;
             await Cargar();
         }
@@ -79,7 +79,7 @@ public partial class HistorialVentas : ComponentBase
         { msg = "Indica el motivo de la devolución."; err = true; return; }
         try
         {
-            var r = await Ventas.DevolverAsync(facturaId, motivoDevolucion.Trim());
+            var r = await Entrega.DevolverAsync(facturaId, motivoDevolucion.Trim());
             msg = $"Devolución registrada para {r.FolioInterno} (stock repuesto)."; err = false;
             await Cargar();
         }

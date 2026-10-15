@@ -1,25 +1,23 @@
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.SignalR;
-using Microsoft.EntityFrameworkCore;
 using OilsMexico.Application.DTOs;
 using OilsMexico.Application.Interfaces;
 using OilsMexico.Domain.Entities;
 using OilsMexico.Domain.Services;
 using OilsMexico.Infrastructure.Services;
 using OilsMexico.Web.Hubs;
-using OilsMexico.Web.Services;
 
 namespace OilsMexico.Web.Components.Pages.ERP;
 
 public partial class VentasPOS : ComponentBase
 {
     [Inject] public IAutorizacionService Autorizacion { get; set; } = default!;
-    [Inject] public IVentasService Ventas { get; set; } = default!;
+    [Inject] public IVentasPosService Ventas { get; set; } = default!;
     [Inject] public ICatalogosSatService Sat { get; set; } = default!;
+    [Inject] public ICatalogosService Catalogos { get; set; } = default!;
+    [Inject] public IClientesService ClientesSvc { get; set; } = default!;
     [Inject] public ISucursalContext SucursalCtx { get; set; } = default!;
-    // DIP: el componente ya no conoce ErpDbContext; pide lecturas a la fábrica de ámbitos.
-    [Inject] public IVentaEscopoFactory Escopos { get; set; } = default!;
     [Inject] public IHubContext<ErpHub> Hub { get; set; } = default!;
     [Inject] public ISesionActual Sesion { get; set; } = default!;
     [Inject] public NavigationManager Nav { get; set; } = default!;
@@ -69,15 +67,12 @@ public partial class VentasPOS : ComponentBase
         if (!await Autorizacion.TienePermisoAsync(PermisosPaginas.Nombre("ventas-pos"))) { Nav.NavigateTo("/"); return; }
         try
         {
-            sucursales = await Escopos.ListarAsync(db => db.Sucursales
-                .Select(s => new ValueTuple<int, string>(s.Id, s.Nombre)));
-            var clientesDb = await Escopos.ListarAsync(db => db.Clientes
-                .Select(c => new { c.Id, c.Nombre, c.Rfc, c.VendedorId }));
+            sucursales = (await Catalogos.ListarSucursalesResumenAsync())
+                .Select(s => new ValueTuple<int, string>(s.Id, s.Nombre)).ToList();
+            var clientesDb = await ClientesSvc.ListarParaVentaAsync();
             clientes = clientesDb.Select(c => new ValueTuple<int, string>(c.Id, c.Nombre)).ToList();
-            vendedores = await Escopos.ListarAsync(db => db.Usuarios
-                .Where(u => u.Activo && (u.Rol == Roles.Vendedor || u.Rol == Roles.Admin))
-                .OrderBy(u => u.Nombre)
-                .Select(u => new ValueTuple<int, string>(u.Id, u.Nombre)));
+            vendedores = (await Catalogos.ListarVendedoresAsync())
+                .Select(v => new ValueTuple<int, string>(v.Id, v.Nombre)).ToList();
             // Dueño comercial de cada cliente: es el vendedor SUGERIDO al facturar (editable).
             vendedorPorCliente = clientesDb
                 .Where(x => x.VendedorId != null)

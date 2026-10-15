@@ -22,7 +22,8 @@ public partial class CotizacionDetalle : ComponentBase
     private string msg = "";
     private bool err;
 
-    [Inject] public ICotizacionesService CotizSvc { get; set; } = default!;
+    [Inject] public ICotizacionesConsulta CotizacionesConsulta { get; set; } = default!;
+    [Inject] public ICotizacionesOperaciones CotizacionesOps { get; set; } = default!;
     [Inject] public IAutorizacionService Autorizacion { get; set; } = default!;
     [Inject] public ISucursalContext SucCtx { get; set; } = default!;
     [Inject] public ISesionActual Sesion { get; set; } = default!;
@@ -59,9 +60,9 @@ public partial class CotizacionDetalle : ComponentBase
         cargando = true;
         try
         {
-            cotizacion = await CotizSvc.ObtenerCotizacionAsync(Id);
+            cotizacion = await CotizacionesConsulta.ObtenerCotizacionAsync(Id);
             if (cotizacion is null) return;
-            vendedores = await CotizSvc.ListarVendedoresAsync(SucCtx.SucursalId);
+            vendedores = await CotizacionesConsulta.ListarVendedoresAsync(SucCtx.SucursalId);
             vendedorConv = cotizacion.VendedorId ?? 0;
         }
         catch (Exception ex)
@@ -84,7 +85,7 @@ public partial class CotizacionDetalle : ComponentBase
         convenciendo = true;
         try
         {
-            var res = await CotizSvc.ConvertirCotizacionAsync(Id, new CotizacionConvertirRequest(
+            var res = await CotizacionesOps.ConvertirCotizacionAsync(Id, new CotizacionConvertirRequest(
                 vendedorConv > 0 ? vendedorConv : (int?)null, folioConv, "Convertido por vendedor del módulo Cotizaciones"));
             msg = $"Orden de venta creada: {res.FolioInterno} (total ${res.Total:N2}).";
             await Cargar();
@@ -106,7 +107,7 @@ public partial class CotizacionDetalle : ComponentBase
         cancelando = true;
         try
         {
-            await CotizSvc.CancelarCotizacionAsync(Id, motivoCancel);
+            await CotizacionesOps.CancelarCotizacionAsync(Id, motivoCancel);
             msg = "Cotización cancelada.";
             await Cargar();
             Nav.NavigateTo("/cotizaciones", forceLoad: true);

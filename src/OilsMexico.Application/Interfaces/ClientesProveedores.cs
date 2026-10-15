@@ -10,6 +10,7 @@ namespace OilsMexico.Application.Interfaces;
 public interface IClientesService
 {
     Task<List<ClienteCatalogoDto>> ListarAsync(string? filtro, bool soloActivos = true, CancellationToken ct = default);
+    Task<List<ClienteVentaDto>> ListarParaVentaAsync(CancellationToken ct = default);
     Task<ClienteCatalogoDto?> ObtenerAsync(int id, CancellationToken ct = default);
     Task<(bool Ok, string Mensaje, int Id)> GuardarAsync(ClienteCatalogoDto cliente, CancellationToken ct = default);
     Task<(bool Ok, string Mensaje)> DesactivarAsync(int id, CancellationToken ct = default);

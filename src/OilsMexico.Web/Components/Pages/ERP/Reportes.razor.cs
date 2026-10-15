@@ -2,9 +2,7 @@ using OilsMexico.Application.DTOs;
 using OilsMexico.Application.Interfaces;
 using OilsMexico.Domain.Enums;
 using OilsMexico.Domain.Services;
-using OilsMexico.Web.Services;
 using Microsoft.AspNetCore.Components;
-using Microsoft.EntityFrameworkCore;
 
 namespace OilsMexico.Web.Components.Pages.ERP;
 
@@ -16,7 +14,7 @@ public partial class Reportes
     [Inject] private ISucursalContext SucCtx { get; set; } = default!;
     [Inject] private ISesionActual Sesion { get; set; } = default!;
     [Inject] private NavigationManager Nav { get; set; } = default!;
-    [Inject] private IVentaEscopoFactory Escopos { get; set; } = default!;
+    [Inject] private ICatalogosService Catalogos { get; set; } = default!;
 
     private int _sucursalId;
     private DateTime _desde = DateTime.Today.AddMonths(-1);
@@ -67,12 +65,13 @@ public partial class Reportes
     {
         try
         {
-            _sucursales = await Escopos.ListarAsync(db => db.Sucursales
-                .AsNoTracking()
-                .OrderBy(s => s.CodigoSucursal)
-                .Select(s => new ValueTuple<int, string>(s.Id, s.Nombre)));
+            _sucursales = (await Catalogos.ListarSucursalesResumenAsync())
+                .Select(s => new ValueTuple<int, string>(s.Id, s.Nombre)).ToList();
         }
-        catch { }
+        catch (Exception ex)
+        {
+            _errores = $"No se pudieron cargar las sucursales: {ex.Message}";
+        }
     }
 
     private async Task OnSucursalChange()

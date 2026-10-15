@@ -45,7 +45,8 @@ public partial class CotizacionForm : ComponentBase
     private decimal Iva => Impuestos.IvaDeBase(Subtotal);
     private decimal Total => Math.Round(Subtotal + Iva, 2);
 
-    [Inject] public ICotizacionesService CotizSvc { get; set; } = default!;
+    [Inject] public ICotizacionesConsulta CotizacionesConsulta { get; set; } = default!;
+    [Inject] public ICotizacionesOperaciones CotizacionesOps { get; set; } = default!;
     [Inject] public IAutorizacionService Autorizacion { get; set; } = default!;
     [Inject] public ISucursalContext SucCtx { get; set; } = default!;
     [Inject] public ISesionActual Sesion { get; set; } = default!;
@@ -69,7 +70,7 @@ public partial class CotizacionForm : ComponentBase
             cargando = true;
             try
             {
-                var detalle = await CotizSvc.ObtenerCotizacionAsync(Id);
+                var detalle = await CotizacionesConsulta.ObtenerCotizacionAsync(Id);
                 if (detalle is null)
                 {
                     Nav.NavigateTo("/cotizaciones", forceLoad: true);
@@ -102,7 +103,7 @@ public partial class CotizacionForm : ComponentBase
             renglones = [new Renglon()];
         }
 
-        productos = await CotizSvc.ListarProductosAsync(SucCtx.SucursalId);
+        productos = await CotizacionesConsulta.ListarProductosAsync(SucCtx.SucursalId);
         await CargarClientes();
         await CargarVendedores();
         StateHasChanged();
@@ -112,14 +113,14 @@ public partial class CotizacionForm : ComponentBase
 
     private async Task CargarClientes()
     {
-        clientes = await CotizSvc.ListarClientesAsync(SucCtx.SucursalId);
+        clientes = await CotizacionesConsulta.ListarClientesAsync(SucCtx.SucursalId);
         if (clientes.Count > 0 && clienteId == 0) clienteId = clientes[0].Id;
         StateHasChanged();
     }
 
     private async Task CargarVendedores()
     {
-        vendedores = await CotizSvc.ListarVendedoresAsync(SucCtx.SucursalId);
+        vendedores = await CotizacionesConsulta.ListarVendedoresAsync(SucCtx.SucursalId);
         if (vendedores.Count > 0 && vendedorId == 0) vendedorId = vendedores[0].Id;
         StateHasChanged();
     }
@@ -142,13 +143,13 @@ public partial class CotizacionForm : ComponentBase
 
             if (Id > 0)
             {
-                await CotizSvc.ActualizarCotizacionAsync(Id, new CotizacionCrearRequest(
+                await CotizacionesOps.ActualizarCotizacionAsync(Id, new CotizacionCrearRequest(
                     clienteId, vendedorId > 0 ? vendedorId : null, fechaVencimiento, notas, detalles));
                 msg = "Cotización actualizada.";
             }
             else
             {
-                var res = await CotizSvc.CrearCotizacionAsync(new CotizacionCrearRequest(
+                var res = await CotizacionesOps.CrearCotizacionAsync(new CotizacionCrearRequest(
                     clienteId, vendedorId > 0 ? vendedorId : null, fechaVencimiento, notas, detalles));
                 msg = $"Cotización {res.FolioInterno} creada.";
             }
