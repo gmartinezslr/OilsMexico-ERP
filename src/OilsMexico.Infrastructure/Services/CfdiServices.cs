@@ -27,6 +27,60 @@ public sealed class CfdiSelladoService(ErpDbContext db, IConfiguration cfg) : IC
     private static readonly XNamespace NsPagos = "http://www.sat.gob.mx/Pagos20";
     private static readonly Lazy<XslCompiledTransform> CadenaXslt = new(CargarXslt);
 
+    private static string SerializarConPrefijoCfdi(XElement raiz)
+    {
+        var settings = new XmlWriterSettings
+        {
+            OmitXmlDeclaration = true,
+            ConformanceLevel = ConformanceLevel.Fragment,
+            Indent = false
+        };
+
+        using var sw = new StringWriter(CultureInfo.InvariantCulture);
+        using var xw = XmlWriter.Create(sw, settings);
+
+        EscribirElementoConPrefijo(xw, raiz, "cfdi", esRaiz: true);
+        xw.Flush();
+
+        return sw.ToString();
+    }
+
+    private static void EscribirElementoConPrefijo(XmlWriter xw, XElement elemento, string prefijo, bool esRaiz = false)
+    {
+        xw.WriteStartElement(prefijo, elemento.Name.LocalName, elemento.Name.NamespaceName);
+
+        // Declarar namespaces SOLO en el elemento raíz (Finkok es estricto con redeclaraciones)
+        if (esRaiz && elemento.Name.NamespaceName != string.Empty)
+        {
+            xw.WriteAttributeString("xmlns", prefijo, null, elemento.Name.NamespaceName);
+        }
+        if (esRaiz)
+        {
+            xw.WriteAttributeString("xmlns", "xsi", null, "http://www.w3.org/2001/XMLSchema-instance");
+        }
+
+        // Escribir atributos
+        foreach (var attr in elemento.Attributes())
+        {
+            if (attr.Name.NamespaceName == "http://www.w3.org/2001/XMLSchema-instance")
+            {
+                xw.WriteAttributeString("xsi", attr.Name.LocalName, null, attr.Value);
+            }
+            else
+            {
+                xw.WriteAttributeString(attr.Name.LocalName, attr.Value);
+            }
+        }
+
+        // Escribir elementos hijos recursivamente
+        foreach (var hijo in elemento.Elements())
+        {
+            EscribirElementoConPrefijo(xw, hijo, prefijo);
+        }
+
+        xw.WriteEndElement();
+    }
+
     public async Task<(string CadenaOriginal, string Sello, string XmlSellado)> SellarAsync(
         int facturaId, CancellationToken ct = default)
     {
@@ -101,7 +155,9 @@ public sealed class CfdiSelladoService(ErpDbContext db, IConfiguration cfg) : IC
 
         var conceptos = ArmarConceptos(lineas);
 
+        var Xsi = XNamespace.Get("http://www.w3.org/2001/XMLSchema-instance");
         var comprobante = new XElement(NsCfdi + "Comprobante",
+            new XAttribute(Xsi + "schemaLocation", "http://www.sat.gob.mx/cfd/4 http://www.sat.gob.mx/sitio_internet/cfd/4/cfdv40.xsd"),
             new XAttribute("Version", "4.0"),
             new XAttribute("Folio", f.FolioInterno),
             new XAttribute("Fecha", fechaLocal),
@@ -122,21 +178,36 @@ public sealed class CfdiSelladoService(ErpDbContext db, IConfiguration cfg) : IC
             new XElement(NsCfdi + "Receptor",
                 new XAttribute("Rfc", emisor.ReceptorRfc),
                 new XAttribute("Nombre", emisor.ReceptorNombre),
-                new XAttribute("DomicilioFiscalReceptor", emisor.ReceptorCp),
-                new XAttribute("RegimenFiscalReceptor", emisor.ReceptorRegimen),
-                new XAttribute("UsoCFDI", f.UsoCfdi)),
+                new XAttribute("DomicilioFiscalReceptor", emisor.Cp),
+                new XAttribute("RegimenFiscalReceptor", emisor.ReceptorRfc == "XAXX010101000" ? "601" : emisor.ReceptorRegimen),
+                new XAttribute("UsoCFDI", emisor.ReceptorRfc == "XAXX010101000" ? "S01" : f.UsoCfdi)),
             conceptos);
         AgregarImpuestosGlobales(comprobante, f.Subtotal, totalImpuestos);
 
         // Cadena original con el XSLT oficial del SAT (lee @NoCertificado; no toca @Sello).
         var doc = new XDocument(new XDeclaration("1.0", "UTF-8", null), comprobante);
-        var cadena = CalcularCadenaOriginal(doc);
+        Console.WriteLine($"[CFDI DEBUG] Antes de CalcularCadenaOriginal, factura {f.Id}, Folio={f.FolioInterno}");
+        string cadena;
+        try
+        {
+            cadena = CalcularCadenaOriginal(doc);
+            Console.WriteLine($"[CFDI DEBUG] CalcularCadenaOriginal OK, longitud={cadena.Length}");
+            Console.WriteLine($"[CFDI DEBUG] Cadena original: [{cadena}]");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[CFDI ERROR] CalcularCadenaOriginal falló: {ex.Message}");
+            Console.WriteLine($"[CFDI ERROR] InnerException: {ex.InnerException?.Message}");
+            Console.WriteLine($"[CFDI ERROR] StackTrace: {ex.StackTrace}");
+            throw;
+        }
         var sello = Convert.ToBase64String(rsa.SignData(
             Encoding.UTF8.GetBytes(cadena), HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1));
         comprobante.SetAttributeValue("Sello", sello);
 
         var xmlFinal = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" + Environment.NewLine
-            + comprobante.ToString(SaveOptions.DisableFormatting);
+            + SerializarConPrefijoCfdi(comprobante);
+        Console.WriteLine($"[CFDI DEBUG] XML generado:\\n{xmlFinal}");
         f.CadenaOriginal = cadena;
         f.SelloDigital = sello;
         f.XmlSellado = xmlFinal;
@@ -205,8 +276,8 @@ public sealed class CfdiSelladoService(ErpDbContext db, IConfiguration cfg) : IC
             new XElement(NsCfdi + "Receptor",
                 new XAttribute("Rfc", emisor.ReceptorRfc),
                 new XAttribute("Nombre", emisor.ReceptorNombre),
-                new XAttribute("DomicilioFiscalReceptor", emisor.ReceptorCp),
-                new XAttribute("RegimenFiscalReceptor", emisor.ReceptorRegimen),
+                new XAttribute("DomicilioFiscalReceptor", emisor.Cp),
+                new XAttribute("RegimenFiscalReceptor", emisor.ReceptorRfc == "XAXX010101000" ? "601" : emisor.ReceptorRegimen),
                 new XAttribute("UsoCFDI", string.IsNullOrWhiteSpace(nc.UsoCfdi) ? "G02" : nc.UsoCfdi.Trim())),
             conceptos);
         AgregarImpuestosGlobales(comprobante, nc.Subtotal, totalImpuestos);
@@ -294,8 +365,8 @@ public sealed class CfdiSelladoService(ErpDbContext db, IConfiguration cfg) : IC
             new XElement(NsCfdi + "Receptor",
                 new XAttribute("Rfc", emisor.ReceptorRfc),
                 new XAttribute("Nombre", emisor.ReceptorNombre),
-                new XAttribute("DomicilioFiscalReceptor", emisor.ReceptorCp),
-                new XAttribute("RegimenFiscalReceptor", emisor.ReceptorRegimen),
+                new XAttribute("DomicilioFiscalReceptor", emisor.Cp),
+                new XAttribute("RegimenFiscalReceptor", emisor.ReceptorRfc == "XAXX010101000" ? "601" : emisor.ReceptorRegimen),
                 new XAttribute("UsoCFDI", "CP01")),
             new XElement(NsCfdi + "Conceptos",
                 new XElement(NsCfdi + "Concepto",
@@ -473,20 +544,31 @@ public sealed class CfdiSelladoService(ErpDbContext db, IConfiguration cfg) : IC
     /// <summary>Número de serie del CSD en decimal de 20 posiciones (XSD: [0-9]{20}).</summary>
     private static string NumeroCertificado(X509Certificate2 cert)
     {
-        // cert.SerialNumber es el hex en orden canónico (idéntico a certutil/openssl);
-        // GetSerialNumber() devuelve los bytes invertidos, por eso se parsea la propiedad.
-        var serial = BigInteger.Parse("0" + cert.SerialNumber, NumberStyles.HexNumber)
-            .ToString(CultureInfo.InvariantCulture);
-        if (serial.Length > 20) serial = serial[^20..];
-        return serial.PadLeft(20, '0');
+        // cert.SerialNumber devuelve los bytes del número de serie en hex.
+        // En certificados SAT/CSD, esos bytes suelen ser códigos ASCII del
+        // número de serie decimal (ej. "30001000000500003415").
+        // Convertimos cada par de hex a su byte ASCII y leemos como texto.
+        var hexSerial = cert.SerialNumber;
+        var bytes = new byte[hexSerial.Length / 2];
+        for (int i = 0; i < bytes.Length; i++)
+        {
+            bytes[i] = Convert.ToByte(hexSerial.Substring(i * 2, 2), 16);
+        }
+        var serialStr = System.Text.Encoding.ASCII.GetString(bytes).Trim();
+        // El número de serie del CFDI 4.0 debe ser exactamente 20 dígitos decimales
+        return serialStr.PadLeft(20, '0');
     }
 
     private static string CalcularCadenaOriginal(XDocument doc)
     {
+        // Serializar con prefijo cfdi: y namespaces SOLO en la raíz para que
+        // el XSLT del SAT reciba un XML limpio (sin redeclaraciones de
+        // xmlns en cada elemento hijo).
+        var xmlSinSello = SerializarConPrefijoCfdi(doc.Root);
         var transform = CadenaXslt.Value;
         using var sw = new StringWriter(CultureInfo.InvariantCulture);
-        using (var xw = XmlWriter.Create(sw, new XmlWriterSettings { OmitXmlDeclaration = true }))
-        using (var xr = XmlReader.Create(new StringReader(doc.ToString())))
+        using (var xw = XmlWriter.Create(sw, new XmlWriterSettings { OmitXmlDeclaration = true, ConformanceLevel = ConformanceLevel.Fragment }))
+        using (var xr = XmlReader.Create(new StringReader(xmlSinSello)))
             transform.Transform(xr, xw);
         return sw.ToString();
     }
