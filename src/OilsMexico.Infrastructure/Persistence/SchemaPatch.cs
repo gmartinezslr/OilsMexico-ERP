@@ -479,5 +479,20 @@ public static class SchemaPatch
                 END IF;
             END $$;
             """);
+
+        // Catálogos SAT y del sistema (T-13 / §6.2 / A3)
+        await db.Database.ExecuteSqlRawAsync("""
+            CREATE TABLE IF NOT EXISTS catalogos_sat (
+                id serial PRIMARY KEY,
+                catalogo varchar(60) NOT NULL,
+                clave varchar(20) NOT NULL,
+                descripcion varchar(255) NOT NULL,
+                grupo varchar(50),
+                activo boolean NOT NULL DEFAULT true,
+                orden integer NOT NULL DEFAULT 0
+            );
+            CREATE UNIQUE INDEX IF NOT EXISTS ix_catalogos_sat_catalogo_clave ON catalogos_sat (catalogo, clave);
+            CREATE INDEX IF NOT EXISTS ix_catalogos_sat_catalogo_activo ON catalogos_sat (catalogo, activo);
+            """);
     }
 }

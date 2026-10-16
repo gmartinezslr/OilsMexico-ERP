@@ -78,6 +78,11 @@ public sealed class ErpDbContext(DbContextOptions<ErpDbContext> options) : DbCon
     // ---------------------------------------------------------
     public DbSet<PeriodoContable> PeriodosContables => Set<PeriodoContable>();
 
+    // ---------------------------------------------------------
+    //  Catálogos SAT y del sistema en tabla (T-13 / §6.2 / A3)
+    // ---------------------------------------------------------
+    public DbSet<CatalogoSat> CatalogosSat => Set<CatalogoSat>();
+
     protected override void OnModelCreating(ModelBuilder b)
     {
         b.ApplyConfigurationsFromAssembly(typeof(ErpDbContext).Assembly);

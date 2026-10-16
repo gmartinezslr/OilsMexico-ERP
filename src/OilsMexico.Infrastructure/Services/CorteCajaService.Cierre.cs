@@ -90,19 +90,36 @@ public sealed partial class CorteCajaService
                 && g.FormaPagoSat == "01")
             .SumAsync(g => g.Importe, ct);
 
-    private static CortePreviewDto Clasificar(
+    private CortePreviewDto Clasificar(
         int corteId, decimal fondo, IEnumerable<(string Forma, decimal Total)> ventas)
     {
+        // T-13: Clasificación de formas de pago basada en el campo 'grupo' de catalogos_sat (OCP).
+        // Evita el switch estático y permite incorporar nuevos métodos de pago sin alterar código.
+        var grupos = sat?.Obtener().GruposFormasPago;
         decimal ef = 0, tj = 0, tr = 0, ot = 0;
         int n = 0;
         foreach (var (forma, total) in ventas)
         {
             n++;
-            switch (forma)
+            string? grupo = null;
+            if (grupos != null && grupos.TryGetValue(forma, out var g))
+                grupo = g?.ToLowerInvariant();
+            else if (sat != null)
+                grupo = sat.ObtenerGrupoFormaPago(forma);
+            else
+                grupo = forma switch
+                {
+                    "01" => "efectivo",
+                    "04" or "28" => "tarjeta",
+                    "03" => "transferencia",
+                    _ => "otro"
+                };
+
+            switch (grupo)
             {
-                case "01": ef += total; break;
-                case "04": case "28": tj += total; break;
-                case "03": tr += total; break;
+                case "efectivo": ef += total; break;
+                case "tarjeta": tj += total; break;
+                case "transferencia": tr += total; break;
                 default: ot += total; break;
             }
         }

@@ -33,11 +33,25 @@ public sealed record VentaPosResult(
     int FacturaId, string FolioInterno, Guid? UuidSat,
     decimal Subtotal, decimal Iva, decimal Total, EstadoFactura Estado);
 
+public sealed record CatalogoSatItemDto(
+    string Clave,
+    string Descripcion,
+    string? Grupo = null,
+    int Orden = 0);
+
 public sealed record CatalogosSatDto(
     Dictionary<string, string> FormasPago,
     Dictionary<string, string> MetodosPago,
     Dictionary<string, string> UsosCfdi,
-    Dictionary<string, string> Regimenes);
+    Dictionary<string, string> Regimenes,
+    Dictionary<string, string>? MotivosCancelacion = null,
+    Dictionary<string, string>? SituacionesFiscales = null,
+    Dictionary<string, string>? GruposFormasPago = null)
+{
+    public Dictionary<string, string> MotivosCancelacion { get; init; } = MotivosCancelacion ?? [];
+    public Dictionary<string, string> SituacionesFiscales { get; init; } = SituacionesFiscales ?? [];
+    public Dictionary<string, string> GruposFormasPago { get; init; } = GruposFormasPago ?? [];
+}
 
 public sealed record HistorialVentaDto(
     int FacturaId, string FolioInterno, DateTime FechaEmision,

@@ -26,6 +26,16 @@ public partial class Proveedores : ComponentBase
     [Microsoft.AspNetCore.Components.Inject]
     private IProveedoresService ProveedoresSvc { get; set; } = default!;
 
+    [Microsoft.AspNetCore.Components.Inject]
+    private ICatalogosSatService Sat { get; set; } = default!;
+
+    private CatalogosSatDto catalogos = new([], [], [], []);
+
+    protected override async Task OnInitializedAsync()
+    {
+        catalogos = Sat.Obtener();
+    }
+
     protected override async Task OnAfterRenderAsync(bool first)
     {
         if (!first) return;
@@ -98,7 +108,14 @@ public partial class Proveedores : ComponentBase
         // No se opera con proveedores cuya situación fiscal lo impide, aunque el RFC sea válido.
         if (edit.SituacionFiscal is SituacionFiscal.Cancelada or SituacionFiscal.Baja)
         { msg = "Situación fiscal Cancelada/Baja: no se puede operar con este proveedor."; err = true; return; }
-        edit.CodigoPostal = (edit.CodigoPostal ?? "").Trim();
+        // Sincronizar el CP de nivel superior con la dirección fiscal predeterminada
+        // (la UI solo edita el CP en el grid de direcciones, no en la propiedad principal).
+        var cpDireccion = edit.Direcciones
+            .Where(d => !string.IsNullOrWhiteSpace(d.CodigoPostal))
+            .OrderByDescending(d => d.EsPredeterminada ? 1 : 0)
+            .Select(d => d.CodigoPostal!.Trim())
+            .FirstOrDefault() ?? "";
+        edit.CodigoPostal = cpDireccion;
         if (edit.CodigoPostal.Length != 5 || !edit.CodigoPostal.All(char.IsDigit))
         { msg = "Código postal debe tener 5 dígitos (usa el buscador SEPOMEX)."; err = true; return; }
         if (string.IsNullOrWhiteSpace(edit.Colonia))

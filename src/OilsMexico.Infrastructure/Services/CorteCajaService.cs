@@ -13,7 +13,7 @@ namespace OilsMexico.Infrastructure.Services;
 /// foto del sistema (ventas no canceladas desde la apertura, por forma de pago)
 /// y cierre con conteo físico de efectivo.
 /// </summary>
-public sealed partial class CorteCajaService(ErpDbContext db, ISucursalContext ctx) : ICorteCajaService
+public sealed partial class CorteCajaService(ErpDbContext db, ISucursalContext ctx, ICatalogosSatService? sat = null) : ICorteCajaService
 {
     private void ExigirActorAuditoria()
     {

@@ -155,7 +155,10 @@ public sealed partial class EmailService(
         using var client = new SmtpClient();
         try
         {
-            var socket = config.Ssl ? SecureSocketOptions.SslOnConnect : SecureSocketOptions.Auto;
+            // Puerto 465 = SSL directo (SslOnConnect). Puerto 587 y otros = STARTTLS.
+            var socket = config.Puerto == 465
+                ? SecureSocketOptions.SslOnConnect
+                : SecureSocketOptions.StartTls;
             await client.ConnectAsync(config.Host, config.Puerto, socket, ct);
             if (!string.IsNullOrWhiteSpace(config.Usuario))
                 await client.AuthenticateAsync(config.Usuario, config.Password, ct);

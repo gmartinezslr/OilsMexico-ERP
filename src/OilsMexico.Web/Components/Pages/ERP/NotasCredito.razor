@@ -3,6 +3,7 @@
 @inject OilsMexico.Application.Interfaces.INotaCreditoService Nc
 @inject OilsMexico.Application.Interfaces.ISucursalContext SucCtx
 @inject OilsMexico.Application.Interfaces.ISesionActual Sesion
+@inject OilsMexico.Application.Interfaces.ICatalogosSatService Sat
 @inject NavigationManager Nav
 @using OilsMexico.Application.DTOs
 <PageTitle>Notas de Crédito CFDI | OilsMexico ERP</PageTitle>
@@ -109,9 +110,19 @@
                         <tr><td colspan="8">
                             <div class="input-group input-group-sm">
                                 <select class="form-select" @bind="motivoCancelacion">
-                                    @foreach (var m in OilsMexico.Domain.Entities.CfdiDefaults.MotivosCancelacion)
+                                    @if (Sat.Obtener().MotivosCancelacion.Count > 0)
                                     {
-                                        <option value="@m.Codigo">@m.Codigo - @m.Descripcion</option>
+                                        @foreach (var kv in Sat.Obtener().MotivosCancelacion)
+                                        {
+                                            <option value="@kv.Key">@kv.Key - @kv.Value</option>
+                                        }
+                                    }
+                                    else
+                                    {
+                                        @foreach (var m in OilsMexico.Domain.Entities.CfdiDefaults.MotivosCancelacion)
+                                        {
+                                            <option value="@m.Codigo">@m.Codigo - @m.Descripcion</option>
+                                        }
                                     }
                                 </select>
                                 <button class="btn btn-danger" @onclick="() => ConfirmarCancelar(n.NotaId)">Confirmar</button>

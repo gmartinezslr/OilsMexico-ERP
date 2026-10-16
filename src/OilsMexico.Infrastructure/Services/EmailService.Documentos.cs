@@ -89,18 +89,14 @@ public sealed partial class EmailService
             .Append("<p style=\"font-size:12px;color:#6c757d;\">El archivo .xml adjunto es su comprobante fiscal electrónico.</p>");
 
         // Adjuntos: XML (comprobante fiscal) + PDF (representación impresa con QR SAT).
-        // El PDF se genera con IExportacionService; si falla su generación NO rompe el envío
-        // del XML (mismo criterio defensivo que el hook automático): se envía solo el XML.
+        // Opción B de negocio: el PDF del CFDI es OBLIGATORIO. Si falla la generación del PDF,
+        // el envío NO se considera exitoso y se lanza excepción para que el usuario lo sepa.
         var adjuntos = new List<EmailAdjuntoDto>
         {
             new($"{f.FolioInterno}.xml", Encoding.UTF8.GetBytes(f.XmlSellado), "application/xml")
         };
-        try
-        {
-            var pdf = await exportacion.FacturaCfdiPdfAsync(facturaId, ct);
-            adjuntos.Add(new EmailAdjuntoDto(pdf.NombreArchivo, pdf.Contenido, pdf.MimeTipo));
-        }
-        catch { /* el PDF es un extra; si falla, igual se envía el XML */ }
+        var pdf = await exportacion.FacturaCfdiPdfAsync(facturaId, ct);
+        adjuntos.Add(new EmailAdjuntoDto(pdf.NombreArchivo, pdf.Contenido, pdf.MimeTipo));
 
         var mensaje = new EmailMensajeDto(destino,
             $"CFDI {f.FolioInterno} — {empresa}",

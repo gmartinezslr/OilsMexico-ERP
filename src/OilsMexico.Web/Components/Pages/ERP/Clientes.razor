@@ -75,12 +75,22 @@
                     </select></div>
                 <div class="col-md-6"><label class="form-label small">Situación fiscal (SAT)</label>
                     <select class="form-select" @bind="edit.SituacionFiscal">
-                        <option value="Actual">Actual — operaciones normales</option>
-                        <option value="Adeudada">Adeudada — obligaciones fiscales pendientes</option>
-                        <option value="Inactiva">Inactiva — no opera en el periodo</option>
-                        <option value="Suspendida">Suspendida — incumplimientos temporales</option>
-                        <option value="Cancelada">Cancelada — anulada ante el SAT (no facturar)</option>
-                        <option value="Baja">Baja — baja definitiva (no facturar)</option>
+                        @if (catalogos.SituacionesFiscales.Count > 0)
+                        {
+                            @foreach (var kv in catalogos.SituacionesFiscales)
+                            {
+                                <option value="@kv.Key">@kv.Value</option>
+                            }
+                        }
+                        else
+                        {
+                            <option value="Actual">Actual — operaciones normales</option>
+                            <option value="Adeudada">Adeudada — obligaciones fiscales pendientes</option>
+                            <option value="Inactiva">Inactiva — no opera en el periodo</option>
+                            <option value="Suspendida">Suspendida — incumplimientos temporales</option>
+                            <option value="Cancelada">Cancelada — anulada ante el SAT (no facturar)</option>
+                            <option value="Baja">Baja — baja definitiva (no facturar)</option>
+                        }
                     </select></div>
                 <div class="col-md-6"><label class="form-label small">Tipo precio</label>
                     <select class="form-select" @bind="edit.TipoPrecio">

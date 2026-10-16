@@ -129,6 +129,9 @@ public interface IPacTimbradoService
 public interface ICatalogosSatService
 {
     CatalogosSatDto Obtener();
+    Task<CatalogosSatDto> ObtenerAsync(CancellationToken ct = default);
+    string ObtenerGrupoFormaPago(string formaPagoSat);
+    Task<string> ObtenerGrupoFormaPagoAsync(string formaPagoSat, CancellationToken ct = default);
 }
 
 /// <summary>Módulo Compras: orden → recepción (suma stock + kardex) → CxP (pagos).</summary>

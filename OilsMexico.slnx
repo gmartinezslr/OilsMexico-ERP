@@ -8,5 +8,4 @@
   <Folder Name="/tests/">
     <Project Path="tests/OilsMexico.IntegrationTests/OilsMexico.IntegrationTests.csproj" />
   </Folder>
-  <Project Path="VerifyCert/VerifyCert.csproj" />
 </Solution>

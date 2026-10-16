@@ -60,7 +60,17 @@ public partial class Facturacion : ComponentBase
         sel = lista.FirstOrDefault(f => f.FacturaId == facturaId);
         detalle = null; cancelando = false;
         if (sel is null) return;
-        detalle = await Ventas.HistorialDetalleAsync(facturaId);
+        try
+        {
+            detalle = await Ventas.HistorialDetalleAsync(facturaId);
+        }
+        catch (Exception ex)
+        {
+            msg = $"Error al cargar el detalle de la factura {sel.FolioInterno}: {ex.Message}";
+            err = true;
+            sel = null;
+            return;
+        }
         if (detalle is null) { msg = "Factura no encontrada (o es de otra sucursal)."; err = true; sel = null; }
     }
 
