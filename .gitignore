@@ -12,6 +12,7 @@ coverage*/
 # Logs y temporales
 web_run.log
 *.log
+/ideas/
 
 # Archivos de Office / bloqueo
 .~lock.*
