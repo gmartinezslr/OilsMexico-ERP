@@ -54,6 +54,12 @@ public sealed partial class NotaCreditoService
             throw new InvalidOperationException($"Motivo SAT inválido: '{motivoSat}'. Usa 01, 02, 03 o 04.");
         if (n.UuidSat is null)
             throw new InvalidOperationException("La NC no tiene UUID timbrado.");
+        // Bloquear cancelación de NC en periodo cerrado (§1.3 / §6.1).
+        var hoyLocal = ReglaPeriodoCerrado.ALocal(DateTime.UtcNow);
+        if (await _cierreContable.EstaCerradoAsync(n.SucursalId, hoyLocal, ct))
+            throw new InvalidOperationException(ReglaPeriodoCerrado.Mensaje(hoyLocal));
+
+
         await pac.CancelarAsync(n.UuidSat.Value, motivoSat,
             motivoSat == "01" ? folioSustitucion?.Trim() : null, ct);
         n.Estado = EstadoNotaCredito.Cancelada;

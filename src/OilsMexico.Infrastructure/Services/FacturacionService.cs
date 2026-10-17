@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using OilsMexico.Application.DTOs;
 using OilsMexico.Application.Interfaces;
 using OilsMexico.Domain.Enums;
+using OilsMexico.Domain.Services;
 using OilsMexico.Infrastructure.Persistence;
 
 namespace OilsMexico.Infrastructure.Services;
@@ -12,8 +13,10 @@ namespace OilsMexico.Infrastructure.Services;
 /// </summary>
 public sealed class FacturacionService(
     ErpDbContext db, ISucursalContext ctx,
-    ICfdiSelladoService sellado, IPacTimbradoService pac, IEmailService correo) : IFacturacionService
+    ICfdiSelladoService sellado, IPacTimbradoService pac, IEmailService correo,
+    ICierreContableService cierreContable) : IFacturacionService
 {
+    private readonly ICierreContableService _cierreContable = cierreContable;
     public async Task<List<FacturaListadoDto>> ListarAsync(
         int sucursalId, EstadoFactura? estado, string? texto, CancellationToken ct = default)
     {
@@ -63,6 +66,11 @@ public sealed class FacturacionService(
         if (f.UuidSat is not null)
             throw new InvalidOperationException("La factura ya tiene UUID timbrado.");
 
+        // Bloquear timbrado en periodo cerrado (§1.3 / §6.1).
+        var hoyLocal = ReglaPeriodoCerrado.ALocal(DateTime.UtcNow);
+        if (await _cierreContable.EstaCerradoAsync(f.SucursalId, hoyLocal, ct))
+            throw new InvalidOperationException(ReglaPeriodoCerrado.Mensaje(hoyLocal));
+
         // Mismo flujo que el POS (VentasService.RegistrarVentaAsync):
         // sellado RSA-SHA256 (CSD real o sello DEV simulado) + timbrado vía PAC (Finkok o simulado).
         await sellado.SellarAsync(facturaId, ct);
@@ -96,6 +104,11 @@ public sealed class FacturacionService(
                 $"Motivo de cancelación SAT inválido: '{motivoSat}'. Usa 01 (sustitución con relación), 02, 03 o 04.");
         if (f.UuidSat is null)
             throw new InvalidOperationException("La factura no tiene UUID timbrado; no hay nada que cancelar ante el PAC.");
+
+        // Bloquear cancelación en periodo cerrado (§1.3 / §6.1).
+        var hoyLocal = ReglaPeriodoCerrado.ALocal(DateTime.UtcNow);
+        if (await _cierreContable.EstaCerradoAsync(f.SucursalId, hoyLocal, ct))
+            throw new InvalidOperationException(ReglaPeriodoCerrado.Mensaje(hoyLocal));
 
         // Cancelación real ante Finkok (cancel_signature con CSD local). En SIMULADO no toca red.
         await pac.CancelarAsync(f.UuidSat.Value, motivoSat,
