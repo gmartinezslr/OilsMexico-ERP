@@ -13,6 +13,8 @@ coverage*/
 web_run.log
 *.log
 /ideas/
+/*.txt
+/*.xlsx
 
 # Archivos de Office / bloqueo
 .~lock.*

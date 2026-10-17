@@ -119,13 +119,13 @@ using (var scope = app.Services.CreateScope())
         // Ruta del catálogo (A8): fuente única = configuración. Se lee de
         // Importacion:RutaCatalogo (appsettings.json, user-secrets o la variable de entorno
         // Importacion__RutaCatalogo). Si es relativa, se resuelve contra el directorio actual;
-        // si no se configura nada, se busca "lista_precios_aceites.xlsx" junto al ejecutable.
+        // si no se configura nada, se busca en ideas/ junto al directorio actual.
         // Ya no se asume ninguna ruta absoluta ni de desarrollo embebida en el código.
         var ruta = builder.Configuration["Importacion:RutaCatalogo"] ?? "";
         if (!string.IsNullOrWhiteSpace(ruta) && !Path.IsPathRooted(ruta))
             ruta = Path.GetFullPath(ruta);
         if (string.IsNullOrWhiteSpace(ruta) || !File.Exists(ruta))
-            ruta = Path.Combine(Directory.GetCurrentDirectory(), "lista_precios_aceites.xlsx");
+            ruta = Path.Combine(Directory.GetCurrentDirectory(), "ideas", "lista_precios_aceites.xlsx");
         if (!File.Exists(ruta))
         {
             Console.WriteLine("[CLI] No se encontró el catálogo de aceites. Configure Importacion:RutaCatalogo " +

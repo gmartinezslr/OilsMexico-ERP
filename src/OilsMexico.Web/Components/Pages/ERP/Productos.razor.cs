@@ -216,11 +216,12 @@ public partial class Productos : ComponentBase
             // Buscar lista_precios_aceites.xlsx en directorios comunes
             var posiblesRutas = new[]
             {
+                Path.Combine(Directory.GetCurrentDirectory(), "ideas", "lista_precios_aceites.xlsx"),
+                Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ideas", "lista_precios_aceites.xlsx"),
                 Path.Combine(Directory.GetCurrentDirectory(), "lista_precios_aceites.xlsx"),
                 Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "lista_precios_aceites.xlsx"),
                 Path.GetFullPath(Path.Combine(Directory.GetCurrentDirectory(), "..", "lista_precios_aceites.xlsx")),
-                Path.GetFullPath(Path.Combine(Directory.GetCurrentDirectory(), "..", "..", "lista_precios_aceites.xlsx")),
-                @"D:\GMS\Jerry\OilsMexico\lista_precios_aceites.xlsx"
+                Path.GetFullPath(Path.Combine(Directory.GetCurrentDirectory(), "..", "..", "lista_precios_aceites.xlsx"))
             };
 
             var ruta = posiblesRutas.FirstOrDefault(File.Exists);
