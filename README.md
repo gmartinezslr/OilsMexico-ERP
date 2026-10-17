@@ -1,6 +1,6 @@
 # OilsMexico ERP — Aceites y Lubricantes Automotrices (México)
 
-Añade **Corte de caja** (apertura, fotografía del sistema, cuadrícula de contado y cierre), **NC electrónica** y **REP/cobro parcial** en el menú de Facturación/Historial.
+ERP web multi-sucursal para la operación de un negocio de aceites y lubricantes automotrices en México. Incluye ventas, inventario, compras, CFDI, cobranza, contabilidad, reportes y administración desde una aplicación Blazor Server.
 
 ## Stack
 - **.NET 10** (C#) — Arquitectura en capas: `Domain` / `Application` / `Infrastructure` / `Web`
@@ -31,7 +31,7 @@ src/
 | Editor | VS Code + extensión C# Dev Kit (opcional) | https://code.visualstudio.com/ |
 | Navegador | Chrome/Edge actual | — |
 
-> La app **crea sola las 12 tablas** al arrancar (`EnsureCreatedAsync` + `SchemaPatch` para BDs existentes) y las siembra con datos demo. El dev **no necesita scripts SQL ni migraciones**.
+> Al iniciar, la aplicación prepara el esquema con EF Core, aplica los parches idempotentes para bases existentes y carga los datos iniciales cuando corresponde. El modelo evoluciona junto con el código; no asumas un número fijo de tablas.
 
 ## Puesta en marcha (5 pasos, ~10 min)
 ```powershell
@@ -58,11 +58,11 @@ dotnet run --project src/OilsMexico.Web --urls "http://localhost:5200"
 # Esperado en consola: "Now listening on: http://localhost:5200"
 
 # 5. Abrir
-http://localhost:5200/  (hub) -> /login -> /ventas-pos -> /historial-ventas -> /facturacion -> /corte-caja -> /notas-credito -> /complementos-pago
+http://localhost:5200/ -> /login -> /ventas-pos
 ```
-Abre `http://localhost:5200/` → Login → POS `/ventas-pos` → Historial `/historial-ventas` → Facturación `/facturacion` → Almacén `/almacen` → Ticket `/ticket/{id}`.
+Inicia sesión y abre los módulos autorizados para tu rol desde el menú principal.
 
-**Todas las rutas:** `/ventas-pos`, `/historial-ventas`, `/facturacion`, `/almacen`, `/viscosidad`, `/compras`, `/productos`, `/clientes`, `/proveedores`, `/sucursal`, `/usuarios`, `/sepomex`, `/ticket/{id}`.
+**Rutas principales:** `/`, `/login`, `/ventas-pos`, `/historial-ventas`, `/cotizaciones`, `/cotizaciones/nueva`, `/ordenes-vente`, `/facturacion`, `/notas-credito`, `/complementos-pago`, `/corte-caja`, `/compras`, `/gastos`, `/estado-cuentas`, `/bancos`, `/reportes`, `/metas`, `/productos`, `/almacen`, `/viscosidad`, `/clientes`, `/proveedores`, `/sepomex`, `/sucursal`, `/usuarios`, `/configuracion`, `/permisos`, `/auditoria`, `/comunicados`, `/ticket/{FacturaId}`. Algunas pantallas de detalle usan rutas parametrizadas; el menú y los permisos determinan cuáles aparecen para cada usuario.
 
 ## Accesos demo (PIN)
 | PIN | Rol | Destino |
@@ -74,9 +74,9 @@ Abre `http://localhost:5200/` → Login → POS `/ventas-pos` → Historial `/hi
 
 ## Verificación (¿quedó bien?)
 ```powershell
-# Tablas creadas (esperado: 12)
+# Comprobar que la aplicación creó tablas en el esquema public
 $env:PGPASSWORD='TU_PASSWORD'
-& 'C:\Program Files\PostgreSQL\18\bin\psql.exe' -U postgres -h localhost -d oilsmexico_erp -c "SELECT count(*) FROM pg_tables WHERE schemaname='public';"
+& 'C:\Program Files\PostgreSQL\18\bin\psql.exe' -U postgres -h localhost -d oilsmexico_erp -c "SELECT tablename FROM pg_tables WHERE schemaname='public' ORDER BY tablename;"
 # Sucursales + productos seed
 & 'C:\Program Files\PostgreSQL\18\bin\psql.exe' -U postgres -h localhost -d oilsmexico_erp -c "SELECT codigo_sucursal FROM sucursales; SELECT sku FROM productos;"
 # Endpoints (esperado: 200)
@@ -103,22 +103,25 @@ curl.exe -s -o NUL -w 'xml:%{http_code}' http://localhost:5200/api/facturas/1/xm
 
 ## Cómo está cableado (para el dev)
 - `Program.cs` → `UseNpgsql(GetConnectionString("ErpDb"))` → `SeedData.InicializarAsync` (`EnsureCreated` + `SchemaPatch` idempotente + seed si `Sucursales` vacía).
-- Tablas exactas del modelo: `productos, unidades_medida, sucursales, inventario_lotes, inventario_sucursal, facturas, factura_detalle, clientes, usuarios, movimientos_inventario, codigos_postales, proveedores, compras, compra_detalle, compra_pagos`.
+- El esquema se define con entidades y configuraciones de EF Core en `OilsMexico.Domain` y `OilsMexico.Infrastructure/Persistence`; las migraciones y parches idempotentes permiten evolucionar las bases existentes.
 - Seed: 2 sucursales (CDMX01/MTY01) con datos fiscales del emisor (razón social, régimen 601, CP y domicilio SEPOMEX), 4 lubricantes, unidades Litro×1/Garrafa×19/Tambor×208, 2 clientes, 4 usuarios PIN (SHA-256), stock 100L por producto/sucursal.
 - CFDI sin CSD reales → modo `SIMULADO` (sello DEV auditable, solo facturas). Para timbrado real: carpeta `certs/` local con `csd.cer` + `csd.key` (nunca al repo), `Cfdi:PacModo = TEST | PRODUCCION` y credenciales Finkok en `Cfdi:Pac` (user-secrets: `Cfdi__Pac__Usuario`, `Cfdi__Pac__Password`).
-- Columnas nuevas aplicadas por `SchemaPatch` (sin migraciones EF): dirección de clientes/proveedores, datos del emisor en `sucursales` (razón social, régimen, CP, domicilio, contacto) y `facturas.motivo_cancelacion`.
-- API mínima: `GET /api/facturas/{id}/xml` descarga el CFDI (`application/xml`; 404 si no existe).
+- Los endpoints de descarga de XML y de exportación están mapeados en `src/OilsMexico.Web/Program.cs`; las descargas requieren una sesión válida.
 
 ## Módulos
-- **Login PIN** con sesión persistente (ProtectedSessionStorage).
-- **POS:** búsqueda SKU/marca/viscosidad, carrito, IVA 16%, FormaPago/Método/UsoCfdi SAT, toggle CFDI, SignalR por sucursal.
-- **Almacén:** entradas/compras, ajustes, traspasos, kardex auditado.
-- **Datos de la sucursal (`/sucursal`):** nombre, código, RFC/razón social/régimen/CP del emisor CFDI, domicilio con combo SEPOMEX y contacto; edición **solo rol Admin** (demás roles vista de solo lectura).
-- **Historial de ventas (`/historial-ventas`):** filtros por fecha/estado/folio-cliente, resumen (ventas, subtotal, IVA, total), paginación, detalle expandible con renglones + sello/cadena original, y acciones **Surtir** / **Devolver** con motivo (repone stock y deja rastro en kardex).
-- **Aceites por viscosidad (`/viscosidad`):** tarjetas por viscosidad (litros, valor del stock y alerta de bajo mínimo), tabla con stock/mínimo/precio, búsqueda por SKU/nombre/marca en cliente y botón **Kardex** que abre `/almacen?producto={id}`.
-- **Facturación CFDI (`/facturacion`):** listado de folios con estado fiscal y UUID, **timbrado diferido** (sellado RSA-SHA256 + PAC fuera del POS para ventas quedadas en Pendiente), **cancelación real** ante Finkok (`cancel_signature` firmada con el CSD; motivo SAT 01|02|03|04, 01 exige UUID sustituto; solo Admin/Conta) y **descarga de XML** (`/api/facturas/{id}/xml`).
-- **Clientes / Proveedores / Productos / Usuarios:** CRUD (productos con presentaciones y stock por sucursal; usuarios solo-Admin con PIN SHA-256).
-- **Compras (`/compras`):** ciclo orden → recepción parcial/total (suma stock + lote + kardex COMPRA) → CxP (pagos con forma SAT, estados Pagada/Parcial/Pendiente).
-- **SEPOMEX (`/sepomex`):** importación del catálogo nacional de Correos de México — **Excel oficial `.xls` (una hoja por estado, detectado por firma OLE2/ZIP)** o TXT/CSV (15 columnas, `|`/`,`/`;`/TAB, latin1/UTF-8, dedup por `codigo|asentamiento_id|nombre`); el componente `DireccionSepomex` consulta el catálogo por CP para llenar el **combo obligatorio de colonias** (sin captura libre; si el CP tiene una sola colonia, ésta se preselecciona) y autocompletar municipio/ciudad/estado —que se muestran como etiquetas de solo lectura— en clientes y proveedores.
-- **Ticket 58mm** imprimible (`window.print`).
-- **CFDI:** sellado nativo RSA-SHA256 (CSD `.cer`/`.key` + XSLT oficial del SAT, recurso embebido) para facturas (I), notas de crédito (E con relación 01) y REP (P + Pagos 2.0); timbrado Finkok SOAP `stamp` en `TEST`/`PRODUCCION` (`SIMULADO` = UUID local auditable, solo facturas sin CSD); cancelación `cancel_signature` firmada localmente (la llave nunca viaja al PAC) + consulta `get_sat_status`. Nodos `Impuestos` con `Traslados/Traslado` (IVA `002`, tasa 16%) a nivel concepto y global.
+- **Inicio y seguridad:** panel principal, autenticación, gestión de sesiones, política de contraseñas y autenticación de dos factores.
+- **Ventas:** POS, historial, cotizaciones y órdenes de venta; cotización → orden → factura; límites de crédito y validaciones de venta.
+- **Facturación electrónica:** CFDI 4.0, notas de crédito y complementos de pago; integración PAC en modos SIMULADO/TEST/PRODUCCIÓN, sujeto a la configuración y credenciales correspondientes.
+- **Caja y cobranza:** apertura/cierre y corte de caja, gastos operativos, CxC/CxP, vencimientos, pagos y estados de cuenta.
+- **Compras y proveedores:** órdenes de compra, recepción, pagos y seguimiento de cuentas por pagar.
+- **Productos e inventario:** catálogo, existencias por sucursal, ajustes, traspasos, kardex, códigos de barras y aceites por viscosidad.
+- **Clientes y proveedores:** administración de terceros, datos fiscales y múltiples contactos, correos, teléfonos y direcciones.
+- **Bancos:** cuentas, movimientos y conciliación bancaria.
+- **Contabilidad y reportes:** asientos, FIFO para costo de ventas, cierre/reapertura de periodos y reportes financieros (balanza, balance, resultados, existencias e indicadores).
+- **Comisiones:** metas, cálculo, consulta y cierre de periodos.
+- **Administración:** sucursales, usuarios, configuración, permisos por rol, auditoría, catálogos SEPOMEX y comunicados.
+- **Exportación y documentos:** exportaciones Excel/PDF para los reportes disponibles, PDF de CFDI con QR y ticket imprimible.
+
+Las páginas se implementan en `src/OilsMexico.Web/Components/Pages/ERP`. El POS admite escaneo de productos; inventario conserva movimientos de kardex y las operaciones se aíslan por sucursal. CFDI incluye sellado nativo, timbrado diferido mediante PAC, cancelación y consulta de estado SAT; el modo real requiere CSD y credenciales configuradas localmente.
+
+La app también expone rutas parametrizadas para detalle de cotización, edición de cotización, detalle de orden y ticket. La autorización depende de la sesión, el rol y los permisos configurados; que una ruta exista no significa que esté disponible para todos los perfiles.

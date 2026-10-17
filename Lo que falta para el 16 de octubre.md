@@ -222,50 +222,108 @@ Las facturas antiguas sin póliza no se retrocontabilizan; los reportes basados 
 **Esfuerzo estimado:** 0.5 días
 
 
-### PRIORIDAD 2 — MANTENIBILIDAD Y CONSISTENCIA (deuda técnica) — ✅ 100 % COMPLETADA
+### PRIORIDAD 2 — MANTENIBILIDAD Y CONSISTENCIA (deuda técnica)
 
-Todas las tareas de esta sección fueron implementadas y verificadas contra el código y base de datos con compilación limpia (0 errores) y pruebas automatizadas (48/48 aprobadas).
+#### T-11. Extraer literal `"Admin"` a constante/enum + helper `EsAdmin(ctx)` (§6.2 / A4)
 
-#### T-11. Extraer literal `"Admin"` a constante/enum + helper `EsAdmin(ctx)` (§6.2 / A4) — ✅ Hecho
-- `Roles.Admin`, `Roles.Todos`, `Roles.Etiquetas` implementados en [Roles.cs](file:///d:/GMS/Jerry/OilsMexico/src/OilsMexico.Domain/Services/Roles.cs).
-- Helper `EsAdmin` centralizado en [ISucursalContext](file:///d:/GMS/Jerry/OilsMexico/src/OilsMexico.Application/Interfaces/Servicios.cs).
-- 0 comparaciones con `"Admin"` mágico restantes en el código fuente.
+**Hay 81 comparaciones** del literal `"Admin"` en `.cs` y `.razor.cs` (servicios + páginas). No existe `const string Admin`, ni enum, ni helper centralizado.
 
-#### T-12. Unificar resolución de sucursal en helper único (§6.2 / B8) — ✅ Hecho
-- `ISucursalContext.ResolverSucursalAutorizada(int sucursalSolicitada)` centralizado en [Servicios.cs](file:///d:/GMS/Jerry/OilsMexico/src/OilsMexico.Application/Interfaces/Servicios.cs).
-- Reemplazados los duplicados en `FacturacionService`, `ComprasService`, `CorteCajaService`, `ComplementoPagoService`, `GastoService`, `BancosService`, `ExportacionService`, `CierreContableService`, etc.
+**Qué falta exactamente:**
 
-#### T-13. Llevar catálogos SAT a tabla `catalogos_sat` y que todas las páginas consuman el servicio (§6.2 / A3) — ✅ Hecho
-- Entidad [CatalogoSat.cs](file:///d:/GMS/Jerry/OilsMexico/src/OilsMexico.Domain/Entities/CatalogoSat.cs) y configuración EF Core [CatalogoSatConfig.cs](file:///d:/GMS/Jerry/OilsMexico/src/OilsMexico.Infrastructure/Persistence/Configs/CatalogoSatConfig.cs) creadas (`catalogos_sat`).
-- DDL en [SchemaPatch.cs](file:///d:/GMS/Jerry/OilsMexico/src/OilsMexico.Infrastructure/Persistence/SchemaPatch.cs) y seed automático en [CatalogosSatSeed.cs](file:///d:/GMS/Jerry/OilsMexico/src/OilsMexico.Infrastructure/Persistence/CatalogosSatSeed.cs) integrado en `SeedData`.
-- Servicio [CatalogosSatService.cs](file:///d:/GMS/Jerry/OilsMexico/src/OilsMexico.Infrastructure/Services/CatalogosSatService.cs) respaldado en BD con fallback defensivo.
-- Clasificación de formas de pago en [CorteCajaService.Cierre.cs](file:///d:/GMS/Jerry/OilsMexico/src/OilsMexico.Infrastructure/Services/CorteCajaService.Cierre.cs) mediante campo `grupo` (OCP: nuevas formas de pago no requieren alterar código).
-- Páginas [Compras.razor](file:///d:/GMS/Jerry/OilsMexico/src/OilsMexico.Web/Components/Pages/ERP/Compras.razor), [Facturacion.razor](file:///d:/GMS/Jerry/OilsMexico/src/OilsMexico.Web/Components/Pages/ERP/Facturacion.razor), [NotasCredito.razor](file:///d:/GMS/Jerry/OilsMexico/src/OilsMexico.Web/Components/Pages/ERP/NotasCredito.razor), [Clientes.razor](file:///d:/GMS/Jerry/OilsMexico/src/OilsMexico.Web/Components/Pages/ERP/Clientes.razor) y [Proveedores.razor](file:///d:/GMS/Jerry/OilsMexico/src/OilsMexico.Web/Components/Pages/ERP/Proveedores.razor) consumiendo `ICatalogosSatService` dinámicamente.
-- Pruebas unitarias e integración en [CatalogosSatTests.cs](file:///d:/GMS/Jerry/OilsMexico/tests/OilsMexico.IntegrationTests/CatalogosSatTests.cs).
+1. Crear `Roles.Admin` (constante o enum) en `Domain/Services/Roles.cs`
 
-#### T-14. DIP: `Metas.razor.cs` y `VentasPOS.razor.cs` inyectan `ErpDbContext` directo (§6.2) — ✅ Hecho
-- Ambas páginas consumen servicios de aplicación e interfaces especializadas (`IComisionesService`, `IVentasPosService`, `ICatalogosService`, `IClientesService`).
-- Ningún componente Blazor inyecta `ErpDbContext`.
+2. Reemplazar los 81 usos de `ctx.Rol == "Admin"` por `Roles.Admin` / `EsAdmin(ctx)`
 
-#### T-15. ISP: dividir `ICotizacionesService` y `IVentasService` (§6.2) — ✅ Hecho
-- `ICotizacionesService` segregada en [ICotizacionesConsulta](file:///d:/GMS/Jerry/OilsMexico/src/OilsMexico.Application/Interfaces/CotizacionesInterfaces.cs) + [ICotizacionesOperaciones](file:///d:/GMS/Jerry/OilsMexico/src/OilsMexico.Application/Interfaces/CotizacionesInterfaces.cs).
-- `IVentasService` segregada en [IVentasPosService](file:///d:/GMS/Jerry/OilsMexico/src/OilsMexico.Application/Interfaces/Servicios.cs), [IEntregaAlmacenService](file:///d:/GMS/Jerry/OilsMexico/src/OilsMexico.Application/Interfaces/Servicios.cs), [IHistorialVentasService](file:///d:/GMS/Jerry/OilsMexico/src/OilsMexico.Application/Interfaces/Servicios.cs) e [IOrdenVentaFacturacionService](file:///d:/GMS/Jerry/OilsMexico/src/OilsMexico.Application/Interfaces/Servicios.cs).
+3. Crear helper `EsAdmin(SucursalContext ctx)` en un solo lugar
 
-#### T-16. Corregir parámetros ignorados en asientos de compra/devolución (§6.2) — ✅ Hecho
-- [AsientoGeneradorService.cs](file:///d:/GMS/Jerry/OilsMexico/src/OilsMexico.Infrastructure/Services/AsientoGeneradorService.cs) aprovecha `sucursalId` para restringir las cuentas cargadas a la sucursal de la operación (REGLA #1). Firma limpia sin parámetros muertos.
+**Archivos afectados:** `Roles.cs`, ~81 archivos con `== "Admin"` **Esfuerzo estimado:** 2-3 días
 
-#### T-17. REGLA #1 en lecturas de cotización y OV (§6.2) — ✅ Hecho
-- `ObtenerCotizacionAsync` y `ObtenerOrdenVentaAsync` en [CotizacionesService.Consultas.cs](file:///d:/GMS/Jerry/OilsMexico/src/OilsMexico.Infrastructure/Services/CotizacionesService.Consultas.cs) filtran por la sucursal de sesión para usuarios no administradores (`if (!ctx.EsAdmin) q = q.Where(c => c.SucursalId == ctx.SucursalId)`).
 
-#### T-18. Atomicidad en `ConvertirOrdenAVentaAsync` (§6.2) — ✅ Hecho
-- `FacturarOrdenVentaAsync` en [VentasService.Venta.cs](file:///d:/GMS/Jerry/OilsMexico/src/OilsMexico.Infrastructure/Services/VentasService.Venta.cs) envuelto en `await using var tx = await db.Database.BeginTransactionAsync(ct);` asegurando atomicidad completa entre factura, kardex, inventario y orden de venta.
+#### T-12. Unificar resolución de sucursal en helper único (§6.2 / B8)
 
-#### T-19. Consistencia de estados: homogeneizar string vs enum (§6.2 / A9) — ✅ Hecho
-- Enums tipados en Domain (`EstadoFactura`, `EstadoCompra`, `EstadoRep`, `EstadoOrdenVenta`, `EstadoCotizacion`).
-- [ComplementoPago.cs](file:///d:/GMS/Jerry/OilsMexico/src/OilsMexico.Domain/Entities/ComplementoPago.cs) usa `EstadoRep.Pendiente`.
+**Patrón duplicado en 15 sitios de ~12 servicios:** `ctx.Rol == "Admin" ? sucursalId : ctx.SucursalId`
 
-#### T-20. DRY de `CalcularTotales` (§6.2) — ✅ Hecho
-- Un solo método de cálculo en [CotizacionesService.cs](file:///d:/GMS/Jerry/OilsMexico/src/OilsMexico.Infrastructure/Services/CotizacionesService.cs) reutilizado en creación, listado y consultas.
+**Qué falta exactamente:**
+
+1. Crear `ResolverSucursalAutorizada(...)` en `ISucursalContext` o servicio de autorización
+
+2. Reemplazar los 15 duplicados en: `FacturacionService.cs:21`, `ComprasService.cs:16`, `CorteCajaService.cs:19,30`, `ComplementoPagoService.cs:20`, etc.
+
+**Archivos afectados:** `SucursalContext.cs`, ~12 servicios **Esfuerzo estimado:** 1-2 días
+
+
+#### T-13. Llevar catálogos SAT a tabla `catalogos\_sat` y que todas las páginas consuman el servicio (§6.2 / A3)
+
+**Estado:** `CatalogosSatService` tiene diccionarios hardcodeados en código (no tabla). Consumo inconsistente: POS/Clientes/ComplementosPago usan el servicio, pero `Compras.razor:250,252`, `Facturacion.razor:151`, `NotasCredito.razor:113` siguen con literales HTML.
+
+**Qué falta exactamente:**
+
+1. Crear tabla `catalogos\_sat(catalogo, clave, descripcion, grupo, activo)` + seed
+
+2. Migrar `CatalogosSatService` a leer de tabla (mantener interfaz `ICatalogosSatService`)
+
+3. Reemplazar literales en `Compras.razor`, `Facturacion.razor`, `NotasCredito.razor`, `Clientes.razor`, `Proveedores.razor`
+
+4. Eliminar `switch` de agrupación de formas de pago en `CorteCajaService.Cierre.cs:79-85` (usar campo `grupo`)
+
+**Archivos afectados:** `CatalogosSatService.cs`, `ContextoCatalogos.cs`, `Compras.razor`, `Facturacion.razor`, `NotasCredito.razor`, `Clientes.razor`, `Proveedores.razor`, `CorteCajaService.Cierre.cs`, migración EF **Esfuerzo estimado:** 2-3 días
+
+
+#### T-14. DIP: `Metas.razor.cs` y `VentasPOS.razor.cs` inyectan `ErpDbContext` directo (§6.2)
+
+Únicos dos componentes Blazor que aún inyectan `ErpDbContext` directo en lugar de servicios.
+
+**Qué falta exactamente:**
+
+1. Mover lógica a `IComisionesService` / `IVentasService`
+
+2. Eliminar inyección directa de `ErpDbContext` en páginas Blazor
+
+**Archivos afectados:** `Metas.razor.cs`, `VentasPOS.razor.cs` **Esfuerzo estimado:** 0.5-1 día
+
+
+#### T-15. ISP: dividir `ICotizacionesService` y `IVentasService` (§6.2)
+
+- `ICotizacionesService` (~20 métodos) → `ICotizacionesConsulta` + `ICotizacionesOperaciones`
+
+- `IVentasService` (mezcla POS + despacho + devoluciones + auditoría) → `IVentasPosService` / `IEntregaAlmacenService` / `IHistorialVentasService`
+
+**Archivos afectados:** `ICotizacionesService.cs`, `IVentasService.cs`, implementaciones y consumidores **Esfuerzo estimado:** 1-2 días
+
+
+#### T-16. Corregir parámetros ignorados en asientos de compra/devolución (§6.2)
+
+`IAsientoGeneradorService.GenerarAsientosDeCompraAsync` y `GenerarAsientosDeDevolucionAsync` ignoran `sucursalId`/`usuarioId`.
+
+**Esfuerzo estimado:** 0.5 día
+
+
+#### T-17. REGLA \#1 en lecturas de cotización y OV (§6.2)
+
+`ObtenerCotizacionAsync` y `ObtenerOrdenVentaAsync` no filtran por sucursal (las 4 transiciones ya lo tienen).
+
+**Esfuerzo estimado:** 0.5 día
+
+
+#### T-18. Atomicidad en `ConvertirOrdenAVentaAsync` (§6.2)
+
+Envolver en `BeginTransactionAsync` — hoy se crean factura/detalle/stock/kardex sin envolvente transacional.
+
+**Esfuerzo estimado:** 0.5-1 día
+
+
+#### T-19. Consistencia de estados: homogeneizar string vs enum (§6.2 / A9)
+
+`EstadoFactura` enum ya existe y se usa en `FacturacionService`/`GestionService`, pero quedan literales aislados (p. ej. `ComplementoPago.cs:46`).
+
+**Esfuerzo estimado:** 0.5 día
+
+
+#### T-20. DRY de `CalcularTotales` (§6.2)
+
+Se invoca ×3 en creación de cotización → un único punto de cálculo.
+
+**Esfuerzo estimado:** 0.5 día
 
 
 ### PRIORIDAD 3 — FUNCIONALIDAD COMERCIAL OPCIONAL (diferenciadores del giro)
