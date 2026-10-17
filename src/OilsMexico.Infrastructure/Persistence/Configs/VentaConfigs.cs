@@ -117,6 +117,9 @@ public sealed class UsuarioConfig : IEntityTypeConfiguration<Usuario>
         e.Property(x => x.DosFaActivo).HasColumnName("dos_fa_activo").HasDefaultValue(false);
         e.Property(x => x.DosFaSecret).HasColumnName("dos_fa_secret").HasMaxLength(64);
         e.Property(x => x.UltimoCambioPasswordUtc).HasColumnName("ultimo_cambio_password_utc");
+        // Recuperación de contraseña: hash del token y expiración
+        e.Property(x => x.PasswordResetTokenHash).HasColumnName("password_reset_token_hash").HasMaxLength(64);
+        e.Property(x => x.PasswordResetExpiresAtUtc).HasColumnName("password_reset_expires_at_utc");
         e.HasOne(x => x.Sucursal).WithMany().HasForeignKey(x => x.SucursalId);
     }
 }

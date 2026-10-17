@@ -21,8 +21,11 @@ public static class SchemaPatch
             ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS bloqueado_hasta_utc timestamptz;
             ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS bloqueado_definitivamente boolean NOT NULL DEFAULT false;
             ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS sesion_token varchar(64);
+            ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS password_reset_token_hash varchar(64);
+            ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS password_reset_expires_at_utc timestamptz;
             ALTER TABLE usuarios ALTER COLUMN pin_hash DROP NOT NULL;
             CREATE UNIQUE INDEX IF NOT EXISTS ix_usuarios_correo ON usuarios (lower(correo)) WHERE correo IS NOT NULL;
+            CREATE INDEX IF NOT EXISTS ix_usuarios_reset_token ON usuarios (password_reset_token_hash) WHERE password_reset_token_hash IS NOT NULL;
             """);
 
         // Catálogo SEPOMEX (15 columnas del TXT oficial de Correos de México).

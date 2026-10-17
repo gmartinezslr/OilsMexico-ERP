@@ -34,11 +34,14 @@ else{
 <label class="form-label" for="contrasena">Contraseña</label>
 <input id="contrasena" type="password" autocomplete="current-password" class="form-control form-control-lg mb-2"
 placeholder="Contraseña" @bind="password" @onkeydown="AlTecla" />
-<div class="d-flex justify-content-between align-items-center mb-3 remember-row">
+<div class="d-flex justify-content-between align-items-center mb-2 remember-row">
 <label class="form-check-label fw-semibold mb-0" for="recordar">Recordar mi usuario</label>
 <div class="form-check form-switch m-0 remember-switch">
 <input class="form-check-input" type="checkbox" id="recordar" @bind="recordarUsuario" @bind:after="AlCambiarRecordar" />
 </div>
+</div>
+<div class="text-end mb-3">
+<a href="/olvide-mi-contrasena" class="text-decoration-none small fw-semibold text-primary">¿Olvidaste tu contraseña?</a>
 </div>
 }
 @if(!string.IsNullOrEmpty(error)){<div class="alert alert-danger py-1">@error</div>}

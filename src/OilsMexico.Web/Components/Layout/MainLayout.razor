@@ -1,9 +1,10 @@
 @inherits LayoutComponentBase
 @inject NavigationManager Nav
+@implements IDisposable
 
-@* El login se muestra a pantalla completa sin el cromo del ERP. El resto de rutas renderizan el panel;
-   cada página interactiva se protege a sí misma (restaura la sesión y redirige a /login si no hay sesión). *@
-@if (Nav.ToBaseRelativePath(Nav.Uri).StartsWith("login", StringComparison.OrdinalIgnoreCase))
+@* Las rutas públicas (login y recuperación de contraseña) se muestran a pantalla completa sin el cromo del ERP.
+   El resto de rutas renderizan el panel principal y la barra lateral protegida con sesión. *@
+@if (EsRutaPublica)
 {
     <main class="min-vh-100 bg-light">@Body</main>
 }
@@ -74,5 +75,31 @@ else
             var f = DateTime.Now;
             return $"{Dias[(int)f.DayOfWeek]} {f.Day} de {Meses[f.Month - 1]}";
         }
+    }
+
+    private bool EsRutaPublica
+    {
+        get
+        {
+            var path = Nav.ToBaseRelativePath(Nav.Uri);
+            return path.StartsWith("login", StringComparison.OrdinalIgnoreCase)
+                || path.StartsWith("olvide-mi-contrasena", StringComparison.OrdinalIgnoreCase)
+                || path.StartsWith("recuperar-password", StringComparison.OrdinalIgnoreCase);
+        }
+    }
+
+    protected override void OnInitialized()
+    {
+        Nav.LocationChanged += AlCambiarUbicacion;
+    }
+
+    private void AlCambiarUbicacion(object? sender, LocationChangedEventArgs e)
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        Nav.LocationChanged -= AlCambiarUbicacion;
     }
 }

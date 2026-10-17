@@ -33,6 +33,11 @@ public sealed class Usuario
     public string? DosFaSecret { get; set; }
     public DateTime? UltimoCambioPasswordUtc { get; set; }
 
+    /// <summary>Hash SHA-256 del token de recuperación de contraseña (OWASP: nunca almacenar en texto plano).</summary>
+    public string? PasswordResetTokenHash { get; set; }
+    /// <summary>Fecha UTC de expiración del token de recuperación (tiempo corto: 15 minutos).</summary>
+    public DateTime? PasswordResetExpiresAtUtc { get; set; }
+
     public ICollection<AuditLog> AuditLogs { get; set; } = [];
     public ICollection<PasswordHistory> PasswordHistories { get; set; } = [];
 }

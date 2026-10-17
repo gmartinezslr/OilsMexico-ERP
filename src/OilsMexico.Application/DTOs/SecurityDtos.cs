@@ -90,3 +90,18 @@ public sealed record PoliticaBloqueoDto(
     int MaxIntentos,
     int MinutosBloqueo,
     int BloqueosParaDefinitivo);
+
+// ---------------------------------------------------------------------------
+// 6) Recuperación de contraseña ("Olvidé mi contraseña")
+// ---------------------------------------------------------------------------
+
+public sealed record ForgotPasswordRequest(string Email);
+
+public sealed record ResetPasswordRequest(
+    string Token,
+    string NuevaContraseña,
+    string ConfirmarContraseña);
+
+public sealed record RecuperacionPasswordResult(
+    bool Exitoso,
+    string Mensaje);

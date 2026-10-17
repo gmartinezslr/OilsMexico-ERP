@@ -14,7 +14,13 @@ using System.Drawing;
 
 namespace OilsMexico.Infrastructure.Services;
 
-public sealed class AuthService(ErpDbContext db, IConfiguration configuration, ILogger<AuthService> logger, ISucursalContext ctx, IConfiguracionService configuracion) : IAuthService
+public sealed class AuthService(
+    ErpDbContext db,
+    IConfiguration configuration,
+    ILogger<AuthService> logger,
+    ISucursalContext ctx,
+    IConfiguracionService configuracion,
+    IEmailService emailService) : IAuthService
 {
     private static readonly PasswordHasher<Usuario> Hasher = new();
     // Hash de referencia para igualar el tiempo de respuesta cuando la cuenta no existe (evita enumerar).
@@ -503,6 +509,218 @@ public sealed class AuthService(ErpDbContext db, IConfiguration configuration, I
             await tx.RollbackAsync(ct);
             logger.LogError(ex, "Error cambiando la contraseña del usuario {UsuarioId}.", usuarioId);
             return new(false, "Error al actualizar la contraseña. Intenta de nuevo.");
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // 5) Recuperación de contraseña ("Olvidé mi contraseña")
+    // -----------------------------------------------------------------------
+
+    public async Task<RecuperacionPasswordResult> SolicitarRecuperacionAsync(string email, string? baseUrl = null, CancellationToken ct = default)
+    {
+        // OWASP: Siempre se devuelve la misma respuesta genérica para evitar la enumeración de usuarios
+        const string respuestaGenerica = "Si la dirección de correo electrónico está registrada en el sistema, recibirás un enlace de recuperación en breve.";
+
+        if (string.IsNullOrWhiteSpace(email))
+            return new(true, respuestaGenerica);
+
+        var correoNormalizado = email.Trim().ToLowerInvariant();
+
+        // Buscar el usuario por correo
+        var u = await db.Usuarios.FirstOrDefaultAsync(x => x.Correo != null && x.Correo.ToLower() == correoNormalizado, ct);
+
+        // Si no existe, no está activo o está bloqueado definitivamente:
+        if (u is null || !u.Activo || u.BloqueadoDefinitivamente)
+        {
+            // Mitigación contra Timing Attacks (OWASP): simular costo de verificación constante
+            Hasher.VerifyHashedPassword(new Usuario(), HashDummy, "timing-attack-defense");
+            return new(true, respuestaGenerica);
+        }
+
+        try
+        {
+            // Generar token criptográficamente seguro (256 bits de entropía)
+            var rawTokenBytes = RandomNumberGenerator.GetBytes(32);
+            var rawToken = Convert.ToHexString(rawTokenBytes).ToLowerInvariant();
+            var tokenHash = Sha256Hex(rawToken);
+
+            // Guardar únicamente el HASH del token con expiración corta (15 minutos)
+            u.PasswordResetTokenHash = tokenHash;
+            u.PasswordResetExpiresAtUtc = DateTime.UtcNow.AddMinutes(15);
+            await db.SaveChangesAsync(ct);
+
+            // Resolver URL base
+            var hostBase = !string.IsNullOrWhiteSpace(baseUrl)
+                ? baseUrl.TrimEnd('/')
+                : (configuration["App:BaseUrl"] ?? "https://localhost:5001").TrimEnd('/');
+
+            var resetUrl = $"{hostBase}/recuperar-password?token={Uri.EscapeDataString(rawToken)}";
+
+            // Enviar correo con plantilla segura
+            var html = $"""
+                <!DOCTYPE html>
+                <html lang="es">
+                <head>
+                    <meta charset="utf-8">
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                    <title>Recuperación de Contraseña</title>
+                </head>
+                <body style="margin:0;padding:24px;background-color:#f1f5f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#0f172a;">
+                    <table align="center" border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width:540px;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 6px -1px rgba(0,0,0,0.1);margin:0 auto;">
+                        <tr>
+                            <td style="padding:28px 32px;background:#0f172a;text-align:center;">
+                                <h1 style="margin:0;font-size:22px;color:#ffffff;font-weight:700;letter-spacing:0.5px;">OilsMexico ERP</h1>
+                                <p style="margin:4px 0 0;font-size:13px;color:#94a3b8;">Seguridad de la Cuenta</p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="padding:32px;">
+                                <h2 style="margin:0 0 12px;font-size:18px;color:#1e293b;">Hola {System.Net.WebUtility.HtmlEncode(u.Nombre)},</h2>
+                                <p style="margin:0 0 20px;font-size:15px;line-height:1.6;color:#475569;">
+                                    Hemos recibido una solicitud para restablecer la contraseña asociada a tu cuenta de acceso en OilsMexico ERP.
+                                    Para crear una nueva contraseña, haz clic en el siguiente botón:
+                                </p>
+                                <div style="text-align:center;margin:30px 0;">
+                                    <a href="{resetUrl}" target="_blank" style="background:#2563eb;color:#ffffff;text-decoration:none;padding:14px 28px;border-radius:8px;font-size:15px;font-weight:600;display:inline-block;box-shadow:0 2px 4px rgba(37,99,235,0.3);">
+                                        Restablecer mi Contraseña
+                                    </a>
+                                </div>
+                                <div style="background:#f8fafc;border-left:4px solid #2563eb;padding:12px 16px;border-radius:4px;margin-bottom:24px;">
+                                    <p style="margin:0;font-size:13px;color:#334155;line-height:1.5;">
+                                        ⏱️ Este enlace es válido únicamente durante <strong>15 minutos</strong> y puede ser utilizado solo una vez.
+                                    </p>
+                                </div>
+                                <p style="margin:0 0 16px;font-size:13px;line-height:1.5;color:#64748b;">
+                                    <strong>¿No solicitaste este cambio?</strong> Puedes ignorar este mensaje de forma segura. Tu contraseña actual no cambiará y tu cuenta seguirá protegida.
+                                </p>
+                                <hr style="border:none;border-top:1px solid #e2e8f0;margin:24px 0;" />
+                                <p style="margin:0;font-size:11px;color:#94a3b8;line-height:1.4;">
+                                    Si el botón no funciona, copia y pega el siguiente enlace en tu navegador:<br />
+                                    <a href="{resetUrl}" style="color:#2563eb;word-break:break-all;">{resetUrl}</a>
+                                </p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="padding:16px 32px;background:#f8fafc;border-top:1px solid #e2e8f0;text-align:center;">
+                                <p style="margin:0;font-size:12px;color:#94a3b8;">
+                                    © {DateTime.UtcNow.Year} OilsMexico ERP. Todos los derechos reservados.
+                                </p>
+                            </td>
+                        </tr>
+                    </table>
+                </body>
+                </html>
+                """;
+
+            var mensajeDto = new EmailMensajeDto(
+                Destinatario: u.Correo!,
+                Asunto: "Recuperación de contraseña | OilsMexico ERP",
+                CuerpoHtml: html,
+                DestinatarioNombre: u.Nombre
+            );
+
+            await emailService.EnviarAsync(mensajeDto, ct);
+            RegistrarAuditLog(u.Id, "PasswordResetRequested", detalle: $"Solicitud de recuperación de contraseña enviada a {u.Correo}");
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error al generar o enviar correo de recuperación para el usuario {UsuarioId}", u.Id);
+            // OWASP: no divulgar fallos internos ni de SMTP al cliente exterior
+        }
+
+        return new(true, respuestaGenerica);
+    }
+
+    public async Task<bool> ValidarTokenRecuperacionAsync(string token, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(token)) return false;
+        var tokenHash = Sha256Hex(token.Trim().ToLowerInvariant());
+
+        return await db.Usuarios.AsNoTracking().AnyAsync(u =>
+            u.PasswordResetTokenHash == tokenHash &&
+            u.PasswordResetExpiresAtUtc != null &&
+            u.PasswordResetExpiresAtUtc > DateTime.UtcNow &&
+            u.Activo && !u.BloqueadoDefinitivamente, ct);
+    }
+
+    public async Task<RecuperacionPasswordResult> RestablecerPasswordAsync(string token, string nuevaPassword, string confirmarPassword, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(token))
+            return new(false, "El enlace de recuperación es inválido o ha expirado. Solicita uno nuevo.");
+
+        if (string.IsNullOrWhiteSpace(nuevaPassword) || string.IsNullOrWhiteSpace(confirmarPassword))
+            return new(false, "Escribe y confirma tu nueva contraseña.");
+
+        if (nuevaPassword != confirmarPassword)
+            return new(false, "La confirmación no coincide con la nueva contraseña.");
+
+        var tokenHash = Sha256Hex(token.Trim().ToLowerInvariant());
+
+        var u = await db.Usuarios.FirstOrDefaultAsync(x => x.PasswordResetTokenHash == tokenHash, ct);
+        if (u is null || u.PasswordResetExpiresAtUtc == null || u.PasswordResetExpiresAtUtc <= DateTime.UtcNow)
+        {
+            return new(false, "El enlace de recuperación es inválido o ha expirado. Por favor solicita uno nuevo.");
+        }
+
+        if (!u.Activo || u.BloqueadoDefinitivamente)
+        {
+            return new(false, "Esta cuenta se encuentra suspendida o deshabilitada. Contacta al administrador.");
+        }
+
+        // Validar política de contraseñas activa
+        var cfg = await ObtenerPasswordConfigAsync(ct);
+        var validacion = ValidarComplejidad(nuevaPassword, cfg);
+        if (!validacion.IsValid)
+            return new(false, validacion.Mensaje);
+
+        // Validar historial para no permitir repetir contraseñas recientes
+        var historial = await db.PasswordHistories
+            .Where(h => h.UsuarioId == u.Id)
+            .OrderByDescending(h => h.FechaCambioUtc)
+            .Take(cfg.Historial)
+            .Select(h => h.PasswordHash)
+            .ToListAsync(ct);
+
+        foreach (var hashPrevio in historial)
+        {
+            if (Hasher.VerifyHashedPassword(u, hashPrevio, nuevaPassword) != PasswordVerificationResult.Failed)
+                return new(false, $"La contraseña no puede repetirse con ninguna de las últimas {cfg.Historial} contraseñas.");
+        }
+
+        await using var tx = await db.Database.BeginTransactionAsync(ct);
+        try
+        {
+            var nuevoHash = Hasher.HashPassword(u, nuevaPassword);
+            u.PasswordHash = nuevoHash;
+            u.PinHash = string.Empty;
+            // Invalida inmediatamente el token para prevenir ataques de repetición (Replay Attacks)
+            u.PasswordResetTokenHash = null;
+            u.PasswordResetExpiresAtUtc = null;
+            // Revoca la sesión activa en todos los navegadores/dispositivos
+            u.SesionToken = null;
+            // Restablece intentos fallidos y bloqueos temporales
+            u.IntentosFallidos = 0;
+            u.BloqueadoHastaUtc = null;
+            u.UltimoCambioPasswordUtc = DateTime.UtcNow;
+
+            db.PasswordHistories.Add(new PasswordHistory
+            {
+                UsuarioId = u.Id,
+                PasswordHash = nuevoHash,
+                FechaCambioUtc = DateTime.UtcNow
+            });
+
+            await db.SaveChangesAsync(ct);
+            await tx.CommitAsync(ct);
+
+            RegistrarAuditLog(u.Id, "PasswordResetCompleted", detalle: "Contraseña restablecida exitosamente mediante enlace seguro de recuperación.");
+            return new(true, "Tu contraseña ha sido restablecida con éxito. Ya puedes iniciar sesión con tu nueva credencial.");
+        }
+        catch (Exception ex)
+        {
+            await tx.RollbackAsync(ct);
+            logger.LogError(ex, "Error al restablecer contraseña mediante token para el usuario {UsuarioId}", u.Id);
+            return new(false, "Ocurrió un error al actualizar la contraseña. Por favor intenta de nuevo.");
         }
     }
 

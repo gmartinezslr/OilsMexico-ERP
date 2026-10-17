@@ -34,6 +34,13 @@ public interface IAuthService
     // 4) Validación RFC + Situación Fiscal (Clientes y Proveedores)
     // -----------------------------------------------------------------------
     Task<ConsultaRfcResult> ValidarRfcAsync(string rfc, CancellationToken ct = default);
+
+    // -----------------------------------------------------------------------
+    // 5) Recuperación de contraseña ("Olvidé mi contraseña")
+    // -----------------------------------------------------------------------
+    Task<RecuperacionPasswordResult> SolicitarRecuperacionAsync(string email, string? baseUrl = null, CancellationToken ct = default);
+    Task<RecuperacionPasswordResult> RestablecerPasswordAsync(string token, string nuevaPassword, string confirmarPassword, CancellationToken ct = default);
+    Task<bool> ValidarTokenRecuperacionAsync(string token, CancellationToken ct = default);
 }
 
 public interface ISesionActual

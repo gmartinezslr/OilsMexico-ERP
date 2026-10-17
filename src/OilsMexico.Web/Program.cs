@@ -7,6 +7,8 @@ using OilsMexico.Infrastructure.Services;
 using OilsMexico.Web.Components;
 using OilsMexico.Web.Hubs;
 using OilsMexico.Web.Services;
+using Microsoft.AspNetCore.RateLimiting;
+using System.Threading.RateLimiting;
 using QuestPDF;
 using QuestPDF.Infrastructure;
 
@@ -92,6 +94,18 @@ builder.Services.AddHttpClient();
 builder.Services.AddSignalR();
 builder.Services.Configure<Microsoft.AspNetCore.Components.Server.CircuitOptions>(o => o.DetailedErrors = true);
 
+// Rate Limiting para protección contra abusos / DoS en endpoints sensibles (ej. recuperación de contraseñas)
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.AddFixedWindowLimiter("auth-limit", opt =>
+    {
+        opt.PermitLimit = 5;
+        opt.Window = TimeSpan.FromMinutes(15);
+        opt.QueueLimit = 0;
+    });
+});
+
 var app = builder.Build();
 
 using (var scope = app.Services.CreateScope())
@@ -136,12 +150,35 @@ if (!app.Environment.IsDevelopment())
 app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
 app.MapStaticAssets();
 app.UseAntiforgery();
+app.UseRateLimiter();
 app.MapHub<ErpHub>("/hubs/erp");
 
 // Salud: lo usa la pantalla de arranque (iniciando-erp.html) para saber
 // cuándo el servidor ya acepta conexiones y redirigir al ERP sin mostrar
 // el error ERR_CONNECTION_REFUSED del navegador.
 app.MapGet("/health", () => Results.Ok("ok"));
+
+// ============================================================================
+// Endpoints REST: Recuperación de contraseñas (OWASP: Rate Limiting & Anti-Enumeration)
+// ============================================================================
+app.MapPost("/api/auth/forgot-password", async (ForgotPasswordRequest req, IAuthService auth, HttpContext http, CancellationToken ct) =>
+{
+    var baseUrl = $"{http.Request.Scheme}://{http.Request.Host}{http.Request.PathBase}";
+    var res = await auth.SolicitarRecuperacionAsync(req.Email, baseUrl, ct);
+    return Results.Ok(res);
+}).RequireRateLimiting("auth-limit");
+
+app.MapPost("/api/auth/reset-password", async (ResetPasswordRequest req, IAuthService auth, CancellationToken ct) =>
+{
+    var res = await auth.RestablecerPasswordAsync(req.Token, req.NuevaContraseña, req.ConfirmarContraseña, ct);
+    return res.Exitoso ? Results.Ok(res) : Results.BadRequest(res);
+}).RequireRateLimiting("auth-limit");
+
+app.MapGet("/api/auth/validate-reset-token", async (string token, IAuthService auth, CancellationToken ct) =>
+{
+    var valido = await auth.ValidarTokenRecuperacionAsync(token, ct);
+    return Results.Ok(new { valido });
+});
 
 // Descarga de XML CFDI (archivo). El acceso exige el token de sesión vigente (?t=...), el mismo
 // control que las páginas Blazor: usuario activo, sin bloqueo vigente y sesión no revocada.
