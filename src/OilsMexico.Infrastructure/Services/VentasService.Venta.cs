@@ -162,8 +162,18 @@ public sealed partial class VentasService
             var prod = await db.Productos.FindAsync([item.ProductoId], ct);
             // CongelarPrecios (orden de venta facturada): el precio del renglón es de compromiso
             // y NO se sustituye por el precio mayoreo de catálogo del cliente.
-            var precio = !req.CongelarPrecios && cliente.TipoPrecio == "mayoreo"
-                ? (prod?.PrecioMayoreo ?? item.PrecioUnitario) : item.PrecioUnitario;
+            var precioEscalon = !req.CongelarPrecios
+                ? await (from lista in db.ListasPrecio
+                         join regla in db.PreciosVolumen on lista.Id equals regla.ListaPrecioId
+                         where lista.Activa && lista.TipoCliente == cliente.TipoPrecio
+                             && regla.ProductoId == item.ProductoId && regla.CantidadMinima <= item.Cantidad * factor
+                         orderby regla.CantidadMinima descending
+                         select (decimal?)regla.PrecioUnitario).FirstOrDefaultAsync(ct)
+                : null;
+            var precio = req.CongelarPrecios
+                ? item.PrecioUnitario
+                : precioEscalon ?? (cliente.TipoPrecio == "mayoreo"
+                    ? (prod?.PrecioMayoreo ?? item.PrecioUnitario) : item.PrecioUnitario);
             var importe = item.Cantidad * precio;
             subtotal += importe;
             factura.Detalles.Add(new FacturaDetalle

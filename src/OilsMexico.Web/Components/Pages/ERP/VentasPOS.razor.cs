@@ -23,12 +23,14 @@ public partial class VentasPOS : ComponentBase
     [Inject] public NavigationManager Nav { get; set; } = default!;
     [Inject] public ICorteCajaService Caja { get; set; } = default!;
     [Inject] public IAvisos Avisos { get; set; } = default!;
+    [Inject] public IDiferenciadoresService Diferenciadores { get; set; } = default!;
     protected CorteAbiertoDto? corteAbierto;
 
     protected string filtro = "";
     protected bool mostrarAyudaScan;
     private ElementReference cajaScan;
     protected List<ProductoDto> productos = [];
+    private readonly Dictionary<int, decimal> preciosProductos = [];
     protected List<CarritoItemDto> carrito = [];
     protected List<(int Id, string Nombre)> sucursales = [];
     protected List<(int Id, string Nombre)> clientes = [];
@@ -42,6 +44,10 @@ public partial class VentasPOS : ComponentBase
     protected string mensaje = "";
     protected VentaPosResult? ultimo;
     protected CreditoClienteDto? creditoCliente;
+    protected string marcaVehiculo = "", modeloVehiculo = "";
+    protected int anioVehiculo = DateTime.UtcNow.Year;
+    protected List<CompatibilidadVehiculoDto> compatibilidades = [];
+    protected string? errorCompatibilidad;
     // Guarda contra búsquedas superpuestas (escribir rápido / doble render): una segunda
     // operación sobre el mismo DbContext del circuito tumba Blazor con InvalidOperationException.
     private int _busquedaEnCurso;
@@ -96,7 +102,7 @@ public partial class VentasPOS : ComponentBase
     }
 
     /// <summary>Al cambiar el cliente se preselecciona su vendedor dueño y se consulta su estado de crédito (§4.1).</summary>
-    protected async void OnClienteCambiado()
+    protected async Task OnClienteCambiado()
     {
         vendedorId = vendedorPorCliente.GetValueOrDefault(clienteId);
         creditoCliente = null;
@@ -104,7 +110,29 @@ public partial class VentasPOS : ComponentBase
         {
             creditoCliente = await Ventas.ConsultarCreditoClienteAsync(clienteId);
         }
-        catch { /* No bloquea la UI si la consulta de crédito falla; el bloqueo se aplica al cobrar. */ }
+        catch (Exception ex) { mensaje = $"No se pudo consultar el crédito: {ex.Message}"; esError = true; }
+        try
+        {
+            foreach (var item in carrito.ToList())
+            {
+                var precio = await Diferenciadores.ResolverPrecioAsync(
+                    item.ProductoId, clienteId, item.Cantidad, item.FactorConversion);
+                carrito[carrito.IndexOf(item)] = item with { PrecioUnitario = precio.Precio };
+            }
+            await CargarPreciosProductosAsync(productos);
+        }
+        catch (Exception ex) { mensaje = $"No se pudieron recalcular precios: {ex.Message}"; esError = true; }
+    }
+
+    protected async Task BuscarCompatibilidad()
+    {
+        errorCompatibilidad = null;
+        try
+        {
+            compatibilidades = await Diferenciadores.BuscarCompatibilidadAsync(marcaVehiculo, modeloVehiculo, anioVehiculo);
+            if (compatibilidades.Count == 0) errorCompatibilidad = "No se encontraron aplicaciones para esos datos.";
+        }
+        catch (Exception ex) { errorCompatibilidad = $"No se pudo consultar compatibilidad: {ex.Message}"; }
     }
 
     protected async Task Buscar()
@@ -123,12 +151,25 @@ public partial class VentasPOS : ComponentBase
             {
                 _ultimoFiltroBuscado = miFiltro;
                 productos = await Ventas.BuscarProductosAsync(SucursalCtx.SucursalId, miFiltro);
+                await CargarPreciosProductosAsync(productos);
                 miFiltro = _ultimoFiltroBuscado;
             } while (miFiltro != filtro);
             try { await InvokeAsync(StateHasChanged); } catch { }
         }
         finally { System.Threading.Interlocked.Exchange(ref _busquedaEnCurso, 0); }
     }
+
+    private async Task CargarPreciosProductosAsync(IEnumerable<ProductoDto> encontrados)
+    {
+        preciosProductos.Clear();
+        var ids = encontrados.Select(x => x.Id).ToArray();
+        var factores = encontrados.ToDictionary(x => x.Id, x => x.FactorConversion);
+        var resueltos = await Diferenciadores.ResolverPreciosAsync(ids, clienteId, factores);
+        foreach (var precio in resueltos) preciosProductos[precio.Key] = precio.Value.Precio;
+    }
+
+    protected decimal PrecioProducto(ProductoDto producto) =>
+        preciosProductos.GetValueOrDefault(producto.Id, producto.PrecioVenta);
 
     protected async Task AlEscribir(ChangeEventArgs e)
     {
@@ -147,12 +188,12 @@ public partial class VentasPOS : ComponentBase
         await Buscar();
         if (productos.Count == 1)
         {
-            Agregar(productos[0]);
+            await Agregar(productos[0]);
             mensaje = $"Agregado por escaneo: {productos[0].Sku} ({productos[0].UnidadVenta}).";
             esError = false;
             Avisos.Agregar($"Escaneo: {productos[0].Sku}", $"{productos[0].Nombre} · {productos[0].UnidadVenta}", "exito");
             filtro = "";
-            productos = await Ventas.BuscarProductosAsync(SucursalCtx.SucursalId, "");
+            await Buscar();
             try { await cajaScan.FocusAsync(); } catch { }
         }
         else if (productos.Count == 0 && !string.IsNullOrWhiteSpace(filtro))
@@ -172,15 +213,22 @@ public partial class VentasPOS : ComponentBase
         await Buscar();
     }
 
-    protected void Agregar(ProductoDto p)
+    protected async Task Agregar(ProductoDto p)
     {
-        // La misma presentación suma cantidad; otra presentación del mismo producto
-        // es otro renglón (precio y litros distintos). UnidadMedidaId 0 = legacy.
-        var ex = carrito.FirstOrDefault(i => i.ProductoId == p.Id && i.UnidadMedidaId == p.UnidadMedidaId);
-        if (ex is null)
-            carrito.Add(new CarritoItemDto(p.Id, p.Sku, p.Nombre, p.UnidadMedidaId, p.UnidadVenta, p.FactorConversion, 1, p.PrecioVenta));
-        else
-            carrito[carrito.IndexOf(ex)] = ex with { Cantidad = ex.Cantidad + 1 };
+        try
+        {
+            // La misma presentación suma cantidad; otra presentación del mismo producto
+            // es otro renglón (precio y litros distintos). UnidadMedidaId 0 = legacy.
+            var ex = carrito.FirstOrDefault(i => i.ProductoId == p.Id && i.UnidadMedidaId == p.UnidadMedidaId);
+            var cantidad = (ex?.Cantidad ?? 0) + 1;
+            var precio = await Diferenciadores.ResolverPrecioAsync(p.Id, clienteId, cantidad, p.FactorConversion);
+            if (ex is null)
+                carrito.Add(new CarritoItemDto(p.Id, p.Sku, p.Nombre, p.UnidadMedidaId, p.UnidadVenta, p.FactorConversion, 1, precio.Precio));
+            else
+                carrito[carrito.IndexOf(ex)] = ex with { Cantidad = cantidad, PrecioUnitario = precio.Precio };
+            mensaje = "";
+        }
+        catch (Exception ex) { mensaje = $"No se pudo resolver el precio del producto: {ex.Message}"; esError = true; }
     }
 
     protected void Quitar(CarritoItemDto it) => carrito.Remove(it);

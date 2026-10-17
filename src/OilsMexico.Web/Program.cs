@@ -87,6 +87,7 @@ builder.Services.AddScoped<IComprasService, ComprasService>();
 
 builder.Services.AddScoped<ISepomexService, SepomexService>();
 builder.Services.AddScoped<IImportacionProductosService, ImportacionProductosService>();
+builder.Services.AddScoped<IDiferenciadoresService, DiferenciadoresService>();
 builder.Services.AddHttpClient();
 builder.Services.AddSignalR();
 builder.Services.Configure<Microsoft.AspNetCore.Components.Server.CircuitOptions>(o => o.DetailedErrors = true);

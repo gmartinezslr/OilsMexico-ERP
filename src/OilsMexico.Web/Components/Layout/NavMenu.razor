@@ -232,7 +232,7 @@
     }
 
 
-    @if (PuedeAlguno("productos", "almacen", "viscosidad", "compras"))
+    @if (PuedeAlguno("productos", "almacen", "viscosidad", "compras", "diferenciadores"))
     {
     <div class="nav-group @(GrupoAbierto.Contains("almacen") ? "is-open" : "")">
         <button type="button" class="nav-group-header" @onclick='() => Alternar("almacen")'
@@ -284,6 +284,15 @@
                 <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 7h12l1.5 13.5a1 1 0 0 1-1 1.1H5.5a1 1 0 0 1-1-1.1z" /><path d="M9 10V6a3 3 0 0 1 6 0v4" /></svg>
             </span>
             <span class="nav-link-text">Compras</span>
+        </NavLink>
+        }
+        @if (Puede("diferenciadores"))
+        {
+        <NavLink class="nav-link" href="diferenciadores">
+            <span class="nav-ico" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v14H4zM8 9h8M8 13h5M8 17h3" /></svg>
+            </span>
+            <span class="nav-link-text">Diferenciadores</span>
         </NavLink>
         }
             </div>
@@ -487,7 +496,8 @@
             GrupoAbierto.Add("gestion");
         }
         else if (url.StartsWith("productos") || url.StartsWith("almacen") || 
-                 url.StartsWith("viscosidad") || url.StartsWith("compras"))
+                 url.StartsWith("viscosidad") || url.StartsWith("compras") ||
+                 url.StartsWith("diferenciadores"))
         {
             GrupoAbierto.Add("almacen");
         }

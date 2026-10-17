@@ -1,0 +1,184 @@
+@page "/diferenciadores"
+@rendermode InteractiveServer
+@using OilsMexico.Application.DTOs
+@using OilsMexico.Web.Components.Shared
+<PageTitle>Diferenciadores | OilsMexico ERP</PageTitle>
+<div class="container-fluid py-3">
+    <h3 class="fw-bold">Diferenciadores del giro</h3>
+    <p class="text-muted">Funciones complementarias para lubricantes, reparto y envases retornables.</p>
+    @if (!string.IsNullOrWhiteSpace(mensaje))
+    {
+        <div class="alert @(error ? "alert-danger" : "alert-success")">@mensaje</div>
+    }
+    @if (cargando) { <div class="text-muted">Cargando…</div> }
+    <ul class="nav nav-tabs flex-wrap mb-3">
+        <li class="nav-item"><button class="nav-link @(pestaña == "precios" ? "active" : "")" @onclick='() => pestaña = "precios"'>Precios por volumen</button></li>
+        <li class="nav-item"><button class="nav-link @(pestaña == "compatibilidad" ? "active" : "")" @onclick='() => pestaña = "compatibilidad"'>Compatibilidad</button></li>
+        <li class="nav-item"><button class="nav-link @(pestaña == "proveedores" ? "active" : "")" @onclick='() => pestaña = "proveedores"'>Proveedores</button></li>
+        <li class="nav-item"><button class="nav-link @(pestaña == "reparto" ? "active" : "")" @onclick='() => pestaña = "reparto"'>Reparto</button></li>
+        <li class="nav-item"><button class="nav-link @(pestaña == "envases" ? "active" : "")" @onclick='() => pestaña = "envases"'>Tambores y retornables</button></li>
+        <li class="nav-item"><button class="nav-link @(pestaña == "carta" ? "active" : "")" @onclick='() => pestaña = "carta"'>Carta Porte 3.1</button></li>
+    </ul>
+
+    @if (pestaña == "precios")
+    {
+        <div class="row g-3">
+            <div class="col-lg-4">
+                <div class="card"><div class="card-header fw-bold">Lista de precios</div><div class="card-body">
+                    <label class="form-label">Lista</label>
+                    <select class="form-select mb-2" @bind="listaId" @bind:after="SeleccionarLista">
+                        <option value="0">Nueva lista…</option>
+                        @foreach (var x in listasPrecio) { <option value="@x.Id">@x.Nombre (@x.TipoCliente) @(x.Activa ? "" : "— inactiva")</option> }
+                    </select>
+                    <label class="form-label">Nombre</label><input class="form-control mb-2" @bind="listaNombre" />
+                    <label class="form-label">Tipo de cliente</label>
+                    <select class="form-select mb-2" @bind="listaTipo"><option value="menudeo">Menudeo</option><option value="mayoreo">Mayoreo</option></select>
+                    <div class="form-check mb-3"><input class="form-check-input" type="checkbox" @bind="listaActiva" id="listaActiva" /><label for="listaActiva">Activa (una por tipo)</label></div>
+                    <button class="btn btn-primary" @onclick="GuardarListaPrecio" disabled="@guardando">Guardar lista</button>
+                    <hr /><div class="small text-muted">La cantidad mínima se expresa en litros equivalentes, convirtiendo la presentación con su factor. Si no aplica una regla, POS conserva el precio de catálogo menudeo/mayoreo.</div>
+                </div></div>
+            </div>
+            <div class="col-lg-8">
+                <div class="card"><div class="card-header fw-bold">Descuentos escalonados</div><div class="card-body">
+                    <div class="row g-2 align-items-end">
+                        <div class="col-md-5"><label class="form-label">Producto</label><select class="form-select" @bind="precioProductoId"><option value="0">Seleccionar…</option>@foreach (var p in productos) { <option value="@p.Id">@p.Sku · @p.Nombre</option> }</select></div>
+                        <div class="col-md-3"><label class="form-label">Desde litros</label><input class="form-control" type="number" min="0.01" step="0.01" @bind="precioCantidadMinima" /></div>
+                        <div class="col-md-2"><label class="form-label">Precio unitario</label><input class="form-control" type="number" min="0" step="0.01" @bind="precioUnitario" /></div>
+                        <div class="col-md-2"><button class="btn btn-success w-100" @onclick="GuardarPrecioVolumen" disabled="@(guardando || listaId == 0)">@(precioId == 0 ? "Guardar regla" : "Actualizar regla")</button></div>
+                    </div>
+                    <div class="table-responsive mt-3"><table class="table table-sm">
+                        <thead><tr><th>Producto</th><th>Desde litros</th><th class="text-end">Precio por presentación</th><th></th></tr></thead><tbody>
+                            @foreach (var x in preciosVolumen) { <tr><td>@x.Producto</td><td>@x.CantidadMinima.ToString("N2")</td><td class="text-end">$@x.PrecioUnitario.ToString("N2")</td><td><button class="btn btn-sm btn-outline-primary" @onclick="() => EditarPrecio(x)">Editar</button></td></tr> }
+                            @if (preciosVolumen.Count == 0) { <tr><td colspan="4" class="text-muted">La lista aún no tiene reglas de volumen.</td></tr> }
+                        </tbody>
+                    </table></div>
+                </div></div>
+            </div>
+        </div>
+    }
+    else if (pestaña == "compatibilidad")
+    {
+        <div class="row g-3">
+            <div class="col-lg-4"><div class="card"><div class="card-header fw-bold">Aplicación vehicular</div><div class="card-body">
+                <div class="row g-2">
+                    <div class="col-6"><label class="form-label">Marca</label><input class="form-control" @bind="compatMarca" /></div>
+                    <div class="col-6"><label class="form-label">Modelo</label><input class="form-control" @bind="compatModelo" /></div>
+                    <div class="col-6"><label class="form-label">Año desde</label><input class="form-control" type="number" @bind="compatAnioDesde" /></div>
+                    <div class="col-6"><label class="form-label">Año hasta</label><input class="form-control" type="number" @bind="compatAnioHasta" /></div>
+                    <div class="col-12"><label class="form-label">Motor</label><input class="form-control" @bind="compatMotor" /></div>
+                    <div class="col-6"><label class="form-label">Viscosidad</label><input class="form-control" @bind="compatViscosidad" placeholder="5W-30" /></div>
+                    <div class="col-6"><label class="form-label">Norma</label><input class="form-control" @bind="compatNorma" placeholder="API SP" /></div>
+                    <div class="col-6"><label class="form-label">Capacidad (L)</label><input class="form-control" type="number" step="0.1" @bind="compatCapacidad" /></div>
+                    <div class="col-6"><label class="form-label">Producto recomendado</label><select class="form-select" @bind="compatProductoId"><option value="0">Sin vínculo</option>@foreach (var p in productos) { <option value="@p.Id">@p.Sku</option> }</select></div>
+                </div>
+                <button class="btn btn-primary mt-3" @onclick="GuardarCompatibilidad" disabled="@guardando">Guardar aplicación</button>
+            </div></div></div>
+            <div class="col-lg-8"><div class="card"><div class="card-header fw-bold">Catálogo (@compatibilidades.Count)</div><div class="table-responsive">
+                <table class="table table-sm table-hover mb-0"><thead><tr><th>Vehículo</th><th>Motor</th><th>Aplicación</th><th>Producto</th><th></th></tr></thead><tbody>
+                    @foreach (var x in compatibilidades) { <tr><td>@x.Marca @x.Modelo (@x.AnioDesde–@x.AnioHasta)</td><td>@x.Motor</td><td>@x.Viscosidad · @x.Norma · @(x.CapacidadLitros?.ToString("N2") ?? "—") L</td><td>@x.Producto</td><td><button class="btn btn-sm btn-outline-primary" @onclick="() => EditarCompatibilidad(x)">Editar</button></td></tr> }
+                </tbody></table>
+            </div></div></div>
+        </div>
+    }
+    else if (pestaña == "proveedores")
+    {
+        <div class="row g-3">
+            <div class="col-lg-5"><div class="card"><div class="card-header fw-bold">Evaluar recepción cerrada</div><div class="card-body">
+                <label class="form-label">Compra recibida</label><select class="form-select mb-2" @bind="compraEvaluarId"><option value="0">Selecciona una recepción…</option>@foreach (var c in comprasRecibidas) { <option value="@c.CompraId">@c.FolioInterno · @c.Proveedor</option> }</select>
+                <div class="row g-2"><div class="col-6"><label class="form-label">Cumplimiento (1–5)</label><input class="form-control" type="number" min="1" max="5" @bind="cumplimiento" /></div><div class="col-6"><label class="form-label">Puntualidad (1–5)</label><input class="form-control" type="number" min="1" max="5" @bind="puntualidad" /></div></div>
+                <label class="form-label mt-2">Comentarios</label><textarea class="form-control" maxlength="1000" @bind="comentariosEvaluacion"></textarea>
+                <button class="btn btn-primary mt-3" @onclick="GuardarEvaluacion" disabled="@(guardando || compraEvaluarId == 0)">Guardar evaluación</button>
+            </div></div></div>
+            <div class="col-lg-7">
+                <div class="card mb-3"><div class="card-header fw-bold">Resumen por proveedor</div><div class="table-responsive">
+                    <table class="table table-sm mb-0"><thead><tr><th>Proveedor</th><th class="text-end">Recepciones</th><th class="text-end">Promedio / 5</th></tr></thead><tbody>
+                        @foreach (var grupo in evaluaciones.GroupBy(x => x.Proveedor).OrderBy(x => x.Key))
+                        {
+                            <tr><td>@grupo.Key</td><td class="text-end">@grupo.Count()</td><td class="text-end"><strong>@grupo.Average(x => x.Promedio).ToString("N2")</strong></td></tr>
+                        }
+                        @if (evaluaciones.Count == 0) { <tr><td colspan="3" class="text-muted">Aún no hay recepciones evaluadas.</td></tr> }
+                    </tbody></table>
+                </div></div>
+                <div class="card"><div class="card-header fw-bold">Detalle por recepción</div><div class="table-responsive">
+                    <table class="table table-sm mb-0"><thead><tr><th>Proveedor</th><th class="text-end">Cumplimiento</th><th class="text-end">Puntualidad</th><th class="text-end">Promedio</th><th>Comentarios</th></tr></thead><tbody>
+                        @foreach (var x in evaluaciones) { <tr><td>@x.Proveedor</td><td class="text-end">@($"{x.Cumplimiento}/5")</td><td class="text-end">@($"{x.Puntualidad}/5")</td><td class="text-end"><strong>@x.Promedio.ToString("N1")</strong></td><td>@x.Comentarios</td></tr> }
+                    </tbody></table>
+                </div></div>
+            </div>
+        </div>
+    }
+    else if (pestaña == "reparto")
+    {
+        <div class="row g-3">
+            <div class="col-lg-4"><div class="card"><div class="card-header fw-bold">Programar remisión/reparto</div><div class="card-body">
+                <label class="form-label">Orden facturada</label><select class="form-select mb-2" @bind="ordenEntregaId"><option value="0">Selecciona orden…</option>@foreach (var x in ordenes) { <option value="@x.Id">@x.Folio · @x.Cliente</option> }</select>
+                <label class="form-label">Ruta</label><input class="form-control mb-2" @bind="ruta" />
+                <label class="form-label">Chofer</label><input class="form-control mb-2" @bind="chofer" />
+                <label class="form-label">Vehículo</label><input class="form-control mb-2" @bind="vehiculo" />
+                <label class="form-label">Placas</label><input class="form-control mb-2" @bind="placas" />
+                <label class="form-label">Fecha programada</label><input class="form-control mb-3" type="datetime-local" @bind="fechaProgramada" />
+                <button class="btn btn-primary" @onclick="ProgramarEntrega" disabled="@(guardando || ordenEntregaId == 0)">Programar</button>
+                <div class="small text-muted mt-2">La entrega no vuelve a descontar inventario. Las devoluciones de una factura deben regularizarse con una nota de crédito para reponer stock y ajustar contabilidad.</div>
+            </div></div></div>
+            <div class="col-lg-8"><div class="card"><div class="card-header fw-bold">Repartos</div><div class="table-responsive">
+                <table class="table table-sm align-middle"><thead><tr><th>Orden/cliente</th><th>Ruta · chofer · vehículo</th><th>Estado</th><th>Renglones</th><th></th></tr></thead><tbody>
+                    @foreach (var x in entregas) { <tr><td>@x.FolioOrden<br /><small>@x.Cliente</small></td><td>@x.Ruta<br /><small>@x.Chofer · @x.Vehiculo @x.Placas</small></td><td>@x.Estado</td><td>@x.Detalles.Count</td><td><button class="btn btn-sm btn-outline-primary" disabled="@(x.Estado is "Liquidada" or "Entregada")" @onclick="() => PrepararLiquidacion(x)">Liquidar</button> <button class="btn btn-sm btn-outline-secondary" @onclick="() => PrepararCartaPorte(x)">Carta Porte</button></td></tr> }
+                    @if (entregas.Count == 0) { <tr><td colspan="5" class="text-muted">Sin repartos programados.</td></tr> }
+                </tbody></table>
+            </div></div></div>
+        </div>
+        @if (entregaSeleccionada is not null)
+        {
+            <div class="card mt-3"><div class="card-header fw-bold">Liquidar reparto @entregaSeleccionada.FolioOrden</div><div class="card-body">
+                <div class="table-responsive"><table class="table table-sm"><thead><tr><th>Producto</th><th>Programada</th><th>Entregada</th><th>Devuelta</th></tr></thead><tbody>
+                    @foreach (var x in lineasEntrega) { <tr><td>@x.Producto</td><td>@x.Programada.ToString("N2")</td><td><input class="form-control form-control-sm" type="number" min="0" step="0.01" max="@x.Programada" @bind="x.Entregada" /></td><td><input class="form-control form-control-sm" type="number" min="0" step="0.01" max="@x.Programada" @bind="x.Devuelta" /></td></tr> }
+                </tbody></table></div>
+                <button class="btn btn-success" @onclick="LiquidarEntrega" disabled="@guardando">Guardar liquidación</button>
+            </div></div>
+        }
+    }
+    else if (pestaña == "envases")
+    {
+        <div class="alert alert-info">El control de tambores clasifica el stock físico entre cerrado y abierto; no crea ni modifica litros del kardex. Los envases retornables registran saldo y depósito informativo: el cobro/reembolso contable se registra por separado.</div>
+        <div class="row g-3">
+            <div class="col-lg-5"><div class="card"><div class="card-header fw-bold">Tambores abiertos / granel</div><div class="card-body">
+                <label class="form-label">Producto</label><select class="form-select mb-2" @bind="tamborProductoId"><option value="0">Seleccionar…</option>@foreach (var p in productos) { <option value="@p.Id">@p.Sku · @p.Nombre</option> }</select>
+                <div class="row g-2"><div class="col-4"><label class="form-label">Litros/tambor</label><input class="form-control" type="number" min="0.01" step="0.01" @bind="litrosPorTambor" /></div><div class="col-4"><label class="form-label">Cerrados</label><input class="form-control" type="number" min="0" @bind="tamboresCerrados" /></div><div class="col-4"><label class="form-label">Litros abiertos</label><input class="form-control" type="number" min="0" step="0.01" @bind="litrosAbiertos" /></div></div>
+                <button class="btn btn-primary mt-3" @onclick="GuardarControlTambor" disabled="@(guardando || tamborProductoId == 0)">Guardar control</button>
+                <div class="table-responsive mt-3"><table class="table table-sm"><thead><tr><th>Producto</th><th>Cerrados</th><th>Abiertos</th><th></th></tr></thead><tbody>@foreach (var x in controlesTambor) { <tr><td>@x.Producto (@x.LitrosPorTambor.ToString("N0") L)</td><td>@x.TamboresCerrados</td><td>@x.LitrosAbiertos.ToString("N2") L</td><td><button class="btn btn-sm btn-outline-primary" @onclick="() => EditarTambor(x)">Editar</button></td></tr> }</tbody></table></div>
+            </div></div></div>
+            <div class="col-lg-7"><div class="card"><div class="card-header fw-bold">Envase retornable / depósito</div><div class="card-body">
+                <div class="row g-2">
+                    <div class="col-md-6"><label class="form-label">Cliente</label><select class="form-select" @bind="envaseClienteId"><option value="0">Seleccionar…</option>@foreach (var c in clientes) { <option value="@c.Id">@c.Nombre</option> }</select></div>
+                    <div class="col-md-6"><label class="form-label">Envase</label><input class="form-control" @bind="envaseNombre" placeholder="Cubeta 19 L, tambor 208 L…" /></div>
+                    <div class="col-4"><label class="form-label">Cantidad</label><input class="form-control" type="number" min="1" @bind="envaseCantidad" /></div>
+                    <div class="col-4"><label class="form-label">Depósito unitario</label><input class="form-control" type="number" min="0" step="0.01" @bind="envaseDeposito" /></div>
+                    <div class="col-4"><label class="form-label">Movimiento</label><select class="form-select" @bind="esDevolucion"><option value="false">Entregado</option><option value="true">Devuelto</option></select></div>
+                    <div class="col-12"><label class="form-label">Referencia</label><input class="form-control" @bind="envaseReferencia" /></div>
+                </div>
+                <button class="btn btn-primary mt-3" @onclick="RegistrarEnvase" disabled="@(guardando || envaseClienteId == 0)">Registrar movimiento</button>
+                <div class="table-responsive mt-3"><table class="table table-sm"><thead><tr><th>Cliente</th><th>Envase</th><th>Saldo</th><th>Depósito pendiente*</th></tr></thead><tbody>@foreach (var x in saldosEnvase) { <tr><td>@x.Cliente</td><td>@x.Envase</td><td>@x.Saldo</td><td>$@x.DepositoPendiente.ToString("N2")</td></tr> }</tbody></table></div>
+                <small class="text-muted">* Saldo informativo, no constituye una cuenta por cobrar ni un reembolso contable.</small>
+            </div></div></div>
+        </div>
+    }
+    else if (pestaña == "carta")
+    {
+        <div class="alert alert-warning"><strong>Borrador operativo.</strong> El XML generado es una captura preliminar Carta Porte 3.1. No es un CFDI, no se valida contra el XSD/catálogos completos del SAT y no está firmado ni timbrado por PAC. Completar la información fiscal/legal y el timbrado sigue siendo requisito para circular cuando aplique.</div>
+        <div class="row g-3">
+            <div class="col-lg-5"><div class="card"><div class="card-header fw-bold">Datos del transporte</div><div class="card-body">
+                <label class="form-label">Reparto</label><select class="form-select mb-2" @bind="cpEntregaId"><option value="0">Selecciona…</option>@foreach (var x in entregas) { <option value="@x.Id">@x.FolioOrden · @x.Ruta · @x.Estado</option> }</select>
+                <div class="row g-2"><div class="col-6"><label class="form-label">RFC operador</label><input class="form-control" maxlength="13" @bind="cpRfc" /></div><div class="col-6"><label class="form-label">Permiso SCT</label><input class="form-control" @bind="cpPermiso" /></div>
+                    <div class="col-6"><label class="form-label">Número permiso</label><input class="form-control" @bind="cpNumeroPermiso" /></div><div class="col-6"><label class="form-label">Configuración vehicular</label><input class="form-control" @bind="cpConfiguracion" placeholder="C2, T3S2…" /></div>
+                    <div class="col-6"><label class="form-label">Placas</label><input class="form-control" @bind="cpPlacas" /></div><div class="col-6"><label class="form-label">Peso bruto (kg)</label><input class="form-control" type="number" min="0.01" step="0.01" @bind="cpPeso" /></div>
+                    <div class="col-6"><label class="form-label">CP origen</label><input class="form-control" maxlength="5" @bind="cpOrigen" /></div><div class="col-6"><label class="form-label">CP destino</label><input class="form-control" maxlength="5" @bind="cpDestino" /></div>
+                </div>
+                <button class="btn btn-primary mt-3" @onclick="GuardarCartaPorte" disabled="@(guardando || cpEntregaId == 0)">Generar borrador</button>
+            </div></div></div>
+            <div class="col-lg-7">
+                @if (cartaPorte is not null) { <div class="card"><div class="card-header fw-bold">XML preliminar Carta Porte 3.1</div><div class="card-body"><pre class="small text-wrap">@cartaPorte.XmlBorrador</pre></div></div> }
+                <div class="card mt-3"><div class="card-header fw-bold">Repartos con documento</div><div class="table-responsive"><table class="table table-sm mb-0"><thead><tr><th>Orden</th><th>Ruta</th><th>Estado</th><th>Documento</th></tr></thead><tbody>@foreach (var x in entregas) { <tr><td>@x.FolioOrden</td><td>@x.Ruta</td><td>@x.Estado</td><td>@(x.TieneCartaPorte ? "Borrador guardado" : "Sin borrador")</td></tr> }</tbody></table></div></div>
+            </div>
+        </div>
+    }
+</div>

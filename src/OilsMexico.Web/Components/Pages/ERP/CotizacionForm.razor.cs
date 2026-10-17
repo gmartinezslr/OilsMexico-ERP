@@ -29,10 +29,18 @@ public partial class CotizacionForm : ComponentBase
     private List<Renglon> renglones = [];
     private int clienteId;
     private int vendedorId;
+    private CreditoClienteDto? creditoCliente;
+    private bool consultandoCredito;
+    private string? errorCredito;
+    private string? errorPrecio;
     private DateTime fechaVencimiento = DateTime.UtcNow.AddDays(7);
     private string notas = "";
     private string filtroProducto = "";
     private List<ProductoDto> productos = [];
+    private string marcaVehiculo = "", modeloVehiculo = "";
+    private int anioVehiculo = DateTime.UtcNow.Year;
+    private List<CompatibilidadVehiculoDto> compatibilidades = [];
+    private string? errorCompatibilidad;
     private List<ProductoDto> productosFiltrados =>
         productos.Where(p => p.Sku.Contains(filtroProducto) || p.Nombre.Contains(filtroProducto)).ToList();
 
@@ -47,6 +55,8 @@ public partial class CotizacionForm : ComponentBase
 
     [Inject] public ICotizacionesConsulta CotizacionesConsulta { get; set; } = default!;
     [Inject] public ICotizacionesOperaciones CotizacionesOps { get; set; } = default!;
+    [Inject] public IVentasPosService Ventas { get; set; } = default!;
+    [Inject] public IDiferenciadoresService Diferenciadores { get; set; } = default!;
     [Inject] public IAutorizacionService Autorizacion { get; set; } = default!;
     [Inject] public ISucursalContext SucCtx { get; set; } = default!;
     [Inject] public ISesionActual Sesion { get; set; } = default!;
@@ -106,6 +116,7 @@ public partial class CotizacionForm : ComponentBase
         productos = await CotizacionesConsulta.ListarProductosAsync(SucCtx.SucursalId);
         await CargarClientes();
         await CargarVendedores();
+        await ConsultarCreditoClienteAsync();
         StateHasChanged();
     }
 
@@ -125,7 +136,45 @@ public partial class CotizacionForm : ComponentBase
         StateHasChanged();
     }
 
-    private void CargarSucursales() => StateHasChanged();
+    private async Task CargarSucursales()
+    {
+        await ConsultarCreditoClienteAsync();
+        foreach (var renglon in renglones.Where(x => x.ProductoId > 0 && x.Cantidad > 0))
+            await ActualizarPrecio(renglon);
+        StateHasChanged();
+    }
+
+    private async Task BuscarCompatibilidad()
+    {
+        errorCompatibilidad = null;
+        try
+        {
+            compatibilidades = await Diferenciadores.BuscarCompatibilidadAsync(marcaVehiculo, modeloVehiculo, anioVehiculo);
+            if (compatibilidades.Count == 0) errorCompatibilidad = "No se encontraron aplicaciones para esos datos.";
+        }
+        catch (Exception ex) { errorCompatibilidad = $"No se pudo consultar compatibilidad: {ex.Message}"; }
+    }
+
+    private async Task ConsultarCreditoClienteAsync()
+    {
+        creditoCliente = null;
+        errorCredito = null;
+        if (clienteId <= 0) return;
+
+        consultandoCredito = true;
+        try
+        {
+            creditoCliente = await Ventas.ConsultarCreditoClienteAsync(clienteId);
+        }
+        catch (Exception ex)
+        {
+            errorCredito = $"No se pudo consultar el crédito: {ex.Message}";
+        }
+        finally
+        {
+            consultandoCredito = false;
+        }
+    }
 
     private async Task Guardar()
     {
@@ -186,7 +235,7 @@ public partial class CotizacionForm : ComponentBase
         renglones.RemoveAt(i);
     }
 
-    private void AsignarPrecio(int i)
+    private async Task AsignarPrecio(int i)
     {
         if (i < 0 || i >= renglones.Count) return;
         var r = renglones[i];
@@ -195,6 +244,20 @@ public partial class CotizacionForm : ComponentBase
         r.Sku = prod.Sku;
         r.Nombre = prod.Nombre;
         r.UnidadMedidaId = prod.UnidadMedidaId;
-        if (prod.PrecioVenta > 0) r.Precio = prod.PrecioVenta;
+        await ActualizarPrecio(r);
+    }
+
+    private async Task ActualizarPrecio(Renglon renglon)
+    {
+        if (renglon.ProductoId <= 0 || clienteId <= 0 || renglon.Cantidad <= 0) return;
+        try
+        {
+            errorPrecio = null;
+            var factor = productos.FirstOrDefault(p => p.Id == renglon.ProductoId)?.FactorConversion ?? 1m;
+            var resuelto = await Diferenciadores.ResolverPrecioAsync(
+                renglon.ProductoId, clienteId, renglon.Cantidad, factor);
+            renglon.Precio = resuelto.Precio;
+        }
+        catch (Exception ex) { errorPrecio = $"No se pudo calcular el precio sugerido: {ex.Message}"; }
     }
 }

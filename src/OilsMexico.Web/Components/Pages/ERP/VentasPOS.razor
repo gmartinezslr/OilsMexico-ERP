@@ -38,6 +38,29 @@ else
 }
 <input @ref="cajaScan" class="form-control form-control-lg font-monospace" placeholder="Escanea o escribe: 5W-30, Mobil, 7501234… (Enter = agregar)"
        value="@filtro" @oninput="AlEscribir" @onkeydown="AlTecla" />
+<div class="border rounded p-2 mb-3 bg-light">
+    <div class="fw-semibold small mb-1">Compatibilidad por vehículo (catálogo técnico)</div>
+    <div class="row g-2 align-items-end">
+        <div class="col"><label class="form-label small mb-1">Marca</label><input class="form-control form-control-sm" @bind="marcaVehiculo" /></div>
+        <div class="col"><label class="form-label small mb-1">Modelo</label><input class="form-control form-control-sm" @bind="modeloVehiculo" /></div>
+        <div class="col-3"><label class="form-label small mb-1">Año</label><input class="form-control form-control-sm" type="number" @bind="anioVehiculo" /></div>
+        <div class="col-auto"><button type="button" class="btn btn-sm btn-outline-primary" @onclick="BuscarCompatibilidad">Consultar</button></div>
+    </div>
+    @if (errorCompatibilidad is not null) { <div class="small text-muted mt-1">@errorCompatibilidad</div> }
+    @if (compatibilidades.Count > 0)
+    {
+        <ul class="small mb-0 mt-2">
+            @foreach (var c in compatibilidades)
+            {
+                <li><strong>@c.Marca @c.Modelo @c.AnioDesde–@c.AnioHasta</strong> · @c.Motor · @c.Viscosidad
+                    @if (!string.IsNullOrWhiteSpace(c.Norma)) { <span> · @c.Norma</span> }
+                    @if (c.CapacidadLitros.HasValue) { <span> · @c.CapacidadLitros.Value:N2 L</span> }
+                    @if (!string.IsNullOrWhiteSpace(c.Producto)) { <span> · @c.Producto</span> }
+                </li>
+            }
+        </ul>
+    }
+</div>
 <div class="list-group mt-2" style="max-height:420px;overflow-y:auto">
 @foreach(var p in productos){
 <button type="button" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center" @onclick="()=>Agregar(p)">
@@ -47,7 +70,7 @@ else
 {
     <span class="font-monospace"> · CB @p.CodigoBarra</span>
 }</small></span>
-<span class="badge bg-success fs-6">$@p.PrecioVenta.ToString("N2")</span>
+<span class="badge bg-success fs-6">$@PrecioProducto(p).ToString("N2")</span>
 </button>}
 @if(productos.Count==0){<div class="list-group-item text-muted">Sin resultados.</div>}
 </div>
@@ -58,7 +81,7 @@ else
 @foreach(var it in carrito){
 <div class="d-flex justify-content-between align-items-center border-bottom py-2">
 <div><strong>@it.Nombre</strong><br/>
-<small>@it.Cantidad.ToString("N2") @it.UnidadNombre - $@it.Importe.ToString("N2")</small></div>
+<small>@it.Cantidad.ToString("N2") @it.UnidadNombre × $@it.PrecioUnitario.ToString("N2") - $@it.Importe.ToString("N2")</small></div>
 <button type="button" class="btn btn-sm btn-outline-danger" @onclick="()=>Quitar(it)">X</button>
 </div>}
 <hr/>

@@ -164,6 +164,11 @@
                         <span class="text-muted">Periodo @_resultados.Desde.ToString("dd/MM/yyyy") — @_resultados.Hasta.ToString("dd/MM/yyyy")</span>
                         <a class="btn btn-sm btn-outline-danger" href="@UrlResultadosPdf">⬇ PDF</a>
                     </div>
+                    <div class="alert alert-warning py-2">
+                        Este reporte se calcula con pólizas contables. Las facturas históricas creadas antes de la
+                        contabilización automática y que no tengan póliza no se incluyen ni se contabilizan retroactivamente.
+                        Para consultar operaciones de venta, revisa el Historial de ventas.
+                    </div>
                     <table class="table table-bordered" style="max-width:520px">
                         <tbody>
                             <tr><td>Ventas netas</td><td class="text-end">@_resultados.VentasNetas.ToString("N2")</td></tr>

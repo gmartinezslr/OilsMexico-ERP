@@ -9,7 +9,9 @@ public sealed record BusquedaGlobalDto(
     string Titulo,
     string? Subtitulo,
     string Url,
-    string? Etiqueta = null);
+    string? Etiqueta = null,
+    int? ClienteId = null,
+    CreditoClienteDto? Credito = null);
 
 /// <summary>Plantilla de mensaje operativo (WhatsApp / impresión / correo).</summary>
 public sealed record PlantillaMensajeDto(
@@ -17,4 +19,3 @@ public sealed record PlantillaMensajeDto(
     string Nombre,
     string Canal,
     string Cuerpo);
-

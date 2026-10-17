@@ -62,7 +62,7 @@ http://localhost:5200/ -> /login -> /ventas-pos
 ```
 Inicia sesión y abre los módulos autorizados para tu rol desde el menú principal.
 
-**Rutas principales:** `/`, `/login`, `/ventas-pos`, `/historial-ventas`, `/cotizaciones`, `/cotizaciones/nueva`, `/ordenes-vente`, `/facturacion`, `/notas-credito`, `/complementos-pago`, `/corte-caja`, `/compras`, `/gastos`, `/estado-cuentas`, `/bancos`, `/reportes`, `/metas`, `/productos`, `/almacen`, `/viscosidad`, `/clientes`, `/proveedores`, `/sepomex`, `/sucursal`, `/usuarios`, `/configuracion`, `/permisos`, `/auditoria`, `/comunicados`, `/ticket/{FacturaId}`. Algunas pantallas de detalle usan rutas parametrizadas; el menú y los permisos determinan cuáles aparecen para cada usuario.
+**Rutas principales:** `/`, `/login`, `/ventas-pos`, `/historial-ventas`, `/cotizaciones`, `/cotizaciones/nueva`, `/ordenes-vente`, `/facturacion`, `/notas-credito`, `/complementos-pago`, `/corte-caja`, `/compras`, `/diferenciadores`, `/gastos`, `/estado-cuentas`, `/bancos`, `/reportes`, `/metas`, `/productos`, `/almacen`, `/viscosidad`, `/clientes`, `/proveedores`, `/sepomex`, `/sucursal`, `/usuarios`, `/configuracion`, `/permisos`, `/auditoria`, `/comunicados`, `/ticket/{FacturaId}`. Algunas pantallas de detalle usan rutas parametrizadas; el menú y los permisos determinan cuáles aparecen para cada usuario.
 
 ## Accesos demo (PIN)
 | PIN | Rol | Destino |
@@ -115,6 +115,7 @@ curl.exe -s -o NUL -w 'xml:%{http_code}' http://localhost:5200/api/facturas/1/xm
 - **Caja y cobranza:** apertura/cierre y corte de caja, gastos operativos, CxC/CxP, vencimientos, pagos y estados de cuenta.
 - **Compras y proveedores:** órdenes de compra, recepción, pagos y seguimiento de cuentas por pagar.
 - **Productos e inventario:** catálogo, existencias por sucursal, ajustes, traspasos, kardex, códigos de barras y aceites por viscosidad.
+- **Diferenciadores (`/diferenciadores`):** listas de precio menudeo/mayoreo con umbrales por litros equivalentes integrados al POS/cotizaciones; catálogo de compatibilidad por vehículo consultable desde ventas; evaluación por recepción de proveedor; reparto/liquidación sin una segunda salida de inventario; control físico de tambor y envases retornables; captura y XML preliminar Carta Porte 3.1. La Carta Porte generada es un borrador operativo: no se valida contra los XSD/catálogos completos del SAT ni se sella/timbra. Devoluciones de mercancía facturada requieren nota de crédito; depósitos de envases son informativos, no asientos ni cobros.
 - **Clientes y proveedores:** administración de terceros, datos fiscales y múltiples contactos, correos, teléfonos y direcciones.
 - **Bancos:** cuentas, movimientos y conciliación bancaria.
 - **Contabilidad y reportes:** asientos, FIFO para costo de ventas, cierre/reapertura de periodos y reportes financieros (balanza, balance, resultados, existencias e indicadores).

@@ -44,6 +44,56 @@
                         <input class="form-control" type="datetime-local" @bind="fechaVencimiento" />
                     </div>
                 </div>
+                @if (consultandoCredito)
+                {
+                    <div class="alert alert-secondary py-2 mt-2 mb-0">Consultando estado de crédito del cliente…</div>
+                }
+                else if (creditoCliente is not null)
+                {
+                    <div class="alert @(creditoCliente.EstaBloqueado ? "alert-danger" : "alert-info") py-2 mt-2 mb-0">
+                        <strong>@(creditoCliente.EstaBloqueado ? "Crédito bloqueado" : creditoCliente.TieneCredito ? "Crédito disponible" : "Cliente de contado")</strong>
+                        @if (creditoCliente.TieneCredito)
+                        {
+                            <span> — Disponible: $@((creditoCliente.LimiteCredito - creditoCliente.SaldoVencido).ToString("N2")) de $@creditoCliente.LimiteCredito.ToString("N2"); vencido: $@creditoCliente.SaldoVencido.ToString("N2").</span>
+                        }
+                        else
+                        {
+                            <span> — Sin límite de crédito configurado; saldo vencido: $@creditoCliente.SaldoVencido.ToString("N2").</span>
+                        }
+                        <span> La cotización no reserva crédito; el límite se valida al registrar la venta.</span>
+                    </div>
+                }
+                @if (!string.IsNullOrEmpty(errorCredito))
+                {
+                    <div class="alert alert-warning py-2 mt-2 mb-0">@errorCredito</div>
+                }
+                @if (!string.IsNullOrEmpty(errorPrecio))
+                {
+                    <div class="alert alert-warning py-2 mt-2 mb-0">@errorPrecio</div>
+                }
+                <div class="border rounded p-2 mt-2 bg-light">
+                    <div class="fw-semibold small mb-1">Compatibilidad de aceites por vehículo</div>
+                    <div class="row g-2 align-items-end">
+                        <div class="col"><label class="form-label small mb-1">Marca</label><input class="form-control form-control-sm" @bind="marcaVehiculo" /></div>
+                        <div class="col"><label class="form-label small mb-1">Modelo</label><input class="form-control form-control-sm" @bind="modeloVehiculo" /></div>
+                        <div class="col-3"><label class="form-label small mb-1">Año</label><input class="form-control form-control-sm" type="number" @bind="anioVehiculo" /></div>
+                        <div class="col-auto"><button type="button" class="btn btn-sm btn-outline-primary" @onclick="BuscarCompatibilidad">Consultar</button></div>
+                    </div>
+                    @if (errorCompatibilidad is not null) { <div class="small text-muted mt-1">@errorCompatibilidad</div> }
+                    @if (compatibilidades.Count > 0)
+                    {
+                        <ul class="small mb-0 mt-2">
+                            @foreach (var c in compatibilidades)
+                            {
+                                <li><strong>@c.Marca @c.Modelo @c.AnioDesde–@c.AnioHasta</strong> · @c.Motor · @c.Viscosidad
+                                    @if (!string.IsNullOrWhiteSpace(c.Norma)) { <span> · @c.Norma</span> }
+                                    @if (c.CapacidadLitros.HasValue) { <span> · @c.CapacidadLitros.Value:N2 L</span> }
+                                    @if (!string.IsNullOrWhiteSpace(c.Producto)) { <span> · @c.Producto</span> }
+                                </li>
+                            }
+                        </ul>
+                    }
+                </div>
                 <div class="row g-2 mt-2">
                     <div class="col-12">
                         <label class="form-label small">Producto</label>
@@ -81,7 +131,7 @@
                                             </select>
                                         </td>
                                         <td class="text-end">
-                                            <input class="form-control form-control-sm" style="width:60px" type="number" step="0.01" min="0" @bind="r.Cantidad" />
+                                            <input class="form-control form-control-sm" style="width:60px" type="number" step="0.01" min="0" @bind="r.Cantidad" @bind:after="() => ActualizarPrecio(r)" />
                                         </td>
                                         <td class="text-end">
                                             <input class="form-control form-control-sm" style="width:70px" type="number" step="0.01" min="0" @bind="r.Precio" />
@@ -112,4 +162,3 @@
         </div>
     </div>
 </div>
-

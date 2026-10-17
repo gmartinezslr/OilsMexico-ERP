@@ -5,6 +5,7 @@
 @inject OilsMexico.Application.Interfaces.ISesionActual Sesion
 @inject OilsMexico.Application.Interfaces.ISucursalContext SucCtx
 @inject NavigationManager Nav
+@inject ILogger<BusquedaGlobal> Logger
 @implements IDisposable
 
 <div class="busq-global">
@@ -19,7 +20,14 @@
             }
             else if (resultados.Count == 0)
             {
-                <div class="text-muted small px-2 py-1">Sin resultados. Mínimo 2 letras.</div>
+                @if (!string.IsNullOrEmpty(errorCredito))
+                {
+                    <div class="alert alert-warning small py-1 px-2 mb-0">@errorCredito</div>
+                }
+                else
+                {
+                    <div class="text-muted small px-2 py-1">Sin resultados. Mínimo 2 letras.</div>
+                }
             }
             else
             {
@@ -38,8 +46,29 @@
                             {
                                 <span class="badge bg-secondary busq-tag">@r.Etiqueta</span>
                             }
+                            @if (r.Credito is { } credito)
+                            {
+                                <span class="d-block small @(credito.EstaBloqueado ? "text-danger fw-semibold" : "text-muted")">
+                                    @if (credito.EstaBloqueado)
+                                    {
+                                        <span>Crédito bloqueado · vencido $@credito.SaldoVencido.ToString("N2") / límite $@credito.LimiteCredito.ToString("N2")</span>
+                                    }
+                                    else if (credito.TieneCredito)
+                                    {
+                                        <span>Crédito disponible $@((credito.LimiteCredito - credito.SaldoVencido).ToString("N2")) / $@credito.LimiteCredito.ToString("N2")</span>
+                                    }
+                                    else
+                                    {
+                                        <span>Sin crédito configurado · contado · vencido $@credito.SaldoVencido.ToString("N2")</span>
+                                    }
+                                </span>
+                            }
                         </button>
                     }
+                }
+                @if (!string.IsNullOrEmpty(errorCredito))
+                {
+                    <div class="alert alert-warning small py-1 px-2 mb-0">@errorCredito</div>
                 }
             }
         </div>
@@ -61,6 +90,7 @@
     private string texto = "";
     private bool abierto, buscando;
     private List<OilsMexico.Application.DTOs.BusquedaGlobalDto> resultados = [];
+    private string? errorCredito;
     private ElementReference caja;
     private System.Threading.CancellationTokenSource? debounce;
 
@@ -68,7 +98,7 @@
 
     private void AlNavegar(object? s, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
     {
-        abierto = false; texto = ""; resultados = [];
+        abierto = false; texto = ""; resultados = []; errorCredito = null;
         try { InvokeAsync(StateHasChanged); } catch { }
     }
 
@@ -76,19 +106,45 @@
     {
         texto = e.Value?.ToString() ?? "";
         abierto = true;
+        buscando = false;
         debounce?.Cancel();
         debounce = new System.Threading.CancellationTokenSource();
         var tok = debounce.Token;
         await Task.Delay(250);
         if (tok.IsCancellationRequested) return;
-        if (!Sesion.Autenticado || texto.Trim().Length < 2) { resultados = []; return; }
+        if (!Sesion.Autenticado || texto.Trim().Length < 2)
+        {
+            resultados = [];
+            errorCredito = null;
+            return;
+        }
         buscando = true;
-        try { resultados = await Busqueda.BuscarAsync(texto, SucCtx.SucursalId); }
-        catch { resultados = []; }
-        buscando = false;
+        errorCredito = null;
+        try
+        {
+            resultados = await Busqueda.BuscarAsync(texto, SucCtx.SucursalId, tok);
+        }
+        catch (OperationCanceledException) when (tok.IsCancellationRequested)
+        {
+            return;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "No se pudo completar la búsqueda global.");
+            resultados = [];
+            errorCredito = "No se pudo completar la búsqueda. Intenta de nuevo.";
+        }
+        finally
+        {
+            if (!tok.IsCancellationRequested) buscando = false;
+        }
     }
 
-    private void Ir(string url) { abierto = false; texto = ""; resultados = []; Nav.NavigateTo(url); }
+    private void Ir(string url)
+    {
+        abierto = false; texto = ""; resultados = []; errorCredito = null;
+        Nav.NavigateTo(url);
+    }
 
     private async Task AlTecla(Microsoft.AspNetCore.Components.Web.KeyboardEventArgs e)
     {

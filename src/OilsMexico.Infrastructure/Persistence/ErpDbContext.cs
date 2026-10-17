@@ -82,6 +82,15 @@ public sealed class ErpDbContext(DbContextOptions<ErpDbContext> options) : DbCon
     //  Catálogos SAT y del sistema en tabla (T-13 / §6.2 / A3)
     // ---------------------------------------------------------
     public DbSet<CatalogoSat> CatalogosSat => Set<CatalogoSat>();
+    public DbSet<ListaPrecio> ListasPrecio => Set<ListaPrecio>();
+    public DbSet<PrecioVolumen> PreciosVolumen => Set<PrecioVolumen>();
+    public DbSet<CompatibilidadVehiculo> CompatibilidadesVehiculo => Set<CompatibilidadVehiculo>();
+    public DbSet<EvaluacionProveedor> EvaluacionesProveedor => Set<EvaluacionProveedor>();
+    public DbSet<EntregaReparto> EntregasReparto => Set<EntregaReparto>();
+    public DbSet<EntregaRepartoDetalle> EntregasRepartoDetalle => Set<EntregaRepartoDetalle>();
+    public DbSet<ControlTambor> ControlesTambores => Set<ControlTambor>();
+    public DbSet<MovimientoEnvaseRetornable> MovimientosEnvaseRetornable => Set<MovimientoEnvaseRetornable>();
+    public DbSet<BorradorCartaPorte> BorradoresCartaPorte => Set<BorradorCartaPorte>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {

@@ -8,6 +8,7 @@ public static class PermisosPaginas
 
     private static readonly string[] Admin = [Roles.Admin];
     private static readonly string[] AdminVendedor = [Roles.Admin, Roles.Vendedor];
+    private static readonly string[] AdminVendedorAlmacen = [Roles.Admin, Roles.Vendedor, Roles.Almacen];
     private static readonly string[] AdminConta = [Roles.Admin, Roles.Conta];
     private static readonly string[] AdminVendedorConta = [Roles.Admin, Roles.Vendedor, Roles.Conta];
     private static readonly string[] AdminAlmacen = [Roles.Admin, Roles.Almacen];
@@ -34,6 +35,7 @@ public static class PermisosPaginas
         new("almacen", "Inventario y stock", AdminAlmacen),
         new("viscosidad", "Aceites por viscosidad", AdminAlmacen),
         new("compras", "Compras", AdminAlmacen),
+        new("diferenciadores", "Diferenciadores del giro", AdminVendedorAlmacen),
         new("clientes", "Clientes", AdminVendedor),
         new("proveedores", "Proveedores", AdminVendedor),
         new("configuracion", "Configuración", Admin),
