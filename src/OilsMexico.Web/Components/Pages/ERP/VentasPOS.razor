@@ -90,7 +90,13 @@ else
     <div class="col-12"><label class="form-label small">Cliente</label>
     <select class="form-select" @bind="clienteId" @bind:after="OnClienteCambiado">
     @foreach(var c in clientes){<option value="@c.Id">@c.Nombre</option>}
-    </select></div>
+    </select>
+    @if (creditoCliente is not null)
+    {
+        <span class="@(creditoCliente.EstaBloqueado ? "bg-danger" : creditoCliente.TieneCredito ? "bg-info text-dark" : "bg-success") badge fs-6">
+            @(creditoCliente.EstaBloqueado ? "⚠ CRÉDITO BLOQUEADO" : creditoCliente.TieneCredito ? $"Crédito: ${creditoCliente.LimiteCredito - creditoCliente.SaldoVencido:N2} / ${creditoCliente.LimiteCredito:N2}" : "Contado")
+        </span>
+    }</div>
     <div class="col-12"><label class="form-label small">Vendedor (crédito de la venta)</label>
     <select class="form-select" @bind="vendedorId">
     <option value="">Sin asignar (usuario de sesión)</option>

@@ -44,6 +44,9 @@ public interface IVentasPosService
 {
     Task<List<ProductoDto>> BuscarProductosAsync(int sucursalId, string? filtro, CancellationToken ct = default);
     Task<VentaPosResult> RegistrarVentaAsync(VentaPosRequest request, CancellationToken ct = default);
+
+    /// <summary>Consulta el estado de crédito de un cliente para el bloqueo por morosidad (§4.1).</summary>
+    Task<CreditoClienteDto?> ConsultarCreditoClienteAsync(int clienteId, CancellationToken ct = default);
 }
 
 /// <summary>Facturación transaccional de una orden de venta.</summary>

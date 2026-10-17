@@ -339,4 +339,18 @@ public sealed partial class VentasService
     private async Task<bool> EsVendedorValidoAsync(int usuarioId, CancellationToken ct) =>
         await db.Usuarios.AsNoTracking().AnyAsync(u => u.Id == usuarioId && u.Activo
             && (u.Rol == Roles.Vendedor || u.Rol == Roles.Admin), ct);
+
+    /// <summary>Consulta el estado de crédito de un cliente para el bloqueo por morosidad (§4.1).</summary>
+    public async Task<CreditoClienteDto?> ConsultarCreditoClienteAsync(int clienteId, CancellationToken ct = default)
+    {
+        var cliente = await db.Clientes.FindAsync([clienteId], ct);
+        if (cliente is null) return null;
+
+        var saldoVencido = await _cobranza.SaldoVencidoPorClienteAsync(clienteId, ct);
+        var bloqueado = cliente.LimiteCredito > 0m && saldoVencido > cliente.LimiteCredito;
+
+        return new CreditoClienteDto(
+            cliente.Id, cliente.Nombre, cliente.LimiteCredito, cliente.DiasCredito,
+            saldoVencido, bloqueado);
+    }
 }

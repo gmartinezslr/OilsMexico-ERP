@@ -41,6 +41,7 @@ public partial class VentasPOS : ComponentBase
     protected bool requiereFactura = false, procesando = false, esError = false;
     protected string mensaje = "";
     protected VentaPosResult? ultimo;
+    protected CreditoClienteDto? creditoCliente;
     // Guarda contra búsquedas superpuestas (escribir rápido / doble render): una segunda
     // operación sobre el mismo DbContext del circuito tumba Blazor con InvalidOperationException.
     private int _busquedaEnCurso;
@@ -94,10 +95,16 @@ public partial class VentasPOS : ComponentBase
         StateHasChanged();
     }
 
-    /// <summary>Al cambiar el cliente se preselecciona su vendedor dueño (sugerido, editable).</summary>
-    protected void OnClienteCambiado()
+    /// <summary>Al cambiar el cliente se preselecciona su vendedor dueño y se consulta su estado de crédito (§4.1).</summary>
+    protected async void OnClienteCambiado()
     {
         vendedorId = vendedorPorCliente.GetValueOrDefault(clienteId);
+        creditoCliente = null;
+        try
+        {
+            creditoCliente = await Ventas.ConsultarCreditoClienteAsync(clienteId);
+        }
+        catch { /* No bloquea la UI si la consulta de crédito falla; el bloqueo se aplica al cobrar. */ }
     }
 
     protected async Task Buscar()

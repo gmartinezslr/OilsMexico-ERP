@@ -79,3 +79,18 @@ public sealed record FacturaListadoDto(
     EstadoFactura Estado, decimal Subtotal, decimal Iva, decimal Total,
     string FormaPagoSat, string MetodoPagoSat, string UsoCfdi,
     Guid? UuidSat, bool TieneXml, int Renglones, string? MotivoCancelacion);
+
+/// <summary>Estado de crédito de un cliente para el bloqueo por morosidad (§4.1).</summary>
+public sealed record CreditoClienteDto(
+    int ClienteId, string Nombre, decimal LimiteCredito, int DiasCredito,
+    decimal SaldoVencido, bool EstaBloqueado)
+{
+    public bool TieneCredito => LimiteCredito > 0;
+
+    /// <summary>Texto legible para mostrar en la UI del POS.</summary>
+    public string EstadoTexto => EstaBloqueado
+        ? $"Bloqueado: vencido {SaldoVencido:N2} supera límite {LimiteCredito:N2}"
+        : TieneCredito
+            ? $"Disponible: {LimiteCredito - SaldoVencido:N2} / {LimiteCredito:N2}"
+            : "Contado (sin crédito)";
+}

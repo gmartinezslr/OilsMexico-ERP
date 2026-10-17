@@ -28,6 +28,10 @@
                     <button type="button" class="list-group-item list-group-item-action @(edit.Id == c.Id ? "active" : "")" @onclick="() => Editar(c.Id)">
                         <strong>@c.Nombre</strong><br />
                         <small>@c.Rfc · @c.CodigoPostal @c.Colonia</small>
+                        @if (c.LimiteCredito > 0)
+                        {
+                            <span class="badge bg-info text-dark float-end">Límite: $@c.LimiteCredito.ToString("N2")</span>
+                        }
                     </button>
                 }
                 @if (lista.Count == 0)

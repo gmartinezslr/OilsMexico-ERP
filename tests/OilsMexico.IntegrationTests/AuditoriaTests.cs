@@ -223,6 +223,10 @@ public sealed class AuditoriaTests
             VentaPosRequest request, CancellationToken ct = default) =>
             throw new NotSupportedException();
 
+        public Task<CreditoClienteDto?> ConsultarCreditoClienteAsync(
+            int clienteId, CancellationToken ct = default) =>
+            Task.FromResult<CreditoClienteDto?>(null);
+
         public Task<OrdenVentaFacturarResult> FacturarOrdenVentaAsync(
             int ordenId, OrdenVentaFacturarRequest request, CancellationToken ct = default) =>
             throw new NotSupportedException();

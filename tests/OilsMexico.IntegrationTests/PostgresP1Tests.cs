@@ -58,6 +58,195 @@ public sealed class PostgresP1Tests(PgFixture fixture)
     }
 
     [Fact]
+    public async Task PostgreSQL_Credito_cliente_bloqueado_quando_saldo_vencido_supera_limite()
+    {
+        var (db, _) = await fixture.NuevaDbAsync();
+        await using (db)
+        await using (var tx = await db.Database.BeginTransactionAsync())
+        {
+            var sucursal = NuevaSucursal();
+            db.Sucursales.Add(sucursal);
+            await db.SaveChangesAsync();
+
+            var cliente = new Cliente
+            {
+                Nombre = "Cliente bloqueado",
+                LimiteCredito = 500m,
+                DiasCredito = 30
+            };
+            var vendedor = new Usuario { Nombre = "Vendedor", SucursalId = sucursal.Id };
+            db.AddRange(cliente, vendedor);
+            await db.SaveChangesAsync();
+
+            var vencida = NuevaFactura(sucursal.Id, cliente.Id, vendedor.Id, "PPD", 800m,
+                DateTime.UtcNow.AddDays(-45));
+            db.Facturas.Add(vencida);
+            await db.SaveChangesAsync();
+
+            var creditoSvc = new CobranzaService(db);
+            var saldoVencido = await creditoSvc.SaldoVencidoPorClienteAsync(cliente.Id);
+            Assert.True(saldoVencido > 500m);
+
+            var ctx = new SucursalContext();
+            ctx.Establecer(sucursal.Id, 1, Roles.Admin);
+            var ventasSvc = new VentasService(db, ctx, new SelladoStub(), new PacStub(),
+                new CierreContableStub(), creditoSvc);
+            var credito = await ventasSvc.ConsultarCreditoClienteAsync(cliente.Id);
+            Assert.NotNull(credito);
+            Assert.True(credito!.EstaBloqueado);
+            Assert.Equal(800m, credito!.SaldoVencido);
+
+            await tx.RollbackAsync();
+        }
+    }
+
+    [Fact]
+    public async Task PostgreSQL_Credito_cliente_no_bloqueado_when_saldo_vencido_dentro_de_limite()
+    {
+        var (db, _) = await fixture.NuevaDbAsync();
+        await using (db)
+        await using (var tx = await db.Database.BeginTransactionAsync())
+        {
+            var sucursal = NuevaSucursal();
+            db.Sucursales.Add(sucursal);
+            await db.SaveChangesAsync();
+
+            var cliente = new Cliente
+            {
+                Nombre = "Cliente OK",
+                LimiteCredito = 1000m,
+                DiasCredito = 30
+            };
+            var vendedor = new Usuario { Nombre = "Vendedor", SucursalId = sucursal.Id };
+            db.AddRange(cliente, vendedor);
+            await db.SaveChangesAsync();
+
+            var vencida = NuevaFactura(sucursal.Id, cliente.Id, vendedor.Id, "PPD", 300m,
+                DateTime.UtcNow.AddDays(-45));
+            db.Facturas.Add(vencida);
+            await db.SaveChangesAsync();
+
+            var ctx = new SucursalContext();
+            ctx.Establecer(sucursal.Id, 1, Roles.Admin);
+            var creditoSvc = new CobranzaService(db);
+            var ventasSvc = new VentasService(db, ctx, new SelladoStub(), new PacStub(),
+                new CierreContableStub(), creditoSvc);
+            var credito = await ventasSvc.ConsultarCreditoClienteAsync(cliente.Id);
+            Assert.NotNull(credito);
+            Assert.False(credito!.EstaBloqueado);
+            Assert.Equal(300m, credito!.SaldoVencido);
+
+            await tx.RollbackAsync();
+        }
+    }
+
+    [Fact]
+    public async Task PostgreSQL_Credito_cliente_sin_limite_nunca_bloqueado()
+    {
+        var (db, _) = await fixture.NuevaDbAsync();
+        await using (db)
+        await using (var tx = await db.Database.BeginTransactionAsync())
+        {
+            var sucursal = NuevaSucursal();
+            db.Sucursales.Add(sucursal);
+            await db.SaveChangesAsync();
+
+            var cliente = new Cliente
+            {
+                Nombre = "Cliente contado",
+                LimiteCredito = 0m,
+                DiasCredito = 0
+            };
+            var vendedor = new Usuario { Nombre = "Vendedor", SucursalId = sucursal.Id };
+            db.AddRange(cliente, vendedor);
+            await db.SaveChangesAsync();
+
+            var vencida = NuevaFactura(sucursal.Id, cliente.Id, vendedor.Id, "PPD", 500m,
+                DateTime.UtcNow.AddDays(-10));
+            db.Facturas.Add(vencida);
+            await db.SaveChangesAsync();
+
+            var ctx = new SucursalContext();
+            ctx.Establecer(sucursal.Id, 1, Roles.Admin);
+            var creditoSvc = new CobranzaService(db);
+            var ventasSvc = new VentasService(db, ctx, new SelladoStub(), new PacStub(),
+                new CierreContableStub(), creditoSvc);
+            var credito = await ventasSvc.ConsultarCreditoClienteAsync(cliente.Id);
+            Assert.NotNull(credito);
+            Assert.False(credito!.EstaBloqueado);
+            Assert.Equal(500m, credito!.SaldoVencido);
+
+            await tx.RollbackAsync();
+        }
+    }
+
+    [Fact]
+    public async Task PostgreSQL_Credito_PPD_cliente_sin_limite_rechaza_venta_a_credito()
+    {
+        var (db, _) = await fixture.NuevaDbAsync();
+        await using (db)
+        await using (var tx = await db.Database.BeginTransactionAsync())
+        {
+            var sucursal = NuevaSucursal();
+            db.Sucursales.Add(sucursal);
+            await db.SaveChangesAsync();
+
+            var cliente = new Cliente
+            {
+                Nombre = "Cliente sin crédito",
+                LimiteCredito = 0m,
+                DiasCredito = 0
+            };
+            var vendedor = new Usuario { Nombre = "Vendedor", SucursalId = sucursal.Id };
+            db.AddRange(cliente, vendedor);
+            await db.SaveChangesAsync();
+
+            var producto = new Producto
+            {
+                Sku = $"P-{Guid.NewGuid():N}"[..18],
+                Nombre = "Producto prueba",
+                Marca = "P1",
+                Viscosidad = "15W-40",
+                TipoBase = "Mineral",
+                Activo = true,
+                PrecioVenta = 100m
+            };
+            db.Productos.Add(producto);
+            await db.SaveChangesAsync();
+
+            var unidad = new UnidadMedida
+            {
+                ProductoId = producto.Id,
+                UnidadNombre = "Litro",
+                FactorConversion = 1m
+            };
+            db.UnidadesMedida.Add(unidad);
+            db.InventarioSucursal.Add(new InventarioSucursal
+            {
+                SucursalId = sucursal.Id, ProductoId = producto.Id, StockActual = 100m
+            });
+            await db.SaveChangesAsync();
+
+            var ctx = new SucursalContext();
+            ctx.Establecer(sucursal.Id, 1, Roles.Admin);
+            var creditoSvc = new CobranzaService(db);
+            var ventasSvc = new VentasService(db, ctx, new SelladoStub(), new PacStub(),
+                new CierreContableStub(), creditoSvc);
+
+            var req = new VentaPosRequest(
+                sucursal.Id, cliente.Id, 1, null,
+                "PPD", "PPD", "PPD", false,
+                [new CarritoItemDto(producto.Id, producto.Sku, producto.Nombre, unidad.Id,
+                    "Litro", 1m, 1m, 100m)]);
+
+            await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                ventasSvc.RegistrarVentaAsync(req));
+
+            await tx.RollbackAsync();
+        }
+    }
+
+    [Fact]
     public async Task PostgreSQL_CxP_lista_saldo_pendiente_y_los_parches_son_idempotentes()
     {
         var (db, _) = await fixture.NuevaDbAsync();
@@ -587,5 +776,21 @@ public sealed class PostgresP1Tests(PgFixture fixture)
 
         public Task<string> EstadoSatAsync(Guid uuid, CancellationToken ct = default) =>
             throw new NotSupportedException();
+    }
+
+    private sealed class CierreContableStub : ICierreContableService
+    {
+        public Task<List<PeriodoContableDto>> ListarAsync(int sucursalId, CancellationToken ct = default) =>
+            Task.FromResult(new List<PeriodoContableDto>());
+
+        public Task<bool> EstaCerradoAsync(int sucursalId, DateTime fecha, CancellationToken ct = default) =>
+            Task.FromResult(false);
+
+        public Task<CierreContableResultDto> CerrarAsync(
+            int sucursalId, int anio, int mes, CancellationToken ct = default) =>
+            throw new NotSupportedException();
+
+        public Task ReabrirAsync(int sucursalId, int anio, int mes, CancellationToken ct = default) =>
+            Task.CompletedTask;
     }
 }
